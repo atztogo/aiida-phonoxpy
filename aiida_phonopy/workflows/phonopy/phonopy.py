@@ -175,6 +175,8 @@ class PhonopyWorkChain(BasePhonopyWorkChain):
                     "calculator_settings['forces']."
                 )
             builder.calculator_inputs = calculator_inputs
+            if "queue_name" in self.inputs:
+                builder.queue_name = self.inputs.queue_name
             future = self.submit(builder)
             self.report("{} pk = {}".format(label, future.pk))
             self.to_context(**{label: future})
@@ -195,6 +197,8 @@ class PhonopyWorkChain(BasePhonopyWorkChain):
             )
 
         builder.calculator_inputs = calculator_inputs
+        if "queue_name" in self.inputs:
+            builder.queue_name = self.inputs.queue_name
         future = self.submit(builder)
         self.report("nac_params: {}".format(future.pk))
         self.to_context(**{"nac_params_calc": future})

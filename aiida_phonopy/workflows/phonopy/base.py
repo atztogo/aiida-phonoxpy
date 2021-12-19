@@ -69,6 +69,11 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         remote_phonopy are True.
     symmetry_tolerance : Float, optional
         Symmetry tolerance. Default is 1e-5.
+    queue_name : Str, optional
+        When supplied, WorkChainNode is added to the group "<queue_name>/submit".
+        Then this node entry is found in "<queue_name>/run", the WorkChainNode is
+        submitted to aiida daemon. It is assumed that an external agent copies
+        the node entry to "<queue_name>/run".
 
     """
 
@@ -97,6 +102,7 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         spec.input("displacement_dataset", valid_type=Dict, required=False)
         spec.input("code_string", valid_type=Str, required=False)
         spec.input("code", valid_type=Code, required=False)
+        spec.input("queue_name", valid_type=Str, required=False)
 
         spec.outline(
             cls.initialize,

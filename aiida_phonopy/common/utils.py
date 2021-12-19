@@ -1,6 +1,7 @@
 """General utilities."""
 
 import numpy as np
+from aiida.common import InputValidationError
 from aiida.engine import calcfunction
 from aiida.orm import Bool, Float, Int, Str, load_node
 from aiida.plugins import DataFactory
@@ -16,6 +17,7 @@ ArrayData = DataFactory("array")
 XyData = DataFactory("array.xy")
 StructureData = DataFactory("structure")
 BandsData = DataFactory("array.bands")
+KpointsData = DataFactory("array.kpoints")
 
 
 @calcfunction
@@ -453,6 +455,37 @@ def get_bands(qpoints, frequencies, labels, path_connections, label=None):
         bs.label = label
 
     return bs
+
+
+def get_kpoints_data(kpoints_dict, structure):
+    """Return KpointsData from arguments.
+
+    structure : StructureData
+        A structure.
+    kpoints_dict : dict
+        Supported keys:
+            "kpoints_density"
+            "kpoints_mesh"
+            "kpoints_offset"
+
+    """
+    kpoints = KpointsData()
+    kpoints.set_cell_from_structure(structure)
+    if "kpoints_density" in kpoints_dict.keys():
+        kpoints.set_kpoints_mesh_from_density(kpoints_dict["kpoints_density"])
+    elif "kpoints_mesh" in kpoints_dict.keys():
+        if "kpoints_offset" in kpoints_dict.keys():
+            kpoints_offset = kpoints_dict["kpoints_offset"]
+        else:
+            kpoints_offset = [0.0, 0.0, 0.0]
+
+        kpoints.set_kpoints_mesh(kpoints_dict["kpoints_mesh"], offset=kpoints_offset)
+    else:
+        raise InputValidationError(
+            "no kpoint definition in input. "
+            "Define either kpoints_density or kpoints_mesh"
+        )
+    return kpoints
 
 
 def _get_phonopy_instance(
