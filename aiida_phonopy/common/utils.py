@@ -6,10 +6,7 @@ from aiida.engine import calcfunction
 from aiida.orm import Bool, Float, Int, Str, load_node
 from aiida.plugins import DataFactory
 from phonopy import Phonopy
-from phonopy.interface.calculator import (
-    get_default_displacement_distance,
-    get_default_physical_units,
-)
+from phonopy.interface.calculator import get_default_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
 
 Dict = DataFactory("dict")
@@ -100,9 +97,8 @@ def setup_phonopy_calculation(
             Phono3py.phonon_dataset.
         'number_of_snapshots' : int
         'random_seed' : int
-        'is_plusminus' : bool
+        'is_plusminus' : str or bool
         'is_diagonal' : bool
-        'is_trigonal' : bool
         'postprocess_parameters' : dict
             This is given when run_phonopy=True.
             'mesh' : float or list
@@ -126,7 +122,6 @@ def setup_phonopy_calculation(
             "distance",
             "is_plusminus",
             "is_diagonal",
-            "is_trigonal",
             "number_of_snapshots",
             "random_seed",
         )
@@ -136,29 +131,16 @@ def setup_phonopy_calculation(
         ph.dataset = dataset.get_dict()
 
     _update_structure_info(ph_settings, ph)
-    structures_dict = _generate_phonon_structures(ph)
+    structures_dict = _generate_phonopy_structures(ph)
     return_vals = {"phonon_setting_info": Dict(dict=ph_settings)}
     return_vals.update(structures_dict)
 
     return return_vals
 
 
-def _get_phonopy_postprocess_info(phonon_settings):
-    """Return phonopy postprocess parameters."""
-    valid_keys = ("mesh", "fc_calculator")
-    params = {}
-    for key in valid_keys:
-        if key in phonon_settings.keys():
-            params[key] = phonon_settings[key]
-
-    if "mesh" not in phonon_settings.keys():
-        params["mesh"] = 100.0
-    return params
-
-
 @calcfunction
-def generate_phono3py_cells(
-    phonon_settings, structure, symmetry_tolerance, dataset=None
+def setup_phono3py_calculation(
+    phonon_settings, structure, symmetry_tolerance, dataset=None, phonon_dataset=None
 ):
     """Set up phono3py calculation.
 
@@ -199,24 +181,52 @@ def generate_phono3py_cells(
             'international' : Space group type.
         'phonon_displacement_dataset' : dict
             Phono3py.phonon_dataset.
-        'is_plusminus' : bool
-        'is_diagonal' : bool
+        'random_seed' : int, optional (no support)
+        'is_plusminus' : str or bool, optional
+        'is_diagonal' : bool, optional
 
     """
     ph_settings = _get_setting_info(phonon_settings, code_name="phono3py")
+    ph = _get_phono3py_instance(
+        structure,
+        ph_settings,
+        symmetry_tolerance=symmetry_tolerance.value,
+    )
+    ph_settings["version"] = ph.version
 
-    ph = _get_phono3py_instance(structure, ph_settings, {})
-    if dataset is None:
-        ph.generate_displacements(distance=ph_settings["distance"])
-    else:
+    supported_keys = (
+        "distance",
+        "is_plusminus",
+        "is_diagonal",
+    )
+    kwargs = {key: ph_settings[key] for key in ph_settings if key in supported_keys}
+    ph.generate_displacements(**kwargs)
+    if dataset is not None:
         ph.dataset = dataset.get_dict()
+    if phonon_dataset is not None:
+        ph.phonon_dataset = phonon_dataset.get_dict()
 
     _update_structure_info(ph_settings, ph)
-    structures_dict = _generate_phonon_structures(ph)
+    structures_dict = _generate_phonopy_structures(ph)
+    if ph.phonon_supercell_matrix is not None:
+        structures_dict.update(_generate_phono3py_phonon_structures(ph))
     return_vals = {"phonon_setting_info": Dict(dict=ph_settings)}
     return_vals.update(structures_dict)
 
     return return_vals
+
+
+def _get_phonopy_postprocess_info(phonon_settings):
+    """Return phonopy postprocess parameters."""
+    valid_keys = ("mesh", "fc_calculator")
+    params = {}
+    for key in valid_keys:
+        if key in phonon_settings.keys():
+            params[key] = phonon_settings[key]
+
+    if "mesh" not in phonon_settings.keys():
+        params["mesh"] = 100.0
+    return params
 
 
 @calcfunction
@@ -489,29 +499,23 @@ def get_kpoints_data(kpoints_dict, structure):
 
 
 def _get_phonopy_instance(
-    structure, phonon_settings_dict, symmetry_tolerance=1e-5, nac_params=None
+    structure, phonon_settings_dict, nac_params=None, symmetry_tolerance=1e-5
 ):
     """Create Phonopy instance."""
-    phonon = Phonopy(
+    phpy = Phonopy(
         phonopy_atoms_from_structure(structure),
         supercell_matrix=phonon_settings_dict["supercell_matrix"],
         primitive_matrix="auto",
         symprec=symmetry_tolerance,
     )
     if nac_params:
-        units = get_default_physical_units("vasp")
-        factor = units["nac_factor"]
-        _nac_params = {
-            "born": nac_params.get_array("born_charges"),
-            "dielectric": nac_params.get_array("epsilon"),
-            "factor": factor,
-        }
-        phonon.nac_params = _nac_params
-
-    return phonon
+        _set_nac_params(phpy, nac_params["nac_params"])
+    return phpy
 
 
-def _get_phono3py_instance(structure, phonon_settings_dict, params):
+def _get_phono3py_instance(
+    structure, phonon_settings_dict, nac_params=None, symmetry_tolerance=1e-5
+):
     """Create Phono3py instance."""
     from phono3py import Phono3py
 
@@ -524,21 +528,22 @@ def _get_phono3py_instance(structure, phonon_settings_dict, params):
         supercell_matrix=phonon_settings_dict["supercell_matrix"],
         primitive_matrix="auto",
         phonon_supercell_matrix=ph_smat,
-        symprec=phonon_settings_dict["symmetry_tolerance"],
+        symprec=symmetry_tolerance,
     )
-    if "nac_params" in params:
-        from phonopy.interface.calculator import get_default_physical_units
-
-        units = get_default_physical_units("vasp")
-        factor = units["nac_factor"]
-        nac_params = {
-            "born": params["nac_params"].get_array("born_charges"),
-            "dielectric": params["nac_params"].get_array("epsilon"),
-            "factor": factor,
-        }
-        ph3py.nac_params = nac_params
-
+    if "nac_params" in nac_params:
+        _set_nac_params(ph3py, nac_params["nac_params"])
     return ph3py
+
+
+def _set_nac_params(phpy: Phonopy, nac_params) -> None:
+    units = get_default_physical_units("vasp")
+    factor = units["nac_factor"]
+    nac_params = {
+        "born": nac_params.get_array("born_charges"),
+        "dielectric": nac_params.get_array("epsilon"),
+        "factor": factor,
+    }
+    phpy.nac_params = nac_params
 
 
 def phonopy_atoms_to_structure(cell):
@@ -803,6 +808,9 @@ def _get_setting_info(phonon_settings, code_name="phonopy"):
             Displacement distance.
         'symmetry_tolerance' : float
             Tolerance length used for symmetry finding.
+        'random_seed' : int, optional
+        'is_plusminus' : bool, optional
+        'is_diagonal' : bool, optional
 
     """
     ph_settings = {}
@@ -815,30 +823,29 @@ def _get_setting_info(phonon_settings, code_name="phonopy"):
         "random_seed",
         "is_plusminus",
         "is_diagonal",
-        "is_trigonal",
     )
     for key, value in phonon_settings.get_dict().items():
         if key in valid_keys:
             ph_settings[key] = value
     dim = ph_settings["supercell_matrix"]
     ph_settings["supercell_matrix"] = _get_supercell_matrix(dim)
-    if "phonon_supercell_matrix" in ph_settings:
-        dim_fc2 = ph_settings["phonon_supercell_matrix"]
+    if "code_name" == "phono3py" and "phonon_supercell_matrix" in ph_settings:
         ph_settings["phonon_supercell_matrix"] = _get_supercell_matrix(
-            dim_fc2, smat_type="phonon_supercell_matrix"
+            ph_settings["phonon_supercell_matrix"], smat_type="phonon_supercell_matrix"
         )
     if "distance" not in ph_settings:
-        if code_name == "phono3py":
-            from phono3py.interface.calculator import (
-                get_default_displacement_distance as get_phono3py_ddd,
-            )
-
-            distance = get_phono3py_ddd("vasp")
-        else:
-            distance = get_default_displacement_distance("vasp")
-        ph_settings["distance"] = distance
+        _set_displacement_distance(ph_settings, code_name)
 
     return ph_settings
+
+
+def _set_displacement_distance(ph_settings, code_name):
+    if code_name == "phono3py":
+        from phono3py.interface.calculator import get_default_displacement_distance
+    else:
+        from phonopy.interface.calculator import get_default_displacement_distance
+    distance = get_default_displacement_distance("vasp")
+    ph_settings["distance"] = distance
 
 
 def _get_supercell_matrix(dim, smat_type="supercell_matrix"):
@@ -883,14 +890,14 @@ def _update_structure_info(ph_settings, ph):
         "international": ph.symmetry.dataset["international"],
     }
 
-    if "phonon_supercell_matrix" in ph.__dir__():
+    if "phonon_supercell_matrix" in ph_settings:
         if ph.phonon_supercell_matrix is not None:
             ph_settings["phonon_displacement_dataset"] = ph.phonon_dataset
 
     return ph_settings
 
 
-def _generate_phonon_structures(ph):
+def _generate_phonopy_structures(ph):
     """Generate AiiDA structures of phonon related cells.
 
     Note
@@ -914,46 +921,72 @@ def _generate_phonon_structures(ph):
             calculation.
 
     """
-    structures_dict = {}
-
-    digits = len(str(len(ph.supercells_with_displacements)))
-    for i, scell in enumerate(ph.supercells_with_displacements):
-        structure = phonopy_atoms_to_structure(scell)
-        label = "supercell_%s" % str(i + 1).zfill(digits)
-        structure.label = "%s %s" % (structure.get_formula(mode="hill_compact"), label)
-        structures_dict[label] = structure
-
-    supercell_structure = phonopy_atoms_to_structure(ph.supercell)
-    supercell_structure.label = "%s %s" % (
-        supercell_structure.get_formula(mode="hill_compact"),
-        "supercell",
+    structures_dict = _generate_supercell_structures(
+        ph.supercell, ph.supercells_with_displacements
     )
-    structures_dict["supercell"] = supercell_structure
-
     primitive_structure = phonopy_atoms_to_structure(ph.primitive)
-    primitive_structure.label = "%s %s" % (
-        primitive_structure.get_formula(mode="hill_compact"),
-        "primitive cell",
-    )
+    formula = primitive_structure.get_formula(mode="hill_compact")
+    primitive_structure.label = f"{formula} primitive cell"
     structures_dict["primitive"] = primitive_structure
+    return structures_dict
 
-    # phono3py
-    if "phonon_supercell_matrix" in ph.__dir__():
-        if ph.phonon_supercell_matrix is not None:
-            digits = len(str(len(ph.phonon_supercells_with_displacements)))
-            for i, scell in enumerate(ph.phonon_supercells_with_displacements):
-                structure = phonopy_atoms_to_structure(scell)
-                label = "phonon_supercell_%s" % str(i + 1).zfill(digits)
-                structure.label = "%s %s" % (
-                    structure.get_formula(mode="hill_compact"),
-                    label,
-                )
-                structures_dict[label] = structure
-            structure = phonopy_atoms_to_structure(ph.phonon_supercell)
-            structure.label = "%s %s" % (
-                structure.get_formula(mode="hill_compact"),
-                "phonon_supercell",
-            )
-            structures_dict["phonon_supercell"] = structure
+
+def _generate_phono3py_phonon_structures(ph):
+    """Generate AiiDA structures of phono3py phonon related cells.
+
+    Returns
+    -------
+    dict of StructureData
+        'phonon_supercell'
+            For phono3py. Perfect supercell for harmonic phonon calculation.
+        'phonon_supercell_001', 'phonon_supercell_002', ...
+            For phono3py. Supercells with displacements for harmonic phonon
+            calculation.
+
+    """
+    return _generate_supercell_structures(
+        ph.phonon_supercell,
+        ph.phonon_supercells_with_displacements,
+        label_prefix="phonon_supercell",
+    )
+
+
+def _generate_supercell_structures(
+    supercell, supercells_with_displacements, label_prefix="supercell"
+):
+    """Generate AiiDA supercell structures.
+
+    Note
+    ----
+    Designed to be shared by phonopy and phono3py.
+    ph is either an instance of Phonopy or Phono3py.
+
+    Returns
+    -------
+    Possible dict keys
+        'supercell'
+            Perfect supercell.
+        'supercell_001', 'supercell_002', ...
+            Supercells with displacements
+        'phonon_supercell'
+            For phono3py. Perfect supercell for harmonic phonon calculation.
+        'phonon_supercell_001', 'phonon_supercell_002', ...
+            For phono3py. Supercells with displacements for harmonic phonon
+            calculation.
+
+    """
+    structures_dict = {}
+    supercell_structure = phonopy_atoms_to_structure(supercell)
+    formula = supercell_structure.get_formula(mode="hill_compact")
+    supercell_structure.label = f"{formula} {label_prefix}"
+    structures_dict[label_prefix] = supercell_structure
+
+    digits = len(str(len(supercells_with_displacements)))
+    for i, scell in enumerate(supercells_with_displacements):
+        structure = phonopy_atoms_to_structure(scell)
+        num = str(i + 1).zfill(digits)
+        label = f"{label_prefix}_{num}"
+        structure.label = f"{formula} {label}"
+        structures_dict[label] = structure
 
     return structures_dict

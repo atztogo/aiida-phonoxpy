@@ -1,11 +1,11 @@
 """BasePhonopyWorkChain."""
 
-from abc import ABCMeta, abstractmethod
-
 from aiida.engine import WorkChain, if_
 from aiida.orm import Code
 from aiida.plugins import DataFactory
 
+from aiida_phonopy.workflows.forces import ForcesWorkChain
+from aiida_phonopy.workflows.nac_params import NacParamsWorkChain
 from aiida_phonopy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
@@ -24,7 +24,7 @@ StructureData = DataFactory("structure")
 BandsData = DataFactory("array.bands")
 
 
-class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
+class BasePhonopyWorkChain(WorkChain):
     """BasePhonopyWorkchain.
 
     inputs
@@ -146,14 +146,6 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
             "ERROR_NO_SUPERCELL_MATRIX",
             message=("supercell_matrix was not found."),
         )
-        spec.exit_code(
-            1003,
-            "ERROR_INCONSISTENT_IMMIGRANT_FORCES_FOLDERS",
-            message=(
-                "Number of supercell folders is different from number "
-                "of expected supercells."
-            ),
-        )
 
     def dry_run(self):
         """Return boolen for outline."""
@@ -166,6 +158,10 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
     def run_phonopy(self):
         """Return boolen for outline."""
         return self.inputs.run_phonopy
+
+    def import_calculations_from_files(self):
+        """Return boolen for outline."""
+        return "immigrant_calculation_folders" in self.inputs
 
     def is_nac(self):
         """Return boolen for outline."""
@@ -203,7 +199,7 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
             self.inputs.structure,
             self.inputs.symmetry_tolerance,
             self.inputs.run_phonopy,
-            **kwargs
+            **kwargs,
         )
 
         for key in ("phonon_setting_info", "primitive", "supercell"):
@@ -225,19 +221,56 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         are submitted in this method to make them run in parallel.
 
         """
-        self._run_force_calculations()
+        self._run_force_calculations(self.ctx.supercells)
         if self.is_nac():
             self._run_nac_params_calculation()
 
-    @abstractmethod
-    def _run_force_calculations(self):
+    def _run_force_calculations(self, supercells, label_prefix="force_calc"):
         """Run supercell force calculations."""
-        pass
+        self.report("run force calculations")
 
-    @abstractmethod
+        for key, supercell in supercells.items():
+            num = key.split("_")[-1]
+            label = f"{label_prefix}_{num}"
+            builder = ForcesWorkChain.get_builder()
+            builder.metadata.label = label
+            builder.structure = supercell
+            if "force" in self.inputs.calculator_inputs:
+                calculator_inputs = self.inputs.calculator_inputs.force
+            else:
+                calculator_inputs = self.inputs.calculator_settings["forces"]
+                self.logger.warning(
+                    "Use calculator_inputs.force instead of "
+                    "calculator_settings['forces']."
+                )
+            builder.calculator_inputs = calculator_inputs
+            if "queue_name" in self.inputs:
+                builder.queue_name = self.inputs.queue_name
+            future = self.submit(builder)
+            self.report("{} pk = {}".format(label, future.pk))
+            self.to_context(**{label: future})
+
     def _run_nac_params_calculation(self):
         """Run nac params calculation."""
-        pass
+        self.report("run nac params calculation")
+
+        builder = NacParamsWorkChain.get_builder()
+        builder.metadata.label = "nac_params"
+        builder.structure = self.ctx.primitive
+        if "nac" in self.inputs.calculator_inputs:
+            calculator_inputs = self.inputs.calculator_inputs.nac
+        else:
+            calculator_inputs = self.inputs.calculator_settings["nac"]
+            self.logger.warning(
+                "Use calculator_inputs.nac instead of calculator_settings['nac']."
+            )
+
+        builder.calculator_inputs = calculator_inputs
+        if "queue_name" in self.inputs:
+            builder.queue_name = self.inputs.queue_name
+        future = self.submit(builder)
+        self.report("nac_params: {}".format(future.pk))
+        self.to_context(**{"nac_params_calc": future})
 
     def postprocess_of_dry_run(self):
         """Show message."""
@@ -325,7 +358,7 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
             self.ctx.phonon_setting_info,
             self.ctx.force_constants,
             self.inputs.symmetry_tolerance,
-            **params
+            **params,
         )
         self.out("thermal_properties", result["thermal_properties"])
         self.out("dos", result["dos"])
