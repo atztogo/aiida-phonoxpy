@@ -4,7 +4,7 @@ from aiida.engine import ExitCode
 from aiida.common.exceptions import NotExistent
 from aiida.parsers.parser import Parser
 from aiida.plugins import CalculationFactory
-from aiida_phonopy.common.raw_parsers import (
+from aiida_phonoxpy.common.raw_parsers import (
     parse_thermal_properties,
     parse_FORCE_CONSTANTS,
     parse_projected_dos,

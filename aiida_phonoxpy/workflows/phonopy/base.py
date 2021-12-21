@@ -4,15 +4,15 @@ from aiida.engine import WorkChain, if_
 from aiida.orm import Code
 from aiida.plugins import DataFactory
 
-from aiida_phonopy.common.utils import (
+from aiida_phonoxpy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
     get_force_sets,
     get_phonon_properties,
     setup_phonopy_calculation,
 )
-from aiida_phonopy.workflows.forces import ForcesWorkChain
-from aiida_phonopy.workflows.nac_params import NacParamsWorkChain
+from aiida_phonoxpy.workflows.forces import ForcesWorkChain
+from aiida_phonoxpy.workflows.nac_params import NacParamsWorkChain
 
 Float = DataFactory("float")
 Bool = DataFactory("bool")

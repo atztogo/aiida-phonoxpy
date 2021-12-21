@@ -3,7 +3,7 @@
 from aiida.engine import CalcJob
 from aiida.common import CalcInfo, CodeInfo
 from aiida.plugins import DataFactory
-from aiida_phonopy.common.file_generators import get_BORN_txt
+from aiida_phonoxpy.common.file_generators import get_BORN_txt
 
 Dict = DataFactory("dict")
 StructureData = DataFactory("structure")

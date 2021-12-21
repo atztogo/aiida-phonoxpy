@@ -5,11 +5,11 @@ from aiida.manage.configuration import load_profile
 from aiida.orm import QueryBuilder, Int, Float, Bool, Str, load_node
 from aiida.plugins import DataFactory, WorkflowFactory
 from aiida.engine import run, submit
-from aiida_phonopy.common.utils import (
+from aiida_phonoxpy.common.utils import (
     phonopy_atoms_to_structure,
     phonopy_atoms_from_structure,
 )
-from aiida_phonopy.workflows.iter_ha import _extract_dataset_from_db, _create_dataset
+from aiida_phonoxpy.workflows.iter_ha import _extract_dataset_from_db, _create_dataset
 
 load_profile()
 

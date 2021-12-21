@@ -6,13 +6,13 @@ from aiida.orm import Group, QueryBuilder, WorkChainNode, load_group
 from aiida.plugins import DataFactory, WorkflowFactory
 from phonopy.structure.symmetry import symmetrize_borns_and_epsilon
 
-from aiida_phonopy.common.builders import (
+from aiida_phonoxpy.common.builders import (
     get_calculator_process,
     get_plugin_names,
     get_vasp_immigrant_inputs,
     get_workchain_inputs,
 )
-from aiida_phonopy.common.utils import (
+from aiida_phonoxpy.common.utils import (
     get_structure_from_vasp_immigrant,
     phonopy_atoms_from_structure,
 )

@@ -4,7 +4,7 @@ import copy
 from aiida.orm import Bool, Code, Str, load_group
 from aiida.plugins import DataFactory, WorkflowFactory
 
-from aiida_phonopy.common.utils import get_kpoints_data
+from aiida_phonoxpy.common.utils import get_kpoints_data
 
 KpointsData = DataFactory("array.kpoints")
 Dict = DataFactory("dict")

@@ -1,9 +1,9 @@
 """CalcJob to run phonopy at a remote host."""
 
 from aiida.plugins import DataFactory
-from aiida_phonopy.calcs.base import BasePhonopyCalculation
+from aiida_phonoxpy.calcs.base import BasePhonopyCalculation
 from aiida.common import InputValidationError
-from aiida_phonopy.common.file_generators import (
+from aiida_phonoxpy.common.file_generators import (
     get_FORCE_SETS_txt,
     get_phonopy_options,
     get_phonopy_yaml_txt,

@@ -6,13 +6,13 @@ from aiida.engine import WorkChain, calcfunction, if_
 from aiida.orm import Group, QueryBuilder, WorkChainNode, load_group
 from aiida.plugins import DataFactory, WorkflowFactory
 
-from aiida_phonopy.common.builders import (
+from aiida_phonoxpy.common.builders import (
     get_calculator_process,
     get_plugin_names,
     get_vasp_immigrant_inputs,
     get_workchain_inputs,
 )
-from aiida_phonopy.common.utils import (
+from aiida_phonoxpy.common.utils import (
     compare_structures,
     get_structure_from_vasp_immigrant,
 )

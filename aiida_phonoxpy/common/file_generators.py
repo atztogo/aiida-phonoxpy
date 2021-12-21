@@ -7,7 +7,7 @@ from phonopy.file_IO import (
     get_BORN_lines,
     get_FORCE_CONSTANTS_lines,
 )
-from aiida_phonopy.common.utils import phonopy_atoms_from_structure
+from aiida_phonoxpy.common.utils import phonopy_atoms_from_structure
 
 
 def get_BORN_txt(nac_data, structure, symmetry_tolerance):

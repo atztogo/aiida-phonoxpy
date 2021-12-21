@@ -3,9 +3,9 @@
 from aiida.engine import if_, while_
 from aiida.plugins import DataFactory
 
-from aiida_phonopy.workflows.forces import ForcesWorkChain
-from aiida_phonopy.workflows.nac_params import NacParamsWorkChain
-from aiida_phonopy.workflows.phonopy.base import BasePhonopyWorkChain
+from aiida_phonoxpy.workflows.forces import ForcesWorkChain
+from aiida_phonoxpy.workflows.nac_params import NacParamsWorkChain
+from aiida_phonoxpy.workflows.phonopy.base import BasePhonopyWorkChain
 
 Dict = DataFactory("dict")
 Str = DataFactory("str")

@@ -3,9 +3,9 @@
 from aiida.engine import if_, while_
 from aiida.plugins import DataFactory
 
-from aiida_phonopy.common.utils import setup_phono3py_calculation
-from aiida_phonopy.workflows.phonopy.base import BasePhonopyWorkChain
-from aiida_phonopy.workflows.phonopy.phonopy import PhonopyImmigrantMixIn
+from aiida_phonoxpy.common.utils import setup_phono3py_calculation
+from aiida_phonoxpy.workflows.phonopy.base import BasePhonopyWorkChain
+from aiida_phonoxpy.workflows.phonopy.phonopy import PhonopyImmigrantMixIn
 
 Float = DataFactory("float")
 Dict = DataFactory("dict")
