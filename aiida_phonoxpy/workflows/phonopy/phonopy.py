@@ -121,8 +121,12 @@ class PhonopyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
             ).else_(
                 cls.run_force_and_nac_calculations,
             ),
-            cls.create_force_sets,
-            if_(cls.is_nac)(cls.attach_nac_params),
+            if_(cls.force_sets_exists)(cls.do_nothing).else_(
+                cls.create_force_sets,
+            ),
+            if_(cls.nac_params_exists)(cls.do_nothing).else_(
+                if_(cls.is_nac)(cls.attach_nac_params),
+            ),
             if_(cls.run_phonopy)(
                 if_(cls.remote_phonopy)(
                     cls.run_phonopy_remote,

@@ -76,6 +76,10 @@ class PhonopyCalculation(BasePhonopyCalculation):
             self.inputs.settings["postprocess_parameters"]
         )
 
+        if "displacements" in self.inputs:
+            if "--alm" not in fc_opts:
+                fc_opts.append("--alm")
+
         self._internal_retrieve_list = [
             self._INOUT_FORCE_CONSTANTS,
             self.inputs.metadata.options.output_filename,
@@ -123,19 +127,12 @@ class PhonopyCalculation(BasePhonopyCalculation):
             force_sets = self.inputs.force_sets
         else:
             force_sets = None
-        if "displacement_dataset" in self.inputs.settings.keys():
-            dataset = self.inputs.settings["displacement_dataset"]
-        elif "dataset" in self.inputs.settings.keys():
-            dataset = self.inputs.settings["dataset"]
-        elif (
-            "dataset" in self.inputs
-            and "displacements" in self.inputs.dataset.get_arraynames()
-        ):
-            dataset = {"displacements": self.inputs.dataset.get_array("displacements")}
-            if "forces" in self.inputs.dataset.get_arraynames():
-                dataset["forces"] = self.inputs.dataset.get_array("forces")
-                if force_sets is not None:
-                    force_sets = None
+        if "displacement_dataset" in self.inputs:
+            dataset = self.inputs.displacement_dataset.get_dict()
+        elif "displacements" in self.inputs:
+            dataset = {
+                "displacements": self.inputs.displacements.get_array("displacements")
+            }
         else:
             dataset = None
 

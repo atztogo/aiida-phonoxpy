@@ -74,6 +74,13 @@ def setup_phonopy_calculation(
             Phonopy setting parameters including those generated in the
             process of displacements creation, e.g., primitive and  sueprcell
             matrix and symmetry information.
+        'displacement_dataset' : Dict, optional
+            When 'number_of_snapshots' is not given, displacements are generated
+            in a usual way (least number of displacements considering symmetry),
+            and phonopy's type-I displacement dataset is returned.
+        'displacements' : ArrayData, optional
+            When 'number_of_snapshots' is given, random displacements are
+            generated and phonopy's type-II displacements array is returned.
 
     phonon_setting_info contains the following entries:
         'version' : str
@@ -86,8 +93,6 @@ def setup_phonopy_calculation(
             Displacement distance.
         'symmetry_tolerance' : float
             Tolerance length used for symmetry finding.
-        'displacement_dataset' : dict
-            Phonopy.dataset or Phono3py.dataset.
         'primitive_matrix' : array_like
             Phonopy.primitive_matrix.
         'symmetry' : dict
@@ -116,7 +121,6 @@ def setup_phonopy_calculation(
         structure, ph_settings, symmetry_tolerance=symmetry_tolerance.value
     )
     ph_settings["version"] = ph.version
-
     if dataset is None:
         supported_keys = (
             "distance",
@@ -131,10 +135,16 @@ def setup_phonopy_calculation(
         ph.dataset = dataset.get_dict()
 
     _update_structure_info(ph_settings, ph)
-    ph_settings["displacement_dataset"] = ph.dataset
     structures_dict = _generate_phonopy_structures(ph)
     return_vals = {"phonon_setting_info": Dict(dict=ph_settings)}
     return_vals.update(structures_dict)
+    if dataset is None:
+        if "displacements" in ph.dataset:
+            displacements = ArrayData()
+            displacements.set_array("displacements", ph.dataset["displacements"])
+            return_vals["displacements"] = displacements
+        else:
+            return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
 
     return return_vals
 
