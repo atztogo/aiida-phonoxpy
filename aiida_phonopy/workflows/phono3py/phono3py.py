@@ -20,6 +20,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
+        spec.input("phonon_force_sets", valid_type=ArrayData, required=False)
         spec.input("immigrant_calculation_folders", valid_type=Dict, required=False)
 
         spec.outline(
@@ -35,18 +36,16 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
             ).else_(
                 cls.run_force_and_nac_calculations,
             ),
-            if_(cls.dry_run)(cls.postprocess_of_dry_run,).else_(
-                cls.create_force_sets,
-                if_(cls.is_nac)(cls.attach_nac_params),
-                if_(cls.run_phonopy)(
-                    if_(cls.remote_phonopy)(
-                        cls.run_phono3py_remote,
-                        cls.collect_data,
-                    ).else_(
-                        cls.create_force_constants,
-                        cls.run_phono3py_in_workchain,
-                    )
-                ),
+            cls.create_force_sets,
+            if_(cls.is_nac)(cls.attach_nac_params),
+            if_(cls.run_phonopy)(
+                if_(cls.remote_phonopy)(
+                    cls.run_phono3py_remote,
+                    cls.collect_remote_data,
+                ).else_(
+                    cls.create_force_constants,
+                    cls.run_phono3py_in_workchain,
+                )
             ),
         )
         spec.output("fc3", valid_type=ArrayData, required=False)
@@ -129,12 +128,25 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
         are submitted in this method to make them run in parallel.
 
         """
-        self._run_force_calculations(self.ctx.supercells, label_prefix="force_calc")
+        if "force_sets" in self.inputs:
+            self.report("skip force calculation.")
+            self.ctx.force_sets = self.inputs.force_sets
+        else:
+            self._run_force_calculations(self.ctx.supercells, label_prefix="force_calc")
+
         if "phonon_supercell" in self.ctx:
-            self._run_force_calculations(
-                self.ctx.phonon_supercells, label_prefix="phonon_force_calc"
-            )
-        if self.is_nac():
+            if "phonon_force_sets" in self.inputs:
+                self.report("skip phonon force calculation.")
+                self.ctx.phonon_force_sets = self.inputs.phonon_force_sets
+            else:
+                self._run_force_calculations(
+                    self.ctx.phonon_supercells, label_prefix="phonon_force_calc"
+                )
+
+        if "nac_params" in self.inputs:
+            self.report("skip nac params calculation.")
+            self.ctx.nac_params = self.inputs.nac_params
+        elif self.is_nac():
             self._run_nac_params_calculation()
 
     def postprocess_of_dry_run(self):
@@ -145,7 +157,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
         """Do nothing."""
         self.report("remote phonopy calculation")
 
-    def collect_data(self):
+    def collect_remote_data(self):
         """Do nothing."""
         self.report("collect data")
 

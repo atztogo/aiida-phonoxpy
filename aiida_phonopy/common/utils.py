@@ -131,6 +131,7 @@ def setup_phonopy_calculation(
         ph.dataset = dataset.get_dict()
 
     _update_structure_info(ph_settings, ph)
+    ph_settings["displacement_dataset"] = ph.dataset
     structures_dict = _generate_phonopy_structures(ph)
     return_vals = {"phonon_setting_info": Dict(dict=ph_settings)}
     return_vals.update(structures_dict)
@@ -179,7 +180,7 @@ def setup_phono3py_calculation(
         'symmetry' : dict
             'number' : Space group number.
             'international' : Space group type.
-        'phonon_displacement_dataset' : dict
+        'phonon_displacement_dataset' : dict, optional
             Phono3py.phonon_dataset.
         'random_seed' : int, optional (no support)
         'is_plusminus' : str or bool, optional
@@ -207,6 +208,10 @@ def setup_phono3py_calculation(
         ph.phonon_dataset = phonon_dataset.get_dict()
 
     _update_structure_info(ph_settings, ph)
+    ph_settings["displacement_dataset"] = ph.dataset
+    if "phonon_supercell_matrix" in ph_settings:
+        if ph.phonon_supercell_matrix is not None:
+            ph_settings["phonon_displacement_dataset"] = ph.phonon_dataset
     structures_dict = _generate_phonopy_structures(ph)
     if ph.phonon_supercell_matrix is not None:
         structures_dict.update(_generate_phono3py_phonon_structures(ph))
@@ -530,7 +535,7 @@ def _get_phono3py_instance(
         phonon_supercell_matrix=ph_smat,
         symprec=symmetry_tolerance,
     )
-    if "nac_params" in nac_params:
+    if nac_params:
         _set_nac_params(ph3py, nac_params["nac_params"])
     return ph3py
 
@@ -872,27 +877,18 @@ def _update_structure_info(ph_settings, ph):
     Returns
     -------
     dict
-        'displacement_dataset' : dict
-            Phonopy.dataset or Phono3py.dataset.
         'primitive_matrix' : ndarray
             Phonopy.primitive_matrix.
         'symmetry' : dict
             'number' : Space group number.
             'international' : Space group type.
-        'phonon_displacement_dataset' : dict
-            Phono3py.phonon_dataset.
 
     """
-    ph_settings["displacement_dataset"] = ph.dataset
     ph_settings["primitive_matrix"] = ph.primitive_matrix
     ph_settings["symmetry"] = {
         "number": ph.symmetry.dataset["number"],
         "international": ph.symmetry.dataset["international"],
     }
-
-    if "phonon_supercell_matrix" in ph_settings:
-        if ph.phonon_supercell_matrix is not None:
-            ph_settings["phonon_displacement_dataset"] = ph.phonon_dataset
 
     return ph_settings
 

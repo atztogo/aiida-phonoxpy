@@ -14,6 +14,10 @@ Str = DataFactory("str")
 class PhonopyImmigrantMixIn:
     """List of methods to import calculations."""
 
+    def import_calculations_from_files(self):
+        """Return boolen for outline."""
+        return "immigrant_calculation_folders" in self.inputs
+
     def read_force_calculations_from_files(self):
         """Import supercell force calculations.
 
@@ -117,17 +121,15 @@ class PhonopyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
             ).else_(
                 cls.run_force_and_nac_calculations,
             ),
-            if_(cls.dry_run)(cls.postprocess_of_dry_run,).else_(
-                cls.create_force_sets,
-                if_(cls.is_nac)(cls.attach_nac_params),
-                if_(cls.run_phonopy)(
-                    if_(cls.remote_phonopy)(
-                        cls.run_phonopy_remote,
-                        cls.collect_data,
-                    ).else_(
-                        cls.create_force_constants,
-                        cls.run_phonopy_locally,
-                    ),
+            cls.create_force_sets,
+            if_(cls.is_nac)(cls.attach_nac_params),
+            if_(cls.run_phonopy)(
+                if_(cls.remote_phonopy)(
+                    cls.run_phonopy_remote,
+                    cls.collect_remote_data,
+                ).else_(
+                    cls.create_force_constants,
+                    cls.run_phonopy_locally,
                 ),
             ),
             cls.finalize,
