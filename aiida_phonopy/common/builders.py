@@ -120,84 +120,12 @@ def get_calculator_process(plugin_name):
         raise RuntimeError("Code could not be found.")
 
 
-def get_plugin_names(calculator_settings):
-    """Return plugin names of calculators."""
-    codes = []
-    if "steps" in calculator_settings.keys():
-        for step in calculator_settings["steps"]:
-            if "code_string" in step.keys():
-                code = Code.get_from_string(step["code_string"])
-            else:
-                code = step["code"]
-            codes.append(code)
-    else:
-        if "code_string" in calculator_settings.keys():
-            code = Code.get_from_string(calculator_settings["code_string"])
-        else:
-            code = calculator_settings["code"]
-        codes.append(code)
-
-    plugin_names = []
-    for code in codes:
-        plugin_names.append(code.get_input_plugin_name())
-
-    return plugin_names
-
-
 def _get_kpoints_data(calculator_inputs, structure):
     """Return KpointsData."""
     if "kpoints" in calculator_inputs.keys():
         assert isinstance(calculator_inputs["kpoints"], KpointsData)
         return calculator_inputs["kpoints"]
     return get_kpoints_data(calculator_inputs, structure)
-
-
-def get_vasp_immigrant_inputs(folder_path, calculator_settings, label=None):
-    """Return VASP immigrant inputs.
-
-    folder_path : str
-        VASP directory path.
-    calculator_settings : dict
-        aiida-phonopy calculator settings for forces or nac params.
-
-    """
-    code = Code.get_from_string(calculator_settings["code_string"])
-
-    if code.get_input_plugin_name() == "vasp.vasp":
-        inputs = {}
-        inputs["code"] = code
-        inputs["folder_path"] = Str(folder_path)
-        if "settings" in calculator_settings:
-            settings = copy.deepcopy(calculator_settings["settings"])
-        else:
-            settings = {}
-        if "parser_settings" in calculator_settings:
-            if "parser_settings" in settings:
-                settings["parser_settings"].update(
-                    calculator_settings["parser_settings"]
-                )
-            else:
-                settings["parser_settings"] = calculator_settings["parser_settings"]
-        if settings:
-            inputs["settings"] = Dict(dict=settings)
-        if "options" in calculator_settings:
-            inputs["options"] = Dict(dict=calculator_settings["options"])
-        if "metadata" in calculator_settings:
-            inputs["metadata"] = calculator_settings["metadata"]
-            if label:
-                inputs["metadata"]["label"] = label
-        elif label:
-            inputs["metadata"] = {"label": label}
-        if "potential_family" in calculator_settings:
-            inputs["potential_family"] = Str(calculator_settings["potential_family"])
-        if "potential_mapping" in calculator_settings:
-            inputs["potential_mapping"] = Dict(
-                dict=calculator_settings["potential_mapping"]
-            )
-    else:
-        raise RuntimeError("Code could not be found.")
-
-    return inputs
 
 
 def _get_parameters_Dict(calculator_inputs):
@@ -248,3 +176,75 @@ def _get_vasp_settings(calculator_inputs):
         return Dict(dict=settings)
     else:
         return calculator_inputs["settings"]
+
+
+def get_plugin_names(calculator_settings):
+    """Return plugin names of calculators."""
+    codes = []
+    if "steps" in calculator_settings.keys():
+        for step in calculator_settings["steps"]:
+            if "code_string" in step.keys():
+                code = Code.get_from_string(step["code_string"])
+            else:
+                code = step["code"]
+            codes.append(code)
+    else:
+        if "code_string" in calculator_settings.keys():
+            code = Code.get_from_string(calculator_settings["code_string"])
+        else:
+            code = calculator_settings["code"]
+        codes.append(code)
+
+    plugin_names = []
+    for code in codes:
+        plugin_names.append(code.get_input_plugin_name())
+
+    return plugin_names
+
+
+def get_vasp_immigrant_inputs(folder_path, calculator_settings, label=None):
+    """Return VASP immigrant inputs.
+
+    folder_path : str
+        VASP directory path.
+    calculator_settings : dict
+        aiida-phonopy calculator settings for forces or nac params.
+
+    """
+    code = Code.get_from_string(calculator_settings["code_string"])
+
+    if code.get_input_plugin_name() == "vasp.vasp":
+        inputs = {}
+        inputs["code"] = code
+        inputs["folder_path"] = Str(folder_path)
+        if "settings" in calculator_settings:
+            settings = copy.deepcopy(calculator_settings["settings"])
+        else:
+            settings = {}
+        if "parser_settings" in calculator_settings:
+            if "parser_settings" in settings:
+                settings["parser_settings"].update(
+                    calculator_settings["parser_settings"]
+                )
+            else:
+                settings["parser_settings"] = calculator_settings["parser_settings"]
+        if settings:
+            inputs["settings"] = Dict(dict=settings)
+        if "options" in calculator_settings:
+            inputs["options"] = Dict(dict=calculator_settings["options"])
+        if "metadata" in calculator_settings:
+            inputs["metadata"] = calculator_settings["metadata"]
+            if label:
+                inputs["metadata"]["label"] = label
+        elif label:
+            inputs["metadata"] = {"label": label}
+        if "potential_family" in calculator_settings:
+            inputs["potential_family"] = Str(calculator_settings["potential_family"])
+        if "potential_mapping" in calculator_settings:
+            inputs["potential_mapping"] = Dict(
+                dict=calculator_settings["potential_mapping"]
+            )
+    else:
+        raise RuntimeError("Code could not be found.")
+
+    return inputs

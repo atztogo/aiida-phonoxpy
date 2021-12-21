@@ -3,7 +3,7 @@
 import numpy as np
 from aiida.common import InputValidationError
 from aiida.engine import calcfunction
-from aiida.orm import Bool, Float, Int, Str, load_node
+from aiida.orm import Bool, Float
 from aiida.plugins import DataFactory
 from phonopy import Phonopy
 from phonopy.interface.calculator import get_default_physical_units
@@ -286,33 +286,6 @@ def get_phonon_properties(
     }
 
 
-@calcfunction
-def get_data_from_node_id(node_id):
-    """Collect VASP output from node_id."""
-    n = load_node(node_id.value)
-    if "structure" in n.inputs:
-        cell = phonopy_atoms_from_structure(n.inputs.structure)
-        structure = phonopy_atoms_to_structure(cell)
-    else:
-        raise RuntimeError("Crystal structure could not be found.")
-
-    if "born_charges" in n.outputs and "dielectrics" in n.outputs:
-        born = ArrayData()
-        born.set_array("born_charges", n.outputs.born_charges.get_array("born_charges"))
-        born.label = "born_charges"
-        epsilon = ArrayData()
-        epsilon.set_array("epsilon", n.outputs.dielectrics.get_array("epsilon"))
-        epsilon.label = "epsilon"
-        return {"born_charges": born, "dielectrics": epsilon, "structure": structure}
-    elif "forces" in n.outputs:
-        forces = ArrayData()
-        forces.set_array("final", n.outputs.forces.get_array("final"))
-        forces.label = "forces"
-        return {"forces": forces, "structure": structure}
-    else:
-        raise RuntimeError("Forces or NAC params were not found.")
-
-
 def compare_structures(cell_ref, cell_calc, symmetry_tolerance):
     """Compare two PhonopyAtoms instances."""
     symprec = symmetry_tolerance.value
@@ -571,16 +544,6 @@ def phonopy_atoms_from_structure(structure):
     return cell
 
 
-def from_node_id_to_aiida_node_id(node_id):
-    """Convert PK or UUID to an AiiDA data type."""
-    if type(node_id) is int:
-        return Int(node_id)
-    elif type(node_id) is str:
-        return Str(node_id)
-    else:
-        raise RuntimeError("%s is not supported in load_node." % type(node_id))
-
-
 def collect_forces_and_energies(ctx, ctx_supercells, prefix="force_calc"):
     """Collect forces and energies from calculation outputs.
 
@@ -694,101 +657,6 @@ def _get_force_set(**forces_dict):
                 energies[num - 1] = value.get_array("energy")[-1]
 
     return force_sets, energies, forces_0_key, energy_0_key
-
-
-def collect_vasp_forces_and_energies(ctx, ctx_supercells, prefix="force_calc"):
-    """Collect forces and energies from calculation outputs.
-
-    Parameters
-    ----------
-    ctx : AttributeDict-like
-        AiiDA workchain context.
-    ctx_supercells : dict of StructDict
-        Supercells. For phono3py, this can be phonon_supercells.
-    prefix : str
-        Prefix string of dictionary keys of ctx.
-
-    Returns
-    -------
-    dict
-        Forces and energies.
-
-    """
-    forces_dict = {}
-    for key in ctx_supercells:
-        # key: e.g. "supercell_001", "phonon_supercell_001"
-        num = key.split("_")[-1]  # e.g. "001"
-        calc = ctx["%s_%s" % (prefix, num)]
-        if type(calc) is dict:
-            calc_dict = calc
-        else:
-            calc_dict = calc.outputs
-        if "forces" in calc_dict and "final" in calc_dict["forces"].get_arraynames():
-            forces_dict["forces_%s" % num] = calc_dict["forces"]
-        else:
-            raise RuntimeError("Forces could not be found in calculation %s." % num)
-
-        if (
-            "misc" in calc_dict and "total_energies" in calc_dict["misc"].keys()
-        ):  # needs .keys()
-            forces_dict["misc_%s" % num] = calc_dict["misc"]
-
-    return forces_dict
-
-
-@calcfunction
-def get_vasp_force_sets_dict(**forces_dict):
-    """Create force sets from supercell forces."""
-    forces = []
-    energies = []
-    forces_0 = None
-    energy_0 = None
-
-    for key in forces_dict:
-        num = int(key.split("_")[-1])
-        if num == 0:
-            continue
-        if "forces" in key:
-            forces.append(None)
-        elif "misc" in key:
-            energies.append(None)
-
-    for key in forces_dict:
-        num = int(key.split("_")[-1])  # e.g. "001" --> 1
-        if "forces" in key:
-            forces_ndarray = forces_dict[key].get_array("final")
-            if num == 0:
-                forces_0 = forces_ndarray
-            else:
-                forces[num - 1] = forces_ndarray
-        elif "misc" in key:
-            for energy_key in ("energy_extrapolated",):
-                if energy_key in forces_dict[key]["total_energies"]:
-                    energy = forces_dict[key]["total_energies"][energy_key]
-                if num == 0:
-                    energy_0 = energy
-                else:
-                    energies[num - 1] = energy
-                break
-
-    if forces_0 is not None:
-        for forces_ndarray in forces:
-            forces_ndarray -= forces_0
-
-    force_sets = ArrayData()
-    force_sets.set_array("force_sets", np.array(forces))
-    if energies:
-        force_sets.set_array("energies", np.array(energies))
-    force_sets.label = "force_sets"
-    ret_dict = {"force_sets": force_sets}
-    if forces_0 is not None:
-        forces_0_array = ArrayData()
-        forces_0_array.set_array("forces", forces_0)
-        ret_dict["supercell_forces"] = forces_0_array
-    if energy_0 is not None:
-        ret_dict["supercell_energy"] = Float(energy_0)
-
-    return ret_dict
 
 
 def _get_setting_info(phonon_settings, code_name="phonopy"):
