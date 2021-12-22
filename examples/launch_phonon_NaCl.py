@@ -77,7 +77,7 @@ Direct
         {"parser_settings": nac_parser_settings, "parameters": nac_incar_dict}
     )
 
-    PhononPhonopy = WorkflowFactory("phonopy.phonopy")
+    PhononPhonopy = WorkflowFactory("phonoxpy.phonopy")
     builder = PhononPhonopy.get_builder()
     builder.structure = structure
     builder.calculator_settings = Dict(

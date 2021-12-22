@@ -89,9 +89,9 @@ Direct
         }
     )
 
-    # PhononPhonopy = WorkflowFactory('phonopy.phonopy')
+    # PhononPhonopy = WorkflowFactory('phonoxpy.phonopy')
     # builder = PhononPhonopy.get_builder()
-    PhonopyIterHA = WorkflowFactory("phonopy.iter_ha")
+    PhonopyIterHA = WorkflowFactory("phonoxpy.iter_ha")
     builder = PhonopyIterHA.get_builder()
     builder.structure = structure
     builder.calculator_settings = Dict(
@@ -159,7 +159,7 @@ def get_phonon(pk, pk_nac):
 
 
 def find_latest_uuid():
-    IterHarmonicApprox = WorkflowFactory("phonopy.iter_ha")
+    IterHarmonicApprox = WorkflowFactory("phonoxpy.iter_ha")
     qb = QueryBuilder()
     qb.append(IterHarmonicApprox)
     qb.order_by({IterHarmonicApprox: {"ctime": "desc"}})
@@ -169,10 +169,10 @@ def find_latest_uuid():
 
 def search_pk(uuid):
     """uuid can be pk."""
-    IterHarmonicApprox = WorkflowFactory("phonopy.iter_ha")
+    IterHarmonicApprox = WorkflowFactory("phonoxpy.iter_ha")
     qb = QueryBuilder()
     qb.append(IterHarmonicApprox, tag="iter_ha", filters={"uuid": {"==": uuid}})
-    PhonopyWorkChain = WorkflowFactory("phonopy.phonopy")
+    PhonopyWorkChain = WorkflowFactory("phonoxpy.phonopy")
     qb.append(PhonopyWorkChain, with_incoming="iter_ha")
     qb.order_by({PhonopyWorkChain: {"ctime": "asc"}})
     pks = [n[0].pk for n in qb.all() if n[0].is_finished_ok]

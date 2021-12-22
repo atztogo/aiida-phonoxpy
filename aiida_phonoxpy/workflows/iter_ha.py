@@ -12,7 +12,7 @@ from aiida_phonoxpy.common.utils import (
 
 Dict = DataFactory("dict")
 ArrayData = DataFactory("array")
-PhonopyWorkChain = WorkflowFactory("phonopy.phonopy")
+PhonopyWorkChain = WorkflowFactory("phonoxpy.phonopy")
 
 """
 

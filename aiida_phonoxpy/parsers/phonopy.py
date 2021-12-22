@@ -1,5 +1,5 @@
 """Parsers of phonopy output files."""
-
+from aiida.orm import Str
 from aiida.engine import ExitCode
 from aiida.common.exceptions import NotExistent
 from aiida.parsers.parser import Parser
@@ -12,11 +12,8 @@ from aiida_phonoxpy.common.raw_parsers import (
     parse_band_structure,
     parse_phonopy_yaml,
 )
-from aiida.plugins import DataFactory
 
-
-Str = DataFactory("str")
-PhonopyCalculation = CalculationFactory("phonopy.phonopy")
+PhonopyCalculation = CalculationFactory("phonoxpy.phonopy")
 
 
 class PhonopyParser(Parser):
