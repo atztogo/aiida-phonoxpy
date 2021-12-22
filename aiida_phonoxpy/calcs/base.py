@@ -3,7 +3,7 @@
 from aiida.engine import CalcJob
 from aiida.common import CalcInfo, CodeInfo
 from aiida.plugins import DataFactory
-from aiida_phonopy.common.file_generators import get_BORN_txt
+from aiida_phonoxpy.common.file_generators import get_BORN_txt
 
 Dict = DataFactory("dict")
 StructureData = DataFactory("structure")
@@ -50,10 +50,16 @@ class BasePhonopyCalculation(CalcJob):
             help="Primitive cell structure only necessary NAC is applied.",
         )
         spec.input(
-            "dataset",
-            valid_type=(Dict, ArrayData),
+            "displacement_dataset",
+            valid_type=Dict,
             required=False,
-            help="Displacements and forces dataset.",
+            help="Type-I displacement dataset.",
+        )
+        spec.input(
+            "displacements",
+            valid_type=ArrayData,
+            required=False,
+            help="Displacements of all atoms corresponding to force_sets.",
         )
 
     def prepare_for_submission(self, folder):

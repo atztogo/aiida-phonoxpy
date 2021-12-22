@@ -3,9 +3,9 @@
 from aiida.engine import if_, while_
 from aiida.plugins import DataFactory
 
-from aiida_phonopy.common.utils import setup_phono3py_calculation
-from aiida_phonopy.workflows.phonopy.base import BasePhonopyWorkChain
-from aiida_phonopy.workflows.phonopy.phonopy import PhonopyImmigrantMixIn
+from aiida_phonoxpy.common.utils import setup_phono3py_calculation
+from aiida_phonoxpy.workflows.phonopy.base import BasePhonopyWorkChain
+from aiida_phonoxpy.workflows.phonopy.phonopy import PhonopyImmigrantMixIn
 
 Float = DataFactory("float")
 Dict = DataFactory("dict")
@@ -92,7 +92,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
         if "displacement_dataset" in self.inputs:
             kwargs["dataset"] = self.inputs.displacement_dataset
         return_vals = setup_phono3py_calculation(
-            self.inputs.phonon_settings,
+            self.inputs.settings,
             self.inputs.structure,
             self.inputs.symmetry_tolerance,
             **kwargs

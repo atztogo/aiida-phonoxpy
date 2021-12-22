@@ -1,36 +1,51 @@
 """Utilities related to process builder or inputs dist."""
 import copy
 
-from aiida.orm import Bool, Code, Str, load_group
-from aiida.plugins import DataFactory, WorkflowFactory
+from aiida.orm import (
+    Bool,
+    Code,
+    Str,
+    load_group,
+    StructureData,
+    KpointsData,
+    Dict,
+    RemoteData,
+)
+from aiida.common import AttributeDict
+from aiida.plugins import WorkflowFactory
 
-from aiida_phonopy.common.utils import get_kpoints_data
-
-KpointsData = DataFactory("array.kpoints")
-Dict = DataFactory("dict")
+from aiida_phonoxpy.common.utils import get_kpoints_data
 
 
 def get_workchain_inputs(calculator_inputs, structure, label=None, ctx=None):
     """Return builder inputs of a calculation."""
-    if "code" in calculator_inputs.keys():
-        code = calculator_inputs["code"]
-    else:
-        code = Code.get_from_string(calculator_inputs["code_string"])
+    code = _get_code(calculator_inputs)
     plugin_name = code.get_input_plugin_name()
     if plugin_name == "vasp.vasp":
         return _get_vasp_vasp_workchain_inputs(
             calculator_inputs, structure, code, label
         )
     elif plugin_name == "quantumespresso.pw":
-        return _get_quantumespresso_pw_workchain_inputs(
-            calculator_inputs, structure, code, label
-        )
+        return _get_qe_pw_workchain_inputs(calculator_inputs, structure, code, label)
     elif plugin_name == "quantumespresso.ph":
-        return _get_quantumespresso_ph_workchain_inputs(
-            calculator_inputs, code, label, ctx
-        )
+        return _get_qe_ph_workchain_inputs(calculator_inputs, code, label, ctx)
     else:
         raise RuntimeError("Code could not be found.")
+
+
+def _get_code(calculator_inputs: dict):
+    code = None
+    if "code" in calculator_inputs:
+        code = calculator_inputs["code"]
+    elif "code_string" in calculator_inputs:
+        code = Code.get_from_string(calculator_inputs["code_string"])
+    if code is None:
+        for namespace in ("pw", "ph"):
+            if namespace in calculator_inputs:
+                code = _get_code(calculator_inputs[namespace])
+                if code is not None:
+                    break
+    return code
 
 
 def _get_vasp_vasp_workchain_inputs(calculator_inputs, structure, code, label):
@@ -72,20 +87,53 @@ def _get_vasp_vasp_workchain_inputs(calculator_inputs, structure, code, label):
     return workchain_inputs
 
 
-def _get_quantumespresso_pw_workchain_inputs(calculator_inputs, structure, code, label):
-    kpoints = _get_kpoints_data(calculator_inputs, structure)
-    family = load_group(calculator_inputs["pseudo_family_string"])
-    pseudos = family.get_pseudos(structure=structure)
-    metadata = {"options": calculator_inputs["options"]}
+def _get_qe_pw_inputs(
+    calculator_inputs_pw: dict, structure: StructureData, code: Code, label: str
+) -> dict:
+    pseudos = _get_qe_pseudos(calculator_inputs_pw, structure)
+    if "metadata" in calculator_inputs_pw:
+        metadata = calculator_inputs_pw["metadata"]
+    else:
+        metadata = {}
     if label:
         metadata["label"] = label
     pw = {
         "metadata": metadata,
-        "parameters": _get_parameters_Dict(calculator_inputs),
+        "parameters": _get_parameters_Dict(calculator_inputs_pw),
         "structure": structure,
         "pseudos": pseudos,
         "code": code,
     }
+
+    return pw
+
+
+def _get_qe_ph_inputs(
+    calculator_inputs_ph: dict, code: Code, label: str, remote_folder: RemoteData
+) -> dict:
+    qpoints = KpointsData()
+    qpoints.set_kpoints_mesh([1, 1, 1], offset=[0, 0, 0])
+    if "metadata" in calculator_inputs_ph:
+        metadata = calculator_inputs_ph["metadata"]
+    else:
+        metadata = {}
+    if label:
+        metadata["label"] = label
+    ph = {
+        "metadata": metadata,
+        "qpoints": qpoints,
+        "parameters": _get_parameters_Dict(calculator_inputs_ph),
+        "parent_folder": remote_folder,
+        "code": code,
+    }
+    return ph
+
+
+def _get_qe_pw_workchain_inputs(
+    calculator_inputs: dict, structure: StructureData, code: Code, label: str
+) -> dict:
+    kpoints = _get_kpoints_data(calculator_inputs, structure)
+    pw = _get_qe_pw_inputs(calculator_inputs["pw"], structure, code, label)
     workchain_inputs = {
         "kpoints": kpoints,
         "pw": pw,
@@ -93,19 +141,15 @@ def _get_quantumespresso_pw_workchain_inputs(calculator_inputs, structure, code,
     return workchain_inputs
 
 
-def _get_quantumespresso_ph_workchain_inputs(calculator_inputs, code, label, ctx):
-    qpoints = KpointsData()
-    qpoints.set_kpoints_mesh([1, 1, 1], offset=[0, 0, 0])
-    metadata = {"options": calculator_inputs["options"]}
-    if label:
-        metadata["label"] = label
-    ph = {
-        "metadata": metadata,
-        "qpoints": qpoints,
-        "parameters": _get_parameters_Dict(calculator_inputs),
-        "parent_folder": ctx.nac_params_calcs[0].outputs.remote_folder,
-        "code": code,
-    }
+def _get_qe_ph_workchain_inputs(
+    calculator_inputs: dict, code: Code, label: str, ctx: AttributeDict
+) -> dict:
+    ph = _get_qe_ph_inputs(
+        calculator_inputs["ph"],
+        code,
+        label,
+        ctx.nac_params_calcs[0].outputs.remote_folder,
+    )
     workchain_inputs = {"ph": ph}
     return workchain_inputs
 
@@ -120,30 +164,6 @@ def get_calculator_process(plugin_name):
         raise RuntimeError("Code could not be found.")
 
 
-def get_plugin_names(calculator_settings):
-    """Return plugin names of calculators."""
-    codes = []
-    if "steps" in calculator_settings.keys():
-        for step in calculator_settings["steps"]:
-            if "code_string" in step.keys():
-                code = Code.get_from_string(step["code_string"])
-            else:
-                code = step["code"]
-            codes.append(code)
-    else:
-        if "code_string" in calculator_settings.keys():
-            code = Code.get_from_string(calculator_settings["code_string"])
-        else:
-            code = calculator_settings["code"]
-        codes.append(code)
-
-    plugin_names = []
-    for code in codes:
-        plugin_names.append(code.get_input_plugin_name())
-
-    return plugin_names
-
-
 def _get_kpoints_data(calculator_inputs, structure):
     """Return KpointsData."""
     if "kpoints" in calculator_inputs.keys():
@@ -152,52 +172,13 @@ def _get_kpoints_data(calculator_inputs, structure):
     return get_kpoints_data(calculator_inputs, structure)
 
 
-def get_vasp_immigrant_inputs(folder_path, calculator_settings, label=None):
-    """Return VASP immigrant inputs.
-
-    folder_path : str
-        VASP directory path.
-    calculator_settings : dict
-        aiida-phonopy calculator settings for forces or nac params.
-
-    """
-    code = Code.get_from_string(calculator_settings["code_string"])
-
-    if code.get_input_plugin_name() == "vasp.vasp":
-        inputs = {}
-        inputs["code"] = code
-        inputs["folder_path"] = Str(folder_path)
-        if "settings" in calculator_settings:
-            settings = copy.deepcopy(calculator_settings["settings"])
-        else:
-            settings = {}
-        if "parser_settings" in calculator_settings:
-            if "parser_settings" in settings:
-                settings["parser_settings"].update(
-                    calculator_settings["parser_settings"]
-                )
-            else:
-                settings["parser_settings"] = calculator_settings["parser_settings"]
-        if settings:
-            inputs["settings"] = Dict(dict=settings)
-        if "options" in calculator_settings:
-            inputs["options"] = Dict(dict=calculator_settings["options"])
-        if "metadata" in calculator_settings:
-            inputs["metadata"] = calculator_settings["metadata"]
-            if label:
-                inputs["metadata"]["label"] = label
-        elif label:
-            inputs["metadata"] = {"label": label}
-        if "potential_family" in calculator_settings:
-            inputs["potential_family"] = Str(calculator_settings["potential_family"])
-        if "potential_mapping" in calculator_settings:
-            inputs["potential_mapping"] = Dict(
-                dict=calculator_settings["potential_mapping"]
-            )
+def _get_qe_pseudos(calculator_inputs: dict, structure: StructureData):
+    if "pseudos" in calculator_inputs:
+        return calculator_inputs["pseudos"]
     else:
-        raise RuntimeError("Code could not be found.")
-
-    return inputs
+        family = load_group(calculator_inputs["pseudo_family_string"])
+        pseudos = family.get_pseudos(structure=structure)
+        return pseudos
 
 
 def _get_parameters_Dict(calculator_inputs):
@@ -248,3 +229,67 @@ def _get_vasp_settings(calculator_inputs):
         return Dict(dict=settings)
     else:
         return calculator_inputs["settings"]
+
+
+def get_plugin_names(calculator_inputs: dict) -> list:
+    """Return plugin names of calculators."""
+    codes = []
+    if "steps" in calculator_inputs:
+        for step in calculator_inputs["steps"]:
+            codes.append(_get_code(step))
+    else:
+        codes.append(_get_code(calculator_inputs))
+
+    plugin_names = []
+    for code in codes:
+        plugin_names.append(code.get_input_plugin_name())
+
+    return plugin_names
+
+
+def get_vasp_immigrant_inputs(folder_path, calculator_settings, label=None):
+    """Return VASP immigrant inputs.
+
+    folder_path : str
+        VASP directory path.
+    calculator_settings : dict
+        aiida-phonopy calculator settings for forces or nac params.
+
+    """
+    code = Code.get_from_string(calculator_settings["code_string"])
+
+    if code.get_input_plugin_name() == "vasp.vasp":
+        inputs = {}
+        inputs["code"] = code
+        inputs["folder_path"] = Str(folder_path)
+        if "settings" in calculator_settings:
+            settings = copy.deepcopy(calculator_settings["settings"])
+        else:
+            settings = {}
+        if "parser_settings" in calculator_settings:
+            if "parser_settings" in settings:
+                settings["parser_settings"].update(
+                    calculator_settings["parser_settings"]
+                )
+            else:
+                settings["parser_settings"] = calculator_settings["parser_settings"]
+        if settings:
+            inputs["settings"] = Dict(dict=settings)
+        if "options" in calculator_settings:
+            inputs["options"] = Dict(dict=calculator_settings["options"])
+        if "metadata" in calculator_settings:
+            inputs["metadata"] = calculator_settings["metadata"]
+            if label:
+                inputs["metadata"]["label"] = label
+        elif label:
+            inputs["metadata"] = {"label": label}
+        if "potential_family" in calculator_settings:
+            inputs["potential_family"] = Str(calculator_settings["potential_family"])
+        if "potential_mapping" in calculator_settings:
+            inputs["potential_mapping"] = Dict(
+                dict=calculator_settings["potential_mapping"]
+            )
+    else:
+        raise RuntimeError("Code could not be found.")
+
+    return inputs
