@@ -1,24 +1,26 @@
 """General utilities."""
 
+from typing import Optional
 import numpy as np
 from aiida.common import InputValidationError
 from aiida.engine import calcfunction
-from aiida.orm import Bool, Float
-from aiida.plugins import DataFactory
+from aiida.orm import (
+    Bool,
+    Float,
+    Dict,
+    StructureData,
+    ArrayData,
+    XyData,
+    BandsData,
+    KpointsData,
+)
 from phonopy import Phonopy
 from phonopy.interface.calculator import get_default_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
 
-Dict = DataFactory("dict")
-ArrayData = DataFactory("array")
-XyData = DataFactory("array.xy")
-StructureData = DataFactory("structure")
-BandsData = DataFactory("array.bands")
-KpointsData = DataFactory("array.kpoints")
-
 
 @calcfunction
-def get_remote_fc_calculation_settings(phonon_settings):
+def get_remote_fc_calculation_settings(phonon_settings: Dict):
     """Create remote force constants phonopy calculation setting.
 
     keys condidered:
@@ -27,7 +29,7 @@ def get_remote_fc_calculation_settings(phonon_settings):
 
     """
     key = "supercell_matrix"
-    if key in phonon_settings.dict:
+    if key in phonon_settings.keys():
         fc_settings = {key: phonon_settings[key]}
     else:
         return None
@@ -39,7 +41,12 @@ def get_remote_fc_calculation_settings(phonon_settings):
 
 @calcfunction
 def setup_phonopy_calculation(
-    phonon_settings, structure, symmetry_tolerance, run_phonopy, dataset=None
+    phonon_settings: Dict,
+    structure: StructureData,
+    symmetry_tolerance: Float,
+    run_phonopy: Bool,
+    displacement_dataset: Optional[Dict] = None,
+    displacements: Optional[ArrayData] = None,
 ):
     """Set up phonopy calculation.
 
@@ -104,24 +111,26 @@ def setup_phonopy_calculation(
         'random_seed' : int
         'is_plusminus' : str or bool
         'is_diagonal' : bool
-        'postprocess_parameters' : dict
-            This is given when run_phonopy=True.
-            'mesh' : float or list
-                Mesh numbers or distance measure of q-point sampling mesh.
-            'fc_calculator' : str
-                External force constants calculator.
+        'mesh' : float or list, optional
+            Mesh numbers or distance measure of q-point sampling mesh.
+        'fc_calculator' : str, optional
+            External force constants calculator.
 
     """
     ph_settings = _get_setting_info(phonon_settings)
     if run_phonopy:
         params = _get_phonopy_postprocess_info(phonon_settings)
-        ph_settings["postprocess_parameters"] = params
+        ph_settings.update(params)
 
     ph = _get_phonopy_instance(
         structure, ph_settings, symmetry_tolerance=symmetry_tolerance.value
     )
     ph_settings["version"] = ph.version
-    if dataset is None:
+    if displacement_dataset is not None:
+        ph.dataset = displacement_dataset.get_dict()
+    elif displacements is not None:
+        ph.dataset = {"displacements": displacements.get_array("displacements")}
+    else:
         supported_keys = (
             "distance",
             "is_plusminus",
@@ -131,18 +140,16 @@ def setup_phonopy_calculation(
         )
         kwargs = {key: ph_settings[key] for key in ph_settings if key in supported_keys}
         ph.generate_displacements(**kwargs)
-    else:
-        ph.dataset = dataset.get_dict()
 
     _update_structure_info(ph_settings, ph)
     structures_dict = _generate_phonopy_structures(ph)
     return_vals = {"phonon_setting_info": Dict(dict=ph_settings)}
     return_vals.update(structures_dict)
-    if dataset is None:
+    if displacement_dataset is None and displacements is None:
         if "displacements" in ph.dataset:
-            displacements = ArrayData()
-            displacements.set_array("displacements", ph.dataset["displacements"])
-            return_vals["displacements"] = displacements
+            disp_array = ArrayData()
+            disp_array.set_array("displacements", ph.dataset["displacements"])
+            return_vals["displacements"] = disp_array
         else:
             return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
 
@@ -151,7 +158,13 @@ def setup_phonopy_calculation(
 
 @calcfunction
 def setup_phono3py_calculation(
-    phonon_settings, structure, symmetry_tolerance, dataset=None, phonon_dataset=None
+    phonon_settings: Dict,
+    structure: StructureData,
+    symmetry_tolerance: Float,
+    displacement_dataset: Optional[Dict] = None,
+    displacements: Optional[ArrayData] = None,
+    phonon_displacement_dataset: Optional[Dict] = None,
+    phonon_displacements: Optional[ArrayData] = None,
 ):
     """Set up phono3py calculation.
 
@@ -205,20 +218,26 @@ def setup_phono3py_calculation(
     )
     ph_settings["version"] = ph.version
 
-    supported_keys = (
-        "distance",
-        "is_plusminus",
-        "is_diagonal",
-    )
-    kwargs = {key: ph_settings[key] for key in ph_settings if key in supported_keys}
-    ph.generate_displacements(**kwargs)
-    if dataset is not None:
-        ph.dataset = dataset.get_dict()
-    if phonon_dataset is not None:
-        ph.phonon_dataset = phonon_dataset.get_dict()
+    if displacement_dataset is not None:
+        ph.dataset = displacement_dataset.get_dict()
+    elif displacements is not None:
+        ph.dataset = {"displacements": displacements.get_array("displacements")}
+    if phonon_displacement_dataset is not None:
+        ph.phonon_dataset = phonon_displacement_dataset.get_dict()
+    elif phonon_displacements is not None:
+        ph.phonon_dataset = {
+            "displacements": phonon_displacements.get_array("displacements")
+        }
+    else:
+        supported_keys = (
+            "distance",
+            "is_plusminus",
+            "is_diagonal",
+        )
+        kwargs = {key: ph_settings[key] for key in ph_settings if key in supported_keys}
+        ph.generate_displacements(**kwargs)
 
     _update_structure_info(ph_settings, ph)
-    ph_settings["displacement_dataset"] = ph.dataset
     if "phonon_supercell_matrix" in ph_settings:
         if ph.phonon_supercell_matrix is not None:
             ph_settings["phonon_displacement_dataset"] = ph.phonon_dataset
@@ -227,11 +246,25 @@ def setup_phono3py_calculation(
         structures_dict.update(_generate_phono3py_phonon_structures(ph))
     return_vals = {"phonon_setting_info": Dict(dict=ph_settings)}
     return_vals.update(structures_dict)
+    if displacement_dataset is None and displacements is None:
+        if "displacements" in ph.dataset:
+            disp_array = ArrayData()
+            disp_array.set_array("displacements", ph.dataset["displacements"])
+            return_vals["displacements"] = disp_array
+        else:
+            return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
+    if phonon_displacement_dataset is None and phonon_displacements is None:
+        if "displacements" in ph.phonon_dataset:
+            disp_array = ArrayData()
+            disp_array.set_array("displacements", ph.phonon_dataset["displacements"])
+            return_vals["phonon_displacements"] = disp_array
+        else:
+            return_vals["phonon_displacement_dataset"] = Dict(dict=ph.phonon_dataset)
 
     return return_vals
 
 
-def _get_phonopy_postprocess_info(phonon_settings):
+def _get_phonopy_postprocess_info(phonon_settings: Dict) -> dict:
     """Return phonopy postprocess parameters."""
     valid_keys = ("mesh", "fc_calculator")
     params = {}
@@ -245,7 +278,12 @@ def _get_phonopy_postprocess_info(phonon_settings):
 
 
 @calcfunction
-def get_force_constants(structure, phonon_settings, force_sets, symmetry_tolerance):
+def get_force_constants(
+    structure: StructureData,
+    phonon_settings: Dict,
+    force_sets: ArrayData,
+    symmetry_tolerance: Float,
+):
     """Calculate force constants."""
     phonon = _get_phonopy_instance(
         structure, phonon_settings, symmetry_tolerance=symmetry_tolerance.value
@@ -269,7 +307,11 @@ def get_force_constants(structure, phonon_settings, force_sets, symmetry_toleran
 
 @calcfunction
 def get_phonon_properties(
-    structure, phonon_settings, force_constants, symmetry_tolerance, nac_params=None
+    structure: StructureData,
+    phonon_settings: Dict,
+    force_constants: ArrayData,
+    symmetry_tolerance: Float,
+    nac_params: Optional[Dict] = None,
 ):
     """Calculate phonon properties."""
     phonon_settings_dict = phonon_settings.get_dict()
@@ -669,7 +711,7 @@ def _get_force_set(**forces_dict):
     return force_sets, energies, forces_0_key, energy_0_key
 
 
-def _get_setting_info(phonon_settings, code_name="phonopy"):
+def _get_setting_info(phonon_settings: Dict, code_name: str = "phonopy") -> dict:
     """Convert AiiDA inputs to a dict.
 
     code_name : 'phonopy' or 'phono3py'

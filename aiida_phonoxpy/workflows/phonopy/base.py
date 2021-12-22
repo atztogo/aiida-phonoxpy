@@ -4,6 +4,7 @@ from aiida.engine import WorkChain, if_
 from aiida.orm import Code
 from aiida.plugins import DataFactory
 
+from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
 from aiida_phonoxpy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
@@ -92,8 +93,11 @@ class BasePhonopyWorkChain(WorkChain):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
+        spec.expose_inputs(
+            PhonopyCalculation, namespace="phonopy", include=("metadata",)
+        )
         spec.input("structure", valid_type=StructureData, required=True)
-        spec.input("phonon_settings", valid_type=Dict, required=True)
+        spec.input("settings", valid_type=Dict, required=True)
         spec.input_namespace(
             "calculator_inputs", help="Inputs passed to force and NAC calculators."
         )
@@ -150,7 +154,7 @@ class BasePhonopyWorkChain(WorkChain):
         spec.output("band_structure", valid_type=BandsData, required=False)
         spec.output("dos", valid_type=XyData, required=False)
         spec.output("pdos", valid_type=XyData, required=False)
-        spec.output("phonon_setting_info", valid_type=Dict)
+        spec.output("phonon_setting_info", valid_type=Dict, required=False)
         spec.exit_code(
             1001,
             "ERROR_NO_PHONOPY_CODE",
@@ -180,9 +184,9 @@ class BasePhonopyWorkChain(WorkChain):
         """Return boolean for outline."""
         if "nac" in self.inputs.calculator_inputs:
             return True
-        if "is_nac" in self.inputs.phonon_settings.keys():
-            self.logger.warning("Use inputs.phonon_settings['is_nac'] is deprecated.")
-            return self.inputs.phonon_settings["is_nac"]
+        if "is_nac" in self.inputs.settings.keys():
+            self.logger.warning("Use inputs.settings['is_nac'] is deprecated.")
+            return self.inputs.settings["is_nac"]
         return False
 
     def force_sets_exists(self):
@@ -209,14 +213,16 @@ class BasePhonopyWorkChain(WorkChain):
             if "code" not in self.inputs and "code_string" not in self.inputs:
                 return self.exit_codes.ERROR_NO_PHONOPY_CODE
 
-        if "supercell_matrix" not in self.inputs.phonon_settings.keys():
+        if "supercell_matrix" not in self.inputs.settings.keys():
             return self.exit_codes.ERROR_NO_SUPERCELL_MATRIX
 
         kwargs = {}
-        if "displacement_dataset" in self.inputs:
-            kwargs["dataset"] = self.inputs.displacement_dataset
+        for val in ("displacement_dataset", "displacements"):
+            if val in self.inputs:
+                kwargs[val] = self.inputs[val]
+                self.ctx[val] = self.inputs[val]
         return_vals = setup_phonopy_calculation(
-            self.inputs.phonon_settings,
+            self.inputs.settings,
             self.inputs.structure,
             self.inputs.symmetry_tolerance,
             self.inputs.run_phonopy,
@@ -337,7 +343,8 @@ class BasePhonopyWorkChain(WorkChain):
         builder.symmetry_tolerance = self.inputs.symmetry_tolerance
         if "label" in self.inputs.metadata:
             builder.metadata.label = self.inputs.metadata.label
-        builder.metadata.options.update(self.inputs.phonon_settings["options"])
+        if "options" in self.inputs.phonopy.metadata:
+            builder.metadata.options.update(self.inputs.phonopy.metadata.options)
         builder.force_sets = self.ctx.force_sets
         if "nac_params" in self.ctx:
             builder.nac_params = self.ctx.nac_params

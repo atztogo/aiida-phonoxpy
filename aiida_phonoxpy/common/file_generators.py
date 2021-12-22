@@ -70,22 +70,3 @@ def get_phonopy_yaml_txt(
     phpy_yaml.set_phonon_info(ph)
 
     return str(phpy_yaml)
-
-
-def get_phonopy_options(postprocess_parameters):
-    """Return phonopy command options as strings."""
-    mesh_opts = []
-    if "mesh" in postprocess_parameters:
-        mesh = postprocess_parameters["mesh"]
-        try:
-            length = float(mesh)
-            mesh_opts.append("--mesh=%f" % length)
-        except TypeError:
-            mesh_opts.append('--mesh="%d %d %d"' % tuple(mesh))
-        mesh_opts.append("--nowritemesh")
-
-    fc_opts = []
-    if "fc_calculator" in postprocess_parameters:
-        if postprocess_parameters["fc_calculator"].lower().strip() == "alm":
-            fc_opts.append("--alm")
-    return mesh_opts, fc_opts

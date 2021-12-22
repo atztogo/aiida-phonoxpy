@@ -1,20 +1,12 @@
 """CalcJob to run phonopy at a remote host."""
 
-from aiida.plugins import DataFactory
+from aiida.orm import BandsData, ArrayData, XyData, Dict, Str
 from aiida_phonoxpy.calcs.base import BasePhonopyCalculation
 from aiida.common import InputValidationError
 from aiida_phonoxpy.common.file_generators import (
     get_FORCE_SETS_txt,
-    get_phonopy_options,
     get_phonopy_yaml_txt,
 )
-
-
-BandsData = DataFactory("array.bands")
-ArrayData = DataFactory("array")
-XyData = DataFactory("array.xy")
-Dict = DataFactory("dict")
-Str = DataFactory("str")
 
 
 class PhonopyCalculation(BasePhonopyCalculation):
@@ -72,9 +64,7 @@ class PhonopyCalculation(BasePhonopyCalculation):
 
         self._create_phonopy_yaml(folder)
         self._create_FORCE_SETS(folder)
-        mesh_opts, fc_opts = get_phonopy_options(
-            self.inputs.settings["postprocess_parameters"]
-        )
+        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
 
         if "displacements" in self.inputs:
             if "--alm" not in fc_opts:
@@ -144,3 +134,22 @@ class PhonopyCalculation(BasePhonopyCalculation):
 
         with folder.open(self._INPUT_FORCE_SETS, "w", encoding="utf8") as handle:
             handle.write(force_sets_txt)
+
+
+def _get_phonopy_options(settings: Dict):
+    """Return phonopy command options as strings."""
+    mesh_opts = []
+    if "mesh" in settings.keys():
+        mesh = settings["mesh"]
+        try:
+            length = float(mesh)
+            mesh_opts.append("--mesh=%f" % length)
+        except TypeError:
+            mesh_opts.append('--mesh="%d %d %d"' % tuple(mesh))
+        mesh_opts.append("--nowritemesh")
+
+    fc_opts = []
+    if "fc_calculator" in settings.keys():
+        if settings["fc_calculator"].lower().strip() == "alm":
+            fc_opts.append("--alm")
+    return mesh_opts, fc_opts
