@@ -26,8 +26,8 @@ class PhonopyCalculation(BasePhonopyCalculation):
         super().define(spec)
 
         # parser_name has to be set to invoke parsing.
-        spec.inputs["metadata"]["options"]["parser_name"].default = "phonoxpy.phonopy"
-        spec.inputs["metadata"]["options"]["output_filename"].default = "phonopy.yaml"
+        spec.input("metadata.options.parser_name", default="phonoxpy.phonopy")
+        spec.input("metadata.options.output_filename", default="phonopy.yaml")
 
         spec.output(
             "force_constants",

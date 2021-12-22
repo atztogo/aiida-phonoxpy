@@ -92,7 +92,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
         if "displacement_dataset" in self.inputs:
             kwargs["dataset"] = self.inputs.displacement_dataset
         return_vals = setup_phono3py_calculation(
-            self.inputs.phonon_settings,
+            self.inputs.settings,
             self.inputs.structure,
             self.inputs.symmetry_tolerance,
             **kwargs

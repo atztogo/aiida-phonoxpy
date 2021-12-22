@@ -253,13 +253,18 @@ def setup_phono3py_calculation(
             return_vals["displacements"] = disp_array
         else:
             return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
-    if phonon_displacement_dataset is None and phonon_displacements is None:
-        if "displacements" in ph.phonon_dataset:
-            disp_array = ArrayData()
-            disp_array.set_array("displacements", ph.phonon_dataset["displacements"])
-            return_vals["phonon_displacements"] = disp_array
-        else:
-            return_vals["phonon_displacement_dataset"] = Dict(dict=ph.phonon_dataset)
+    if ph.phonon_dataset is not None:
+        if phonon_displacement_dataset is None and phonon_displacements is None:
+            if "displacements" in ph.phonon_dataset:
+                disp_array = ArrayData()
+                disp_array.set_array(
+                    "displacements", ph.phonon_dataset["displacements"]
+                )
+                return_vals["phonon_displacements"] = disp_array
+            else:
+                return_vals["phonon_displacement_dataset"] = Dict(
+                    dict=ph.phonon_dataset
+                )
 
     return return_vals
 

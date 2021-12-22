@@ -1,10 +1,17 @@
 """BasePhonopyWorkChain."""
 
 from aiida.engine import WorkChain, if_
-from aiida.orm import Code
-from aiida.plugins import DataFactory
-
-from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
+from aiida.orm import (
+    Code,
+    Float,
+    Bool,
+    Str,
+    Dict,
+    ArrayData,
+    XyData,
+    StructureData,
+    BandsData,
+)
 from aiida_phonoxpy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
@@ -14,15 +21,7 @@ from aiida_phonoxpy.common.utils import (
 )
 from aiida_phonoxpy.workflows.forces import ForcesWorkChain
 from aiida_phonoxpy.workflows.nac_params import NacParamsWorkChain
-
-Float = DataFactory("float")
-Bool = DataFactory("bool")
-Str = DataFactory("str")
-Dict = DataFactory("dict")
-ArrayData = DataFactory("array")
-XyData = DataFactory("array.xy")
-StructureData = DataFactory("structure")
-BandsData = DataFactory("array.bands")
+from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
 
 
 class BasePhonopyWorkChain(WorkChain):
@@ -95,6 +94,9 @@ class BasePhonopyWorkChain(WorkChain):
         super().define(spec)
         spec.expose_inputs(
             PhonopyCalculation, namespace="phonopy", include=("metadata",)
+        )
+        spec.input(
+            "phonopy.metadata.options.resources", valid_type=dict, required=False
         )
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("settings", valid_type=Dict, required=True)
