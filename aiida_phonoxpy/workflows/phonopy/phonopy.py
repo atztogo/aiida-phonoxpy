@@ -43,8 +43,10 @@ class PhonopyImmigrantMixIn:
             builder = ForcesWorkChain.get_builder()
             builder.metadata.label = label
             builder.structure = supercell
-            calculator_settings = self.inputs.calculator_settings
-            builder.calculator_inputs = calculator_settings
+            if "force" in self.inputs.calculator_inputs:
+                builder.calculator_inputs = self.inputs.calculator_inputs.force
+            else:
+                builder.calculator_inputs = self.inputs.calculator_settings["forces"]
             builder.immigrant_calculation_folder = Str(force_folder)
             future = self.submit(builder)
             self.report("{} pk = {}".format(label, future.pk))
@@ -69,8 +71,10 @@ class PhonopyImmigrantMixIn:
         builder = NacParamsWorkChain.get_builder()
         builder.metadata.label = label
         builder.structure = self.ctx.primitive
-        calculator_settings = self.inputs.calculator_settings
-        builder.calculator_inputs = calculator_settings
+        if "nac" in self.inputs.calculator_inputs:
+            builder.calculator_inputs = self.inputs.calculator_inputs.nac
+        else:
+            builder.calculator_inputs = self.inputs.calculator_settings["nac"]
         builder.immigrant_calculation_folder = Str(nac_folder)
         future = self.submit(builder)
         self.report("{} pk = {}".format(label, future.pk))

@@ -9,8 +9,8 @@ from aiida.plugins import DataFactory, WorkflowFactory
 from aiida_phonoxpy.common.builders import (
     get_calculator_process,
     get_plugin_names,
-    get_vasp_immigrant_inputs,
     get_workchain_inputs,
+    get_import_workchain_inputs,
 )
 from aiida_phonoxpy.common.utils import (
     compare_structures,
@@ -205,12 +205,11 @@ class ForcesWorkChain(WorkChain):
     def read_calculation_from_folder(self):
         """Import supercell force calculation using immigrant."""
         self.report("import supercell force calculation data in files.")
-        force_folder = self.inputs.immigrant_calculation_folder
-        inputs = get_vasp_immigrant_inputs(
-            force_folder.value,
-            self.inputs.calculator_inputs.dict,
+        inputs = get_import_workchain_inputs(
+            self.inputs.calculator_inputs,
             label=self.metadata.label,
         )
+        inputs["folder_path"] = self.inputs.immigrant_calculation_folder
         VaspImmigrant = WorkflowFactory("vasp.immigrant")
         future = self.submit(VaspImmigrant, **inputs)
         self.report("{} pk = {}".format(self.metadata.label, future.pk))

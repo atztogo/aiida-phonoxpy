@@ -219,10 +219,10 @@ class BasePhonopyWorkChain(WorkChain):
             return self.exit_codes.ERROR_NO_SUPERCELL_MATRIX
 
         kwargs = {}
-        for val in ("displacement_dataset", "displacements"):
-            if val in self.inputs:
-                kwargs[val] = self.inputs[val]
-                self.ctx[val] = self.inputs[val]
+        for key in ("displacement_dataset", "displacements"):
+            if key in self.inputs:
+                kwargs[key] = self.inputs[key]
+                self.ctx[key] = self.inputs[key]
         return_vals = setup_phonopy_calculation(
             self.inputs.settings,
             self.inputs.structure,
@@ -382,11 +382,17 @@ class BasePhonopyWorkChain(WorkChain):
         """Create force constants for run_phonopy_locally."""
         self.report("create force constants")
 
+        kwargs = {
+            key: self.ctx[key]
+            for key in ("displacement_dataset", "displacements")
+            if key in self.ctx
+        }
         self.ctx.force_constants = get_force_constants(
             self.inputs.structure,
             self.ctx.phonon_setting_info,
             self.ctx.force_sets,
             self.inputs.symmetry_tolerance,
+            **kwargs,
         )
         self.out("force_constants", self.ctx.force_constants)
 

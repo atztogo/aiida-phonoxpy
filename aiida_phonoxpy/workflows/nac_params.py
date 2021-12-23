@@ -9,8 +9,8 @@ from phonopy.structure.symmetry import symmetrize_borns_and_epsilon
 from aiida_phonoxpy.common.builders import (
     get_calculator_process,
     get_plugin_names,
-    get_vasp_immigrant_inputs,
     get_workchain_inputs,
+    get_import_workchain_inputs,
 )
 from aiida_phonoxpy.common.utils import (
     get_structure_from_vasp_immigrant,
@@ -228,10 +228,8 @@ class NacParamsWorkChain(WorkChain):
             % (self.ctx.iteration, self.ctx.max_iteration)
         )
         label = "nac_params_%d" % self.ctx.iteration
-        force_folder = self.inputs.immigrant_calculation_folder
-        inputs = get_vasp_immigrant_inputs(
-            force_folder.value, self.inputs.calculator_inputs.dict, label=label
-        )
+        inputs = get_import_workchain_inputs(self.inputs.calculator_inputs, label=label)
+        inputs["folder_path"] = self.inputs.immigrant_calculation_folder
         VaspImmigrant = WorkflowFactory("vasp.immigrant")
         future = self.submit(VaspImmigrant, **inputs)
         self.report("nac_params: {}".format(future.pk))

@@ -285,20 +285,27 @@ def _get_phonopy_postprocess_info(phonon_settings: Dict) -> dict:
 @calcfunction
 def get_force_constants(
     structure: StructureData,
-    phonon_settings: Dict,
+    phonon_setting_info: Dict,
     force_sets: ArrayData,
     symmetry_tolerance: Float,
+    displacement_dataset: Optional[Dict] = None,
+    displacements: Optional[ArrayData] = None,
 ):
     """Calculate force constants."""
     phonon = _get_phonopy_instance(
-        structure, phonon_settings, symmetry_tolerance=symmetry_tolerance.value
+        structure, phonon_setting_info, symmetry_tolerance=symmetry_tolerance.value
     )
-    phonon.dataset = phonon_settings["displacement_dataset"]
+    if displacement_dataset is not None:
+        dataset = displacement_dataset.get_dict()
+    elif displacements is not None:
+        dataset = {"displacements": displacements.get_array("displacements")}
+    else:
+        raise RuntimeError("Displacement dataset not found.")
+    phonon.dataset = dataset
     phonon.forces = force_sets.get_array("force_sets")
 
-    if "fc_calculator" in phonon_settings["postprocess_parameters"]:
-        postprocess_parameters = phonon_settings["postprocess_parameters"]
-        if postprocess_parameters["fc_calculator"].lower().strip() == "alm":
+    if "fc_calculator" in phonon_setting_info.keys():
+        if phonon_setting_info["fc_calculator"].lower().strip() == "alm":
             phonon.produce_force_constants(fc_calculator="alm")
     else:
         phonon.produce_force_constants()
@@ -313,13 +320,13 @@ def get_force_constants(
 @calcfunction
 def get_phonon_properties(
     structure: StructureData,
-    phonon_settings: Dict,
+    phonon_setting_info: Dict,
     force_constants: ArrayData,
     symmetry_tolerance: Float,
-    nac_params: Optional[Dict] = None,
+    nac_params: Optional[ArrayData] = None,
 ):
     """Calculate phonon properties."""
-    phonon_settings_dict = phonon_settings.get_dict()
+    phonon_settings_dict = phonon_setting_info.get_dict()
     ph = _get_phonopy_instance(
         structure,
         phonon_settings_dict,
@@ -327,7 +334,7 @@ def get_phonon_properties(
         nac_params=nac_params,
     )
     ph.force_constants = force_constants.get_array("force_constants")
-    mesh = phonon_settings["postprocess_parameters"]["mesh"]
+    mesh = phonon_settings_dict.get("mesh", None)
 
     # Mesh
     total_dos, pdos, thermal_properties = get_mesh_property_data(ph, mesh)
@@ -534,8 +541,11 @@ def get_kpoints_data(kpoints_dict, structure):
 
 
 def _get_phonopy_instance(
-    structure, phonon_settings_dict, nac_params=None, symmetry_tolerance=1e-5
-):
+    structure: StructureData,
+    phonon_settings_dict: dict,
+    nac_params: Optional[ArrayData] = None,
+    symmetry_tolerance: float = 1e-5,
+) -> Phonopy:
     """Create Phonopy instance."""
     phpy = Phonopy(
         phonopy_atoms_from_structure(structure),
@@ -544,12 +554,15 @@ def _get_phonopy_instance(
         symprec=symmetry_tolerance,
     )
     if nac_params:
-        _set_nac_params(phpy, nac_params["nac_params"])
+        _set_nac_params(phpy, nac_params)
     return phpy
 
 
 def _get_phono3py_instance(
-    structure, phonon_settings_dict, nac_params=None, symmetry_tolerance=1e-5
+    structure: StructureData,
+    phonon_settings_dict: dict,
+    nac_params: Optional[ArrayData] = None,
+    symmetry_tolerance: float = 1e-5,
 ):
     """Create Phono3py instance."""
     from phono3py import Phono3py
@@ -570,7 +583,7 @@ def _get_phono3py_instance(
     return ph3py
 
 
-def _set_nac_params(phpy: Phonopy, nac_params) -> None:
+def _set_nac_params(phpy: Phonopy, nac_params: ArrayData) -> None:
     units = get_default_physical_units("vasp")
     factor = units["nac_factor"]
     nac_params = {
