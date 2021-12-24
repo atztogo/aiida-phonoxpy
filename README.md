@@ -1,7 +1,6 @@
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/aiida-phonopy/aiida-phonopy/develop.svg)](https://results.pre-commit.ci/latest/github/aiida-phonopy/aiida-phonopy/develop)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/atztogo/aiida-phonoxpy/develop.svg)](https://results.pre-commit.ci/latest/github/aiida-phonopy/aiida-phonopy/develop)
 
-# AiiDA Phonopy plugin
+# AiiDA yet another phonopy plugin
 
-This a phonopy plugin for AiiDA. This plugin includes workflows to calculate
-phonons with supercell and finite displacement approaches. Currently VASP and QE
-are supported.
+This is not an official aiida-phonopy plugin, but yet another plugin for
+automating phonopy and phono3py calculation. VASP and QE are supported.
