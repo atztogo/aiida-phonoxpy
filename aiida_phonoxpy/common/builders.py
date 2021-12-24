@@ -1,6 +1,4 @@
 """Utilities related to process builder or inputs dist."""
-import copy
-
 from aiida.orm import (
     Bool,
     Code,
@@ -33,6 +31,14 @@ def get_workchain_inputs(calculator_inputs, structure, label=None, ctx=None):
         raise RuntimeError("Code could not be found.")
 
 
+def get_import_workchain_inputs(calculator_inputs, label=None, ctx=None):
+    """Return builder inputs of an import calculation."""
+    code = _get_code(calculator_inputs)
+    plugin_name = code.get_input_plugin_name()
+    if plugin_name == "vasp.vasp":
+        return _get_vasp_import_workchain_inputs(calculator_inputs, code, label)
+
+
 def _get_code(calculator_inputs: dict):
     code = None
     if "code" in calculator_inputs:
@@ -49,42 +55,48 @@ def _get_code(calculator_inputs: dict):
 
 
 def _get_vasp_vasp_workchain_inputs(calculator_inputs, structure, code, label):
-    kpoints = _get_kpoints_data(calculator_inputs, structure)
+    inputs = _get_vasp_import_workchain_inputs(calculator_inputs, code, label)
+    inputs.update(
+        {
+            "parameters": _get_parameters_Dict(calculator_inputs),
+            "kpoints": _get_kpoints_data(calculator_inputs, structure),
+            "structure": structure,
+        }
+    )
+    return inputs
+
+
+def _get_vasp_import_workchain_inputs(calculator_inputs, code, label):
+    inputs = {
+        "settings": _get_vasp_settings(calculator_inputs),
+        "clean_workdir": Bool(False),
+        "code": code,
+    }
+
     if isinstance(calculator_inputs["options"], dict):
-        options = Dict(dict=calculator_inputs["options"])
+        inputs["options"] = Dict(dict=calculator_inputs["options"])
     elif isinstance(calculator_inputs["options"], Dict):
-        options = calculator_inputs["options"]
+        inputs["options"] = calculator_inputs["options"]
     else:
         raise TypeError("options has to have dict or Dict type.")
 
     if isinstance(calculator_inputs["potential_family"], str):
-        potential_family = Str(calculator_inputs["potential_family"])
+        inputs["potential_family"] = Str(calculator_inputs["potential_family"])
     elif isinstance(calculator_inputs["potential_family"], Str):
-        potential_family = calculator_inputs["potential_family"]
+        inputs["potential_family"] = calculator_inputs["potential_family"]
     else:
         raise TypeError("potential_family has to have str or Str type.")
 
     if isinstance(calculator_inputs["potential_mapping"], dict):
-        potential_mapping = Dict(dict=calculator_inputs["potential_mapping"])
+        inputs["potential_mapping"] = Dict(dict=calculator_inputs["potential_mapping"])
     elif isinstance(calculator_inputs["potential_mapping"], Dict):
-        potential_mapping = calculator_inputs["potential_mapping"]
+        inputs["potential_mapping"] = calculator_inputs["potential_mapping"]
     else:
         raise TypeError("potential_mapping has to have dict or Dict type.")
 
-    workchain_inputs = {
-        "options": options,
-        "parameters": _get_parameters_Dict(calculator_inputs),
-        "settings": _get_vasp_settings(calculator_inputs),
-        "kpoints": kpoints,
-        "clean_workdir": Bool(False),
-        "structure": structure,
-        "code": code,
-        "potential_family": potential_family,
-        "potential_mapping": potential_mapping,
-    }
     if label:
-        workchain_inputs["metadata"] = {"label": label}
-    return workchain_inputs
+        inputs["metadata"] = {"label": label}
+    return inputs
 
 
 def _get_qe_pw_inputs(
@@ -245,51 +257,3 @@ def get_plugin_names(calculator_inputs: dict) -> list:
         plugin_names.append(code.get_input_plugin_name())
 
     return plugin_names
-
-
-def get_vasp_immigrant_inputs(folder_path, calculator_settings, label=None):
-    """Return VASP immigrant inputs.
-
-    folder_path : str
-        VASP directory path.
-    calculator_settings : dict
-        aiida-phonopy calculator settings for forces or nac params.
-
-    """
-    code = Code.get_from_string(calculator_settings["code_string"])
-
-    if code.get_input_plugin_name() == "vasp.vasp":
-        inputs = {}
-        inputs["code"] = code
-        inputs["folder_path"] = Str(folder_path)
-        if "settings" in calculator_settings:
-            settings = copy.deepcopy(calculator_settings["settings"])
-        else:
-            settings = {}
-        if "parser_settings" in calculator_settings:
-            if "parser_settings" in settings:
-                settings["parser_settings"].update(
-                    calculator_settings["parser_settings"]
-                )
-            else:
-                settings["parser_settings"] = calculator_settings["parser_settings"]
-        if settings:
-            inputs["settings"] = Dict(dict=settings)
-        if "options" in calculator_settings:
-            inputs["options"] = Dict(dict=calculator_settings["options"])
-        if "metadata" in calculator_settings:
-            inputs["metadata"] = calculator_settings["metadata"]
-            if label:
-                inputs["metadata"]["label"] = label
-        elif label:
-            inputs["metadata"] = {"label": label}
-        if "potential_family" in calculator_settings:
-            inputs["potential_family"] = Str(calculator_settings["potential_family"])
-        if "potential_mapping" in calculator_settings:
-            inputs["potential_mapping"] = Dict(
-                dict=calculator_settings["potential_mapping"]
-            )
-    else:
-        raise RuntimeError("Code could not be found.")
-
-    return inputs
