@@ -16,9 +16,9 @@ class PhonopyImmigrantMixIn:
 
     def import_calculations_from_files(self):
         """Return boolen for outline."""
-        return "immigrant_calculation_folders" in self.inputs
+        return "force" in self.inputs.remote_workdirs
 
-    def read_force_calculations_from_files(self):
+    def import_force_calculations_from_files(self):
         """Import supercell force calculations.
 
         Importing backend works only for VASP.
@@ -28,7 +28,7 @@ class PhonopyImmigrantMixIn:
         num_batch = 50
         self.report("%d calculations per batch." % num_batch)
 
-        calc_folders_Dict = self.inputs.immigrant_calculation_folders
+        calc_folders = self.inputs.remote_workdirs.force
         local_count = 0
         for key, supercell in self.ctx.supercells.items():
             if key in self.ctx.supercell_keys_done:
@@ -39,15 +39,19 @@ class PhonopyImmigrantMixIn:
             number = int(key.split("_")[-1])
             if not self.inputs.subtract_residual_forces:
                 number -= 1
-            force_folder = calc_folders_Dict["forces"][number]
             builder = ForcesWorkChain.get_builder()
             builder.metadata.label = label
             builder.structure = supercell
+            calculator_inputs = {"remote_workdir": calc_folders[number]}
             if "force" in self.inputs.calculator_inputs:
-                builder.calculator_inputs = self.inputs.calculator_inputs.force
+                calculator_inputs.update(self.inputs.calculator_inputs.force)
             else:
-                builder.calculator_inputs = self.inputs.calculator_settings["forces"]
-            builder.immigrant_calculation_folder = Str(force_folder)
+                calculator_inputs.update(self.inputs.calculator_settings["forces"])
+                self.logger.warning(
+                    "Use calculator_inputs.force instead of "
+                    "calculator_settings['forces']."
+                )
+            builder.calculator_inputs = calculator_inputs
             future = self.submit(builder)
             self.report("{} pk = {}".format(label, future.pk))
             self.to_context(**{label: future})
@@ -58,7 +62,7 @@ class PhonopyImmigrantMixIn:
             if local_count == num_batch:
                 break
 
-    def read_nac_calculations_from_files(self):
+    def import_nac_calculations_from_files(self):
         """Import NAC params calculation.
 
         Importing backend works only for VASP.
@@ -66,16 +70,19 @@ class PhonopyImmigrantMixIn:
         """
         self.report("import NAC calculation data in files")
         label = "nac_params_calc"
-        calc_folders_Dict = self.inputs.immigrant_calculation_folders
-        nac_folder = calc_folders_Dict["nac"][0]
         builder = NacParamsWorkChain.get_builder()
         builder.metadata.label = label
         builder.structure = self.ctx.primitive
+        calculator_inputs = {"remote_workdir": self.inputs.remote_workdirs.nac[0]}
         if "nac" in self.inputs.calculator_inputs:
-            builder.calculator_inputs = self.inputs.calculator_inputs.nac
+            calculator_inputs.update(self.inputs.calculator_inputs.nac)
         else:
-            builder.calculator_inputs = self.inputs.calculator_settings["nac"]
-        builder.immigrant_calculation_folder = Str(nac_folder)
+            calculator_inputs.update(self.inputs.calculator_settings["nac"])
+            self.logger.warning(
+                "Use calculator_inputs.force instead of "
+                "calculator_settings['forces']."
+            )
+        builder.calculator_inputs = calculator_inputs
         future = self.submit(builder)
         self.report("{} pk = {}".format(label, future.pk))
         self.to_context(**{label: future})
@@ -110,17 +117,16 @@ class PhonopyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
         """Define inputs, outputs, and outline."""
         super().define(spec)
         spec.input("calculator_settings", valid_type=Dict, required=False)
-        spec.input("immigrant_calculation_folders", valid_type=Dict, required=False)
 
         spec.outline(
             cls.initialize,
             if_(cls.import_calculations_from_files)(
                 cls.initialize_immigrant,
                 while_(cls.continue_import)(
-                    cls.read_force_calculations_from_files,
+                    cls.import_force_calculations_from_files,
                 ),
                 if_(cls.is_nac)(
-                    cls.read_nac_calculations_from_files,
+                    cls.import_nac_calculations_from_files,
                 ),
             ).else_(
                 cls.run_force_and_nac_calculations,
@@ -158,10 +164,14 @@ class PhonopyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
     def initialize_immigrant(self):
         """Initialize immigrant numbers."""
         self.ctx.num_imported = 0
-        self.ctx.num_supercell_forces = len(
-            self.inputs.immigrant_calculation_folders["forces"]
-        )
+        self.ctx.num_supercell_forces = len(self.inputs.remote_workdirs.force)
         self.ctx.supercell_keys_done = []
 
         if len(self.ctx.supercells) != self.ctx.num_supercell_forces:
             return self.exit_codes.ERROR_INCONSISTENT_IMMIGRANT_FOLDERS
+
+    def is_nac(self):
+        """Return boolean for outline."""
+        if "nac" in self.inputs.remote_workdirs:
+            return True
+        return super().is_nac()

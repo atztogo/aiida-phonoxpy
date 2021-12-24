@@ -14,6 +14,7 @@ from aiida_phonoxpy.common.builders import (
 )
 from aiida_phonoxpy.common.utils import (
     get_structure_from_vasp_immigrant,
+    compare_structures,
     phonopy_atoms_from_structure,
 )
 
@@ -124,14 +125,14 @@ class NacParamsWorkChain(WorkChain):
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("calculator_inputs", valid_type=dict, required=True, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input("immigrant_calculation_folder", valid_type=Str, required=False)
         spec.input("queue_name", valid_type=Str, required=False)
 
         spec.outline(
             cls.initialize,
             while_(cls.continue_calculation)(
-                if_(cls.import_calculation_from_files)(
-                    cls.read_calculation_from_folder,
+                if_(cls.import_calculation)(
+                    cls.import_calculation_from_workdir,
+                    cls.validate_imported_structure,
                 ).else_(
                     if_(cls.use_queue)(cls.submit_to_queue),
                     cls.run_calculation,
@@ -148,10 +149,19 @@ class NacParamsWorkChain(WorkChain):
             message=("NAC params could not be retrieved from calculaton."),
         )
         spec.exit_code(
+            1003,
+            "ERROR_STRUCTURE_VALIDATION",
+            message="input and imported structures are different.",
+        )
+        spec.exit_code(
             1004,
             "ERROR_WAITING_TIMEOUT",
             message="time out in queue waiting.",
         )
+
+    def import_calculation(self):
+        """Return boolen for outline."""
+        return "remote_workdir" in self.inputs.calculator_inputs
 
     def continue_calculation(self):
         """Return boolen for outline."""
@@ -221,19 +231,37 @@ class NacParamsWorkChain(WorkChain):
         self.report("nac_params: {}".format(future.pk))
         self.to_context(nac_params_calcs=append_(future))
 
-    def read_calculation_from_folder(self):
-        """Import supercell force calculation using immigrant."""
+    def import_calculation_from_workdir(self):
+        """Import NAC parameter calculation.
+
+        Only VaspImmigrantWorkChain is supported.
+
+        """
         self.report(
             "import calculation data in files %d/%d"
             % (self.ctx.iteration, self.ctx.max_iteration)
         )
         label = "nac_params_%d" % self.ctx.iteration
         inputs = get_import_workchain_inputs(self.inputs.calculator_inputs, label=label)
-        inputs["folder_path"] = self.inputs.immigrant_calculation_folder
+        inputs["remote_workdir"] = self.inputs.calculator_inputs["remote_workdir"]
         VaspImmigrant = WorkflowFactory("vasp.immigrant")
         future = self.submit(VaspImmigrant, **inputs)
         self.report("nac_params: {}".format(future.pk))
         self.to_context(nac_params_calcs=append_(future))
+
+    def validate_imported_structure(self):
+        """Validate imported structure.
+
+        Only VaspImmigrantWorkChain is supported.
+
+        """
+        self.report("validate imported structures")
+        supercell_ref = self.inputs.structure
+        supercell_calc = get_structure_from_vasp_immigrant(self.ctx.nac_params_calcs[0])
+        if not compare_structures(
+            supercell_ref, supercell_calc, self.inputs.symmetry_tolerance.value
+        ):
+            return self.exit_codes.ERROR_STRUCTURE_VALIDATION
 
     def finalize(self):
         """Finalize NAC params calculation."""

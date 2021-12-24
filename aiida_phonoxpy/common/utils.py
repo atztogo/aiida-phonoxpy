@@ -350,33 +350,41 @@ def get_phonon_properties(
     }
 
 
-def compare_structures(cell_ref, cell_calc, symmetry_tolerance):
-    """Compare two PhonopyAtoms instances."""
-    symprec = symmetry_tolerance.value
-    cell_diff = np.subtract(cell_ref.cell, cell_calc.cell)
+def compare_structures(structure_a, structure_b, symprec=1e-5):
+    """Compare two structures."""
+    cell_a = structure_a.cell
+    cell_b = structure_b.cell
+    cell_diff = np.subtract(cell_a, cell_b)
     if (np.abs(cell_diff) > symprec).any():
-        succeeded = Bool(False)
-        succeeded.label = "False"
-        return succeeded
+        return False
 
-    positions_ref = [site.position for site in cell_ref.sites]
-    positions_calc = [site.position for site in cell_calc.sites]
-    diff = np.subtract(positions_ref, positions_calc)
+    for site_a, site_b in zip(structure_a.sites, structure_b.sites):
+        if site_a.kind_name != site_b.kind_name:
+            return False
+
+    positions_a = [site.position for site in structure_a.sites]
+    frac_positions_a = np.dot(positions_a, np.linalg.inv(cell_a))
+    positions_b = [site.position for site in structure_b.sites]
+    frac_positions_b = np.dot(positions_b, np.linalg.inv(cell_b))
+    diff = frac_positions_a - frac_positions_b
     diff -= np.rint(diff)
-    dist = np.sqrt(np.sum(np.dot(diff, cell_ref.cell) ** 2, axis=1))
+    dist = np.sqrt(np.sum(np.dot(diff, structure_a.cell) ** 2, axis=1))
     if (dist > symprec).any():
-        succeeded = Bool(False)
-        succeeded.label = "False"
-        return succeeded
+        return False
 
-    succeeded = Bool(True)
-    succeeded.label = "True"
-    return succeeded
+    return True
 
 
-def get_structure_from_vasp_immigrant(calc_node):
-    """Get structure from VASP immigrant workchain."""
-    for lt in calc_node.get_outgoing():
+def get_structure_from_vasp_immigrant(wc_node):
+    """Get structure from VASP immigrant workchain.
+
+    VaspImmigrantWorkChain doesn't have inputs.structure but
+    VaspCalculation does. VaspImmigrantWorkChain is a sub-class of
+    RestartWorkChain, so VaspCalculation has a link_label of
+    "iteration_{num}". Here, no failure of VaspCalculation is assumed.
+
+    """
+    for lt in wc_node.get_outgoing():
         if "iteration_" in lt.link_label:
             structure = lt.node.inputs.structure
             return structure

@@ -117,17 +117,22 @@ class ForcesWorkChain(WorkChain):
 
     @classmethod
     def define(cls, spec):
-        """Define inputs, outputs, and outline."""
+        """Define inputs, outputs, and outline.
+
+        remote_workdir : str
+            This is used to import VASP calculation from VASP output files. The data
+            are imported from remote_workdir of computer.
+
+        """
         super().define(spec)
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("calculator_inputs", valid_type=dict, required=True, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input("immigrant_calculation_folder", valid_type=Str, required=False)
         spec.input("queue_name", valid_type=Str, required=False)
         spec.outline(
             cls.initialize,
-            if_(cls.import_calculation_from_files)(
-                cls.read_calculation_from_folder,
+            if_(cls.import_calculation)(
+                cls.import_calculation_from_workdir,
                 cls.validate_imported_structure,
             ).else_(
                 if_(cls.use_queue)(cls.submit_to_queue),
@@ -160,9 +165,9 @@ class ForcesWorkChain(WorkChain):
             message="time out in queue waiting.",
         )
 
-    def import_calculation_from_files(self):
+    def import_calculation(self):
         """Return boolen for outline."""
-        return "immigrant_calculation_folder" in self.inputs
+        return "remote_workdir" in self.inputs.calculator_inputs
 
     def use_queue(self):
         """Use queue to wait for submitting calculation."""
@@ -202,26 +207,34 @@ class ForcesWorkChain(WorkChain):
         self.report("{} pk = {}".format(self.metadata.label, future.pk))
         self.to_context(**{"calc": future})
 
-    def read_calculation_from_folder(self):
-        """Import supercell force calculation using immigrant."""
+    def import_calculation_from_workdir(self):
+        """Import supercell force calculation.
+
+        Only VaspImmigrantWorkChain is supported.
+
+        """
         self.report("import supercell force calculation data in files.")
         inputs = get_import_workchain_inputs(
             self.inputs.calculator_inputs,
             label=self.metadata.label,
         )
-        inputs["folder_path"] = self.inputs.immigrant_calculation_folder
+        inputs["remote_workdir"] = self.inputs.calculator_inputs["remote_workdir"]
         VaspImmigrant = WorkflowFactory("vasp.immigrant")
         future = self.submit(VaspImmigrant, **inputs)
         self.report("{} pk = {}".format(self.metadata.label, future.pk))
         self.to_context(**{"calc": future})
 
     def validate_imported_structure(self):
-        """Validate imported supercell structure."""
+        """Validate imported supercell structure.
+
+        Only VaspImmigrantWorkChain is supported.
+
+        """
         self.report("validate imported supercell structures")
         supercell_ref = self.inputs.structure
         supercell_calc = get_structure_from_vasp_immigrant(self.ctx.calc)
         if not compare_structures(
-            supercell_ref, supercell_calc, self.inputs.symmetry_tolerance
+            supercell_ref, supercell_calc, self.inputs.symmetry_tolerance.value
         ):
             return self.exit_codes.ERROR_STRUCTURE_VALIDATION
 
