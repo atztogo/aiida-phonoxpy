@@ -1,30 +1,31 @@
 """BasePhonopyWorkChain."""
 
-from abc import ABCMeta, abstractmethod
-
 from aiida.engine import WorkChain, if_
-from aiida.orm import Code
-from aiida.plugins import DataFactory
+from aiida.orm import (
+    ArrayData,
+    BandsData,
+    Bool,
+    Code,
+    Dict,
+    Float,
+    Str,
+    StructureData,
+    XyData,
+)
 
-from aiida_phonopy.common.utils import (
+from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
+from aiida_phonoxpy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
     get_force_sets,
     get_phonon_properties,
     setup_phonopy_calculation,
 )
-
-Float = DataFactory("float")
-Bool = DataFactory("bool")
-Str = DataFactory("str")
-Dict = DataFactory("dict")
-ArrayData = DataFactory("array")
-XyData = DataFactory("array.xy")
-StructureData = DataFactory("structure")
-BandsData = DataFactory("array.bands")
+from aiida_phonoxpy.workflows.forces import ForcesWorkChain
+from aiida_phonoxpy.workflows.nac_params import NacParamsWorkChain
 
 
-class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
+class BasePhonopyWorkChain(WorkChain):
     """BasePhonopyWorkchain.
 
     inputs
@@ -51,6 +52,17 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         options : dict
             AiiDA calculation options for phonon calculation used when both of
             run_phonopy and remote_phonopy are True.
+    displacement_dataset : Dict, optional
+        Phonopy's type-1 displacement dataset. When force_sets is also given,
+        this is used to compute force constants.
+    displacements : ArrayData, optional
+        Displacements of all atoms in supercells corresponding to force_sets.
+        When force_sets is also given, this is used to compute force constants
+        using ALM. Therefore, ALM has to be installed.
+    force_sets : ArrayData, optional
+        Supercell forces. When this is supplied, force calculation is skipped.
+    nac_params : ArrayData, optional
+        NAC parameters. When this is supplied, NAC calculation is skipped.
     calculator_inputs.force : dict, optional
         This is used for supercell force calculation.
     calculator_inputs.nac : dict, optional
@@ -76,8 +88,14 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
+        spec.expose_inputs(
+            PhonopyCalculation, namespace="phonopy", include=("metadata",)
+        )
+        spec.input(
+            "phonopy.metadata.options.resources", valid_type=dict, required=False
+        )
         spec.input("structure", valid_type=StructureData, required=True)
-        spec.input("phonon_settings", valid_type=Dict, required=True)
+        spec.input("settings", valid_type=Dict, required=True)
         spec.input_namespace(
             "calculator_inputs", help="Inputs passed to force and NAC calculators."
         )
@@ -87,31 +105,44 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         spec.input(
             "calculator_inputs.nac", valid_type=dict, required=False, non_db=True
         )
+        spec.input_namespace(
+            "remote_workdirs",
+            help="Directory names to import force and NAC calculations.",
+        )
+        spec.input(
+            "remote_workdirs.force", valid_type=list, required=False, non_db=True
+        )
+        spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input("dry_run", valid_type=Bool, default=lambda: Bool(False))
         spec.input(
             "subtract_residual_forces", valid_type=Bool, default=lambda: Bool(False)
         )
         spec.input("run_phonopy", valid_type=Bool, default=lambda: Bool(False))
         spec.input("remote_phonopy", valid_type=Bool, default=lambda: Bool(False))
         spec.input("displacement_dataset", valid_type=Dict, required=False)
+        spec.input("displacements", valid_type=ArrayData, required=False)
+        spec.input("force_sets", valid_type=ArrayData, required=False)
+        spec.input("nac_params", valid_type=ArrayData, required=False)
         spec.input("code_string", valid_type=Str, required=False)
         spec.input("code", valid_type=Code, required=False)
+        spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
 
         spec.outline(
             cls.initialize,
             cls.run_force_and_nac_calculations,
-            if_(cls.dry_run)(cls.postprocess_of_dry_run,).else_(
+            if_(cls.force_sets_exists)(cls.do_pass).else_(
                 cls.create_force_sets,
+            ),
+            if_(cls.nac_params_exists)(cls.do_pass).else_(
                 if_(cls.is_nac)(cls.attach_nac_params),
-                if_(cls.run_phonopy)(
-                    if_(cls.remote_phonopy)(
-                        cls.run_phonopy_remote,
-                        cls.collect_data,
-                    ).else_(
-                        cls.create_force_constants,
-                        cls.run_phonopy_locally,
-                    ),
+            ),
+            if_(cls.run_phonopy)(
+                if_(cls.remote_phonopy)(
+                    cls.run_phonopy_remote,
+                    cls.collect_remote_data,
+                ).else_(
+                    cls.create_force_constants,
+                    cls.run_phonopy_locally,
                 ),
             ),
             cls.finalize,
@@ -119,6 +150,8 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         spec.output("force_constants", valid_type=ArrayData, required=False)
         spec.output("primitive", valid_type=StructureData, required=False)
         spec.output("supercell", valid_type=StructureData, required=False)
+        spec.output("displacements", valid_type=ArrayData, required=False)
+        spec.output("displacement_dataset", valid_type=Dict, required=False)
         spec.output("force_sets", valid_type=ArrayData, required=False)
         spec.output("supercell_forces", valid_type=ArrayData, required=False)
         spec.output("supercell_energy", valid_type=Float, required=False)
@@ -127,7 +160,7 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         spec.output("band_structure", valid_type=BandsData, required=False)
         spec.output("dos", valid_type=XyData, required=False)
         spec.output("pdos", valid_type=XyData, required=False)
-        spec.output("phonon_setting_info", valid_type=Dict)
+        spec.output("phonon_setting_info", valid_type=Dict, required=False)
         spec.exit_code(
             1001,
             "ERROR_NO_PHONOPY_CODE",
@@ -140,35 +173,35 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
             "ERROR_NO_SUPERCELL_MATRIX",
             message=("supercell_matrix was not found."),
         )
-        spec.exit_code(
-            1003,
-            "ERROR_INCONSISTENT_IMMIGRANT_FORCES_FOLDERS",
-            message=(
-                "Number of supercell folders is different from number "
-                "of expected supercells."
-            ),
-        )
 
-    def dry_run(self):
-        """Return boolen for outline."""
-        return self.inputs.dry_run
+    def do_pass(self):
+        """Do nothing."""
+        return
 
     def remote_phonopy(self):
-        """Return boolen for outline."""
+        """Return boolean for outline."""
         return self.inputs.remote_phonopy
 
     def run_phonopy(self):
-        """Return boolen for outline."""
+        """Return boolean for outline."""
         return self.inputs.run_phonopy
 
     def is_nac(self):
-        """Return boolen for outline."""
+        """Return boolean for outline."""
         if "nac" in self.inputs.calculator_inputs:
             return True
-        if "is_nac" in self.inputs.phonon_settings.keys():
-            self.logger.warning("Use inputs.phonon_settings['is_nac'] is deprecated.")
-            return self.inputs.phonon_settings["is_nac"]
+        if "is_nac" in self.inputs.settings.keys():
+            self.logger.warning("Use inputs.settings['is_nac'] is deprecated.")
+            return self.inputs.settings["is_nac"]
         return False
+
+    def force_sets_exists(self):
+        """Return boolean for outline."""
+        return "force_sets" in self.inputs
+
+    def nac_params_exists(self):
+        """Return boolean for outline."""
+        return "nac_params" in self.inputs
 
     def initialize(self):
         """Set default settings and create supercells and primitive cell.
@@ -186,23 +219,32 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
             if "code" not in self.inputs and "code_string" not in self.inputs:
                 return self.exit_codes.ERROR_NO_PHONOPY_CODE
 
-        if "supercell_matrix" not in self.inputs.phonon_settings.keys():
+        if "supercell_matrix" not in self.inputs.settings.keys():
             return self.exit_codes.ERROR_NO_SUPERCELL_MATRIX
 
         kwargs = {}
-        if "displacement_dataset" in self.inputs:
-            kwargs["dataset"] = self.inputs.displacement_dataset
+        for key in ("displacement_dataset", "displacements"):
+            if key in self.inputs:
+                kwargs[key] = self.inputs[key]
+                self.ctx[key] = self.inputs[key]
         return_vals = setup_phonopy_calculation(
-            self.inputs.phonon_settings,
+            self.inputs.settings,
             self.inputs.structure,
             self.inputs.symmetry_tolerance,
             self.inputs.run_phonopy,
-            **kwargs
+            **kwargs,
         )
 
-        for key in ("phonon_setting_info", "primitive", "supercell"):
-            self.ctx[key] = return_vals[key]
-            self.out(key, self.ctx[key])
+        for key in (
+            "phonon_setting_info",
+            "primitive",
+            "supercell",
+            "displacements",
+            "displacement_dataset",
+        ):
+            if key in return_vals:
+                self.ctx[key] = return_vals[key]
+                self.out(key, self.ctx[key])
         self.ctx.supercells = {}
         if self.inputs.subtract_residual_forces:
             digits = len(str(len(self.ctx.supercells)))
@@ -219,23 +261,63 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         are submitted in this method to make them run in parallel.
 
         """
-        self._run_force_calculations()
-        if self.is_nac():
+        if "force_sets" in self.inputs:
+            self.report("skip force calculation.")
+            self.ctx.force_sets = self.inputs.force_sets
+        else:
+            self._run_force_calculations(self.ctx.supercells)
+        if "nac_params" in self.inputs:
+            self.report("skip nac params calculation.")
+            self.ctx.nac_params = self.inputs.nac_params
+        elif self.is_nac():
             self._run_nac_params_calculation()
 
-    @abstractmethod
-    def _run_force_calculations(self):
+    def _run_force_calculations(self, supercells, label_prefix="force_calc"):
         """Run supercell force calculations."""
-        pass
+        self.report("run force calculations")
 
-    @abstractmethod
+        for key, supercell in supercells.items():
+            num = key.split("_")[-1]
+            label = f"{label_prefix}_{num}"
+            builder = ForcesWorkChain.get_builder()
+            builder.metadata.label = label
+            builder.structure = supercell
+            if "force" in self.inputs.calculator_inputs:
+                calculator_inputs = self.inputs.calculator_inputs.force
+            else:
+                calculator_inputs = self.inputs.calculator_settings["forces"]
+                self.logger.warning(
+                    "Use calculator_inputs.force instead of "
+                    "calculator_settings['forces']."
+                )
+            builder.calculator_inputs = calculator_inputs
+            if "donothing_inputs" in self.inputs:
+                builder.donothing_inputs = self.inputs.donothing_inputs
+            future = self.submit(builder)
+            self.report("{} pk = {}".format(label, future.pk))
+            self.to_context(**{label: future})
+
     def _run_nac_params_calculation(self):
         """Run nac params calculation."""
-        pass
+        self.report("run nac params calculation")
 
-    def postprocess_of_dry_run(self):
-        """Show message."""
-        self.report("Finish here because of dry-run setting")
+        builder = NacParamsWorkChain.get_builder()
+        builder.metadata.label = "nac_params"
+        builder.structure = self.ctx.primitive
+        if "nac" in self.inputs.calculator_inputs:
+            calculator_inputs = self.inputs.calculator_inputs.nac
+        else:
+            calculator_inputs = self.inputs.calculator_settings["nac"]
+            self.logger.warning(
+                "Use calculator_inputs.nac instead of calculator_settings['nac']."
+            )
+
+        builder.calculator_inputs = calculator_inputs
+        if "donothing_inputs" in self.inputs:
+            builder.donothing_inputs = self.inputs.donothing_inputs
+        future = self.submit(builder)
+        self.report("nac_params: {}".format(future.pk))
+        self.to_context(**{"nac_params_calc": future})
 
     def create_force_sets(self):
         """Build datasets from forces of supercells with displacments."""
@@ -267,18 +349,23 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         builder.symmetry_tolerance = self.inputs.symmetry_tolerance
         if "label" in self.inputs.metadata:
             builder.metadata.label = self.inputs.metadata.label
-        builder.metadata.options.update(self.inputs.phonon_settings["options"])
+        if "options" in self.inputs.phonopy.metadata:
+            builder.metadata.options.update(self.inputs.phonopy.metadata.options)
         builder.force_sets = self.ctx.force_sets
         if "nac_params" in self.ctx:
             builder.nac_params = self.ctx.nac_params
             builder.primitive = self.ctx.primitive
+        if "displacements" in self.ctx:
+            builder.displacements = self.ctx.displacements
+        if "displacement_dataset" in self.ctx:
+            builder.displacement_dataset = self.ctx.displacement_dataset
         future = self.submit(builder)
 
         self.report("phonopy calculation: {}".format(future.pk))
         self.to_context(**{"phonon_properties": future})
         # return ToContext(phonon_properties=future)
 
-    def collect_data(self):
+    def collect_remote_data(self):
         """Collect phonon data from remove phonopy calculation."""
         self.report("collect data")
         ph_props = (
@@ -299,11 +386,17 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
         """Create force constants for run_phonopy_locally."""
         self.report("create force constants")
 
+        kwargs = {
+            key: self.ctx[key]
+            for key in ("displacement_dataset", "displacements")
+            if key in self.ctx
+        }
         self.ctx.force_constants = get_force_constants(
             self.inputs.structure,
             self.ctx.phonon_setting_info,
             self.ctx.force_sets,
             self.inputs.symmetry_tolerance,
+            **kwargs,
         )
         self.out("force_constants", self.ctx.force_constants)
 
@@ -319,7 +412,7 @@ class BasePhonopyWorkChain(WorkChain, metaclass=ABCMeta):
             self.ctx.phonon_setting_info,
             self.ctx.force_constants,
             self.inputs.symmetry_tolerance,
-            **params
+            **params,
         )
         self.out("thermal_properties", result["thermal_properties"])
         self.out("dos", result["dos"])

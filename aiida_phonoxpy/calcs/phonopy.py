@@ -1,20 +1,12 @@
 """CalcJob to run phonopy at a remote host."""
 
-from aiida.plugins import DataFactory
-from aiida_phonopy.calcs.base import BasePhonopyCalculation
+from aiida.orm import BandsData, ArrayData, XyData, Dict, Str
+from aiida_phonoxpy.calcs.base import BasePhonopyCalculation
 from aiida.common import InputValidationError
-from aiida_phonopy.common.file_generators import (
+from aiida_phonoxpy.common.file_generators import (
     get_FORCE_SETS_txt,
-    get_phonopy_options,
     get_phonopy_yaml_txt,
 )
-
-
-BandsData = DataFactory("array.bands")
-ArrayData = DataFactory("array")
-XyData = DataFactory("array.xy")
-Dict = DataFactory("dict")
-Str = DataFactory("str")
 
 
 class PhonopyCalculation(BasePhonopyCalculation):
@@ -34,8 +26,8 @@ class PhonopyCalculation(BasePhonopyCalculation):
         super().define(spec)
 
         # parser_name has to be set to invoke parsing.
-        spec.inputs["metadata"]["options"]["parser_name"].default = "phonopy"
-        spec.inputs["metadata"]["options"]["output_filename"].default = "phonopy.yaml"
+        spec.input("metadata.options.parser_name", default="phonoxpy.phonopy")
+        spec.input("metadata.options.output_filename", default="phonopy.yaml")
 
         spec.output(
             "force_constants",
@@ -72,9 +64,11 @@ class PhonopyCalculation(BasePhonopyCalculation):
 
         self._create_phonopy_yaml(folder)
         self._create_FORCE_SETS(folder)
-        mesh_opts, fc_opts = get_phonopy_options(
-            self.inputs.settings["postprocess_parameters"]
-        )
+        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
+
+        if "displacements" in self.inputs:
+            if "--alm" not in fc_opts:
+                fc_opts.append("--alm")
 
         self._internal_retrieve_list = [
             self._INOUT_FORCE_CONSTANTS,
@@ -123,19 +117,12 @@ class PhonopyCalculation(BasePhonopyCalculation):
             force_sets = self.inputs.force_sets
         else:
             force_sets = None
-        if "displacement_dataset" in self.inputs.settings.keys():
-            dataset = self.inputs.settings["displacement_dataset"]
-        elif "dataset" in self.inputs.settings.keys():
-            dataset = self.inputs.settings["dataset"]
-        elif (
-            "dataset" in self.inputs
-            and "displacements" in self.inputs.dataset.get_arraynames()
-        ):
-            dataset = {"displacements": self.inputs.dataset.get_array("displacements")}
-            if "forces" in self.inputs.dataset.get_arraynames():
-                dataset["forces"] = self.inputs.dataset.get_array("forces")
-                if force_sets is not None:
-                    force_sets = None
+        if "displacement_dataset" in self.inputs:
+            dataset = self.inputs.displacement_dataset.get_dict()
+        elif "displacements" in self.inputs:
+            dataset = {
+                "displacements": self.inputs.displacements.get_array("displacements")
+            }
         else:
             dataset = None
 
@@ -147,3 +134,22 @@ class PhonopyCalculation(BasePhonopyCalculation):
 
         with folder.open(self._INPUT_FORCE_SETS, "w", encoding="utf8") as handle:
             handle.write(force_sets_txt)
+
+
+def _get_phonopy_options(settings: Dict):
+    """Return phonopy command options as strings."""
+    mesh_opts = []
+    if "mesh" in settings.keys():
+        mesh = settings["mesh"]
+        try:
+            length = float(mesh)
+            mesh_opts.append("--mesh=%f" % length)
+        except TypeError:
+            mesh_opts.append('--mesh="%d %d %d"' % tuple(mesh))
+        mesh_opts.append("--nowritemesh")
+
+    fc_opts = []
+    if "fc_calculator" in settings.keys():
+        if settings["fc_calculator"].lower().strip() == "alm":
+            fc_opts.append("--alm")
+    return mesh_opts, fc_opts
