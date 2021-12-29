@@ -517,21 +517,21 @@ def get_bands(qpoints, frequencies, labels, path_connections, label=None):
     return bs
 
 
-def get_kpoints_data(kpoints_dict, structure):
+def get_kpoints_data(kpoints_dict, structure=None):
     """Return KpointsData from arguments.
 
-    structure : StructureData
-        A structure.
     kpoints_dict : dict
         Supported keys:
-            "kpoints_density"
+            "kpoints_density" (structure required)
             "kpoints_mesh"
             "kpoints_offset"
+    structure : StructureData
+        A structure.
 
     """
     kpoints = KpointsData()
-    kpoints.set_cell_from_structure(structure)
     if "kpoints_density" in kpoints_dict.keys():
+        kpoints.set_cell_from_structure(structure)
         kpoints.set_kpoints_mesh_from_density(kpoints_dict["kpoints_density"])
     elif "kpoints_mesh" in kpoints_dict.keys():
         if "kpoints_offset" in kpoints_dict.keys():

@@ -1,27 +1,20 @@
 """Workflow to calculate supercell forces."""
-import time
-
 import numpy as np
 from aiida.engine import WorkChain, calcfunction, if_
-from aiida.orm import Group, QueryBuilder, WorkChainNode, load_group
-from aiida.plugins import DataFactory, WorkflowFactory
+from aiida.orm import ArrayData, Float, StructureData
+from aiida.plugins import WorkflowFactory
 
 from aiida_phonoxpy.common.builders import (
     get_calculator_process,
+    get_import_workchain_inputs,
     get_plugin_names,
     get_workchain_inputs,
-    get_import_workchain_inputs,
 )
 from aiida_phonoxpy.common.utils import (
     compare_structures,
     get_structure_from_vasp_immigrant,
 )
-
-Float = DataFactory("float")
-Dict = DataFactory("dict")
-Str = DataFactory("str")
-ArrayData = DataFactory("array")
-StructureData = DataFactory("structure")
+from aiida_phonoxpy.workflows.mixin import DoNothingMixIn
 
 
 def _get_forces(outputs, plugin_name):
@@ -112,7 +105,7 @@ def get_qe_energy(output_parameters):
     return energy_data
 
 
-class ForcesWorkChain(WorkChain):
+class ForcesWorkChain(WorkChain, DoNothingMixIn):
     """Wrapper to compute supercell forces."""
 
     @classmethod
@@ -128,14 +121,16 @@ class ForcesWorkChain(WorkChain):
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("calculator_inputs", valid_type=dict, required=True, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input("queue_name", valid_type=Str, required=False)
+        spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
         spec.outline(
             cls.initialize,
             if_(cls.import_calculation)(
                 cls.import_calculation_from_workdir,
                 cls.validate_imported_structure,
             ).else_(
-                if_(cls.use_queue)(cls.submit_to_queue),
+                if_(cls.use_donothing)(
+                    cls.do_nothing,
+                ),
                 cls.run_calculation,
             ),
             cls.finalize,
@@ -166,33 +161,14 @@ class ForcesWorkChain(WorkChain):
         )
 
     def import_calculation(self):
-        """Return boolen for outline."""
+        """Return boolean for outline."""
         return "remote_workdir" in self.inputs.calculator_inputs
-
-    def use_queue(self):
-        """Use queue to wait for submitting calculation."""
-        return "queue_name" in self.inputs
 
     def initialize(self):
         """Initialize outline control parameters."""
         self.report("initialization")
         self.ctx.plugin_name = get_plugin_names(self.inputs.calculator_inputs)[0]
-
-    def submit_to_queue(self):
-        """Wait until being ready to submit calculation."""
-        self.report("waiting")
-        g = load_group(self.inputs.queue_name.value + "/submit")
-        g.add_nodes(self.node)
-        for i in range(1000):
-            qb = QueryBuilder()
-            qb.append(Group, filters={"label": "queue/run"}, tag="group")
-            qb.append(
-                WorkChainNode, with_group="group", filters={"uuid": self.node.uuid}
-            )
-            if qb.count() > 0:
-                return
-            time.sleep(10)
-        return self.exit_codes.ERROR_WAITING_TIMEOUT
+        self.ctx.wait_counter = 0
 
     def run_calculation(self):
         """Run supercell force calculation."""

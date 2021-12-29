@@ -6,8 +6,9 @@ The following packages are required.
 - aiida-vasp
 - phonopy
 - seekpath
-- phono3py
+- phono3py (optional)
 - aiida-quantumespresso (optional)
+- aiida-donothing (optional)
 - ALM (optional)
 
 ```bash

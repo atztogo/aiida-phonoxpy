@@ -1,6 +1,6 @@
 {
     "name": "aiida-phonoxpy",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "description": "AiiDA plugin for running phonon calculations using phonopy",
     "url": "https://github.com/atztogo/aiida-phonoxpy",
     "author": "AiiDA-phonoxpy team",
@@ -23,7 +23,8 @@
         "numpy",
         "seekpath",
         "aiida-core>=1.6.5,<2.0.0",
-        "aiida-vasp>=2.1.1"
+        "aiida-vasp>=2.1.1",
+        "aiida-donothing>=0.1"
     ],
     "setup_requires": [
         "reentry"
@@ -36,8 +37,8 @@
             "phonoxpy.phonopy = aiida_phonoxpy.parsers.phonopy: PhonopyParser"
         ],
         "aiida.workflows": [
-            "phonoxpy.phonopy = aiida_phonoxpy.workflows.phonopy.phonopy: PhonopyWorkChain",
-            "phonoxpy.phono3py = aiida_phonoxpy.workflows.phono3py.phono3py: Phono3pyWorkChain",
+            "phonoxpy.phonopy = aiida_phonoxpy.workflows.phonopy: PhonopyWorkChain",
+            "phonoxpy.phono3py = aiida_phonoxpy.workflows.phono3py: Phono3pyWorkChain",
             "phonoxpy.iter_ha = aiida_phonoxpy.workflows.iter_ha: IterHarmonicApprox"
         ]
     }

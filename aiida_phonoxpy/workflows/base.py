@@ -2,16 +2,18 @@
 
 from aiida.engine import WorkChain, if_
 from aiida.orm import (
-    Code,
-    Float,
-    Bool,
-    Str,
-    Dict,
     ArrayData,
-    XyData,
-    StructureData,
     BandsData,
+    Bool,
+    Code,
+    Dict,
+    Float,
+    Str,
+    StructureData,
+    XyData,
 )
+
+from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
 from aiida_phonoxpy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
@@ -21,7 +23,6 @@ from aiida_phonoxpy.common.utils import (
 )
 from aiida_phonoxpy.workflows.forces import ForcesWorkChain
 from aiida_phonoxpy.workflows.nac_params import NacParamsWorkChain
-from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
 
 
 class BasePhonopyWorkChain(WorkChain):
@@ -80,11 +81,6 @@ class BasePhonopyWorkChain(WorkChain):
         remote_phonopy are True.
     symmetry_tolerance : Float, optional
         Symmetry tolerance. Default is 1e-5.
-    queue_name : Str, optional
-        When supplied, WorkChainNode is added to the group "<queue_name>/submit".
-        Then this node entry is found in "<queue_name>/run", the WorkChainNode is
-        submitted to aiida daemon. It is assumed that an external agent copies
-        the node entry to "<queue_name>/run".
 
     """
 
@@ -129,15 +125,15 @@ class BasePhonopyWorkChain(WorkChain):
         spec.input("nac_params", valid_type=ArrayData, required=False)
         spec.input("code_string", valid_type=Str, required=False)
         spec.input("code", valid_type=Code, required=False)
-        spec.input("queue_name", valid_type=Str, required=False)
+        spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
 
         spec.outline(
             cls.initialize,
             cls.run_force_and_nac_calculations,
-            if_(cls.force_sets_exists)(cls.do_nothing).else_(
+            if_(cls.force_sets_exists)(cls.do_pass).else_(
                 cls.create_force_sets,
             ),
-            if_(cls.nac_params_exists)(cls.do_nothing).else_(
+            if_(cls.nac_params_exists)(cls.do_pass).else_(
                 if_(cls.is_nac)(cls.attach_nac_params),
             ),
             if_(cls.run_phonopy)(
@@ -178,7 +174,7 @@ class BasePhonopyWorkChain(WorkChain):
             message=("supercell_matrix was not found."),
         )
 
-    def do_nothing(self):
+    def do_pass(self):
         """Do nothing."""
         return
 
@@ -295,8 +291,8 @@ class BasePhonopyWorkChain(WorkChain):
                     "calculator_settings['forces']."
                 )
             builder.calculator_inputs = calculator_inputs
-            if "queue_name" in self.inputs:
-                builder.queue_name = self.inputs.queue_name
+            if "donothing_inputs" in self.inputs:
+                builder.donothing_inputs = self.inputs.donothing_inputs
             future = self.submit(builder)
             self.report("{} pk = {}".format(label, future.pk))
             self.to_context(**{label: future})
@@ -317,8 +313,8 @@ class BasePhonopyWorkChain(WorkChain):
             )
 
         builder.calculator_inputs = calculator_inputs
-        if "queue_name" in self.inputs:
-            builder.queue_name = self.inputs.queue_name
+        if "donothing_inputs" in self.inputs:
+            builder.donothing_inputs = self.inputs.donothing_inputs
         future = self.submit(builder)
         self.report("nac_params: {}".format(future.pk))
         self.to_context(**{"nac_params_calc": future})

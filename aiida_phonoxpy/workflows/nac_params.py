@@ -1,28 +1,21 @@
 """Workflow to calculate NAC params."""
-import time
-
 from aiida.engine import WorkChain, append_, calcfunction, if_, while_
-from aiida.orm import Group, QueryBuilder, WorkChainNode, load_group
-from aiida.plugins import DataFactory, WorkflowFactory
+from aiida.orm import ArrayData, Float, StructureData
+from aiida.plugins import WorkflowFactory
 from phonopy.structure.symmetry import symmetrize_borns_and_epsilon
 
 from aiida_phonoxpy.common.builders import (
     get_calculator_process,
+    get_import_workchain_inputs,
     get_plugin_names,
     get_workchain_inputs,
-    get_import_workchain_inputs,
 )
 from aiida_phonoxpy.common.utils import (
-    get_structure_from_vasp_immigrant,
     compare_structures,
+    get_structure_from_vasp_immigrant,
     phonopy_atoms_from_structure,
 )
-
-Float = DataFactory("float")
-Str = DataFactory("str")
-Dict = DataFactory("dict")
-ArrayData = DataFactory("array")
-StructureData = DataFactory("structure")
+from aiida_phonoxpy.workflows.mixin import DoNothingMixIn
 
 
 def _get_nac_params(ctx, symmetry_tolerance):
@@ -115,7 +108,7 @@ def _get_nac_params_array(
     return nac_params
 
 
-class NacParamsWorkChain(WorkChain):
+class NacParamsWorkChain(WorkChain, DoNothingMixIn):
     """Wrapper to compute non-analytical term correction parameters."""
 
     @classmethod
@@ -125,7 +118,7 @@ class NacParamsWorkChain(WorkChain):
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("calculator_inputs", valid_type=dict, required=True, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input("queue_name", valid_type=Str, required=False)
+        spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
 
         spec.outline(
             cls.initialize,
@@ -134,7 +127,9 @@ class NacParamsWorkChain(WorkChain):
                     cls.import_calculation_from_workdir,
                     cls.validate_imported_structure,
                 ).else_(
-                    if_(cls.use_queue)(cls.submit_to_queue),
+                    if_(cls.use_donothing)(
+                        cls.do_nothing,
+                    ),
                     cls.run_calculation,
                 ),
             ),
@@ -174,10 +169,6 @@ class NacParamsWorkChain(WorkChain):
         """Return boolen for outline."""
         return "immigrant_calculation_folder" in self.inputs
 
-    def use_queue(self):
-        """Use queue to wait for submitting calculation."""
-        return "queue_name" in self.inputs
-
     def initialize(self):
         """Initialize outline control parameters."""
         self.report("initialization")
@@ -188,22 +179,6 @@ class NacParamsWorkChain(WorkChain):
             self.ctx.max_iteration = 1
 
         self.ctx.plugin_names = get_plugin_names(self.inputs.calculator_inputs)
-
-    def submit_to_queue(self):
-        """Wait until being ready to submit calculation."""
-        self.report("waiting")
-        g = load_group(self.inputs.queue_name.value + "/submit")
-        g.add_nodes(self.node)
-        for i in range(1000):
-            qb = QueryBuilder()
-            qb.append(Group, filters={"label": "queue/run"}, tag="group")
-            qb.append(
-                WorkChainNode, with_group="group", filters={"uuid": self.node.uuid}
-            )
-            if qb.count() > 0:
-                return
-            time.sleep(10)
-        return self.exit_codes.ERROR_WAITING_TIMEOUT
 
     def run_calculation(self):
         """Run NAC params calculation."""

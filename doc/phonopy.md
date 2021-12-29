@@ -130,7 +130,6 @@ Direct
     builder.metadata.label = label
     builder.metadata.description = label
     builder.phonopy.metadata.options.update(forces_config["options"])
-    # builder.queue_name = Str("queue")
 
     future = submit(builder)
     print(future)
