@@ -1,6 +1,6 @@
 import sys
 from phonopy import Phonopy
-from aiida_phonopy.common.utils import phonopy_atoms_from_structure
+from aiida_phonoxpy.common.utils import phonopy_atoms_from_structure
 from aiida.orm import load_node
 from aiida import load_profile
 

@@ -1,24 +1,21 @@
 """Workflow to calculate NAC params."""
 from aiida.engine import WorkChain, append_, calcfunction, if_, while_
-from aiida.orm import Code
-from aiida.plugins import DataFactory, WorkflowFactory
+from aiida.orm import ArrayData, Float, StructureData
+from aiida.plugins import WorkflowFactory
 from phonopy.structure.symmetry import symmetrize_borns_and_epsilon
 
-from aiida_phonopy.common.builders import (
+from aiida_phonoxpy.common.builders import (
     get_calculator_process,
-    get_vasp_immigrant_inputs,
+    get_import_workchain_inputs,
+    get_plugin_names,
     get_workchain_inputs,
 )
-from aiida_phonopy.common.utils import (
+from aiida_phonoxpy.common.utils import (
+    compare_structures,
     get_structure_from_vasp_immigrant,
     phonopy_atoms_from_structure,
 )
-
-Float = DataFactory("float")
-Str = DataFactory("str")
-Dict = DataFactory("dict")
-ArrayData = DataFactory("array")
-StructureData = DataFactory("structure")
+from aiida_phonoxpy.workflows.mixin import DoNothingMixIn
 
 
 def _get_nac_params(ctx, symmetry_tolerance):
@@ -111,31 +108,7 @@ def _get_nac_params_array(
     return nac_params
 
 
-def _get_plugin_names(calculator_settings):
-    """Return plugin names of calculators."""
-    codes = []
-    if "steps" in calculator_settings.keys():
-        for step in calculator_settings["steps"]:
-            if "code_string" in step.keys():
-                code = Code.get_from_string(step["code_string"])
-            else:
-                code = step["code"]
-            codes.append(code)
-    else:
-        if "code_string" in calculator_settings.keys():
-            code = Code.get_from_string(calculator_settings["code_string"])
-        else:
-            code = calculator_settings["code"]
-        codes.append(code)
-
-    plugin_names = []
-    for code in codes:
-        plugin_names.append(code.get_input_plugin_name())
-
-    return plugin_names
-
-
-class NacParamsWorkChain(WorkChain):
+class NacParamsWorkChain(WorkChain, DoNothingMixIn):
     """Wrapper to compute non-analytical term correction parameters."""
 
     @classmethod
@@ -145,14 +118,18 @@ class NacParamsWorkChain(WorkChain):
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("calculator_inputs", valid_type=dict, required=True, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input("immigrant_calculation_folder", valid_type=Str, required=False)
+        spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
 
         spec.outline(
             cls.initialize,
             while_(cls.continue_calculation)(
-                if_(cls.import_calculation_from_files)(
-                    cls.read_calculation_from_folder,
+                if_(cls.import_calculation)(
+                    cls.import_calculation_from_workdir,
+                    cls.validate_imported_structure,
                 ).else_(
+                    if_(cls.use_donothing)(
+                        cls.do_nothing,
+                    ),
                     cls.run_calculation,
                 ),
             ),
@@ -166,6 +143,20 @@ class NacParamsWorkChain(WorkChain):
             "ERROR_NO_NAC_PARAMS",
             message=("NAC params could not be retrieved from calculaton."),
         )
+        spec.exit_code(
+            1003,
+            "ERROR_STRUCTURE_VALIDATION",
+            message="input and imported structures are different.",
+        )
+        spec.exit_code(
+            1004,
+            "ERROR_WAITING_TIMEOUT",
+            message="time out in queue waiting.",
+        )
+
+    def import_calculation(self):
+        """Return boolen for outline."""
+        return "remote_workdir" in self.inputs.calculator_inputs
 
     def continue_calculation(self):
         """Return boolen for outline."""
@@ -187,7 +178,7 @@ class NacParamsWorkChain(WorkChain):
         else:
             self.ctx.max_iteration = 1
 
-        self.ctx.plugin_names = _get_plugin_names(self.inputs.calculator_inputs)
+        self.ctx.plugin_names = get_plugin_names(self.inputs.calculator_inputs)
 
     def run_calculation(self):
         """Run NAC params calculation."""
@@ -215,21 +206,37 @@ class NacParamsWorkChain(WorkChain):
         self.report("nac_params: {}".format(future.pk))
         self.to_context(nac_params_calcs=append_(future))
 
-    def read_calculation_from_folder(self):
-        """Import supercell force calculation using immigrant."""
+    def import_calculation_from_workdir(self):
+        """Import NAC parameter calculation.
+
+        Only VaspImmigrantWorkChain is supported.
+
+        """
         self.report(
             "import calculation data in files %d/%d"
             % (self.ctx.iteration, self.ctx.max_iteration)
         )
         label = "nac_params_%d" % self.ctx.iteration
-        force_folder = self.inputs.immigrant_calculation_folder
-        inputs = get_vasp_immigrant_inputs(
-            force_folder.value, self.inputs.calculator_inputs.dict, label=label
-        )
+        inputs = get_import_workchain_inputs(self.inputs.calculator_inputs, label=label)
+        inputs["remote_workdir"] = self.inputs.calculator_inputs["remote_workdir"]
         VaspImmigrant = WorkflowFactory("vasp.immigrant")
         future = self.submit(VaspImmigrant, **inputs)
         self.report("nac_params: {}".format(future.pk))
         self.to_context(nac_params_calcs=append_(future))
+
+    def validate_imported_structure(self):
+        """Validate imported structure.
+
+        Only VaspImmigrantWorkChain is supported.
+
+        """
+        self.report("validate imported structures")
+        supercell_ref = self.inputs.structure
+        supercell_calc = get_structure_from_vasp_immigrant(self.ctx.nac_params_calcs[0])
+        if not compare_structures(
+            supercell_ref, supercell_calc, self.inputs.symmetry_tolerance.value
+        ):
+            return self.exit_codes.ERROR_STRUCTURE_VALIDATION
 
     def finalize(self):
         """Finalize NAC params calculation."""
