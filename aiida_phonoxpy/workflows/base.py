@@ -105,14 +105,6 @@ class BasePhonopyWorkChain(WorkChain):
         spec.input(
             "calculator_inputs.nac", valid_type=dict, required=False, non_db=True
         )
-        spec.input_namespace(
-            "remote_workdirs",
-            help="Directory names to import force and NAC calculations.",
-        )
-        spec.input(
-            "remote_workdirs.force", valid_type=list, required=False, non_db=True
-        )
-        spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
         spec.input(
             "subtract_residual_forces", valid_type=Bool, default=lambda: Bool(False)

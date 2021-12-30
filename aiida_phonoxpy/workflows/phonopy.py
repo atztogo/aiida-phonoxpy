@@ -1,13 +1,10 @@
 """PhonopyWorkChain."""
 
 from aiida.engine import if_, while_
-from aiida.plugins import DataFactory
+from aiida.orm import Dict
 
 from aiida_phonoxpy.workflows.base import BasePhonopyWorkChain
 from aiida_phonoxpy.workflows.mixin import ImmigrantMixIn
-
-Dict = DataFactory("dict")
-Str = DataFactory("str")
 
 
 class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
@@ -38,6 +35,14 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
+        spec.input_namespace(
+            "remote_workdirs",
+            help="Directory names to import force and NAC calculations.",
+        )
+        spec.input(
+            "remote_workdirs.force", valid_type=list, required=False, non_db=True
+        )
+        spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
         spec.input("calculator_settings", valid_type=Dict, required=False)
 
         spec.outline(

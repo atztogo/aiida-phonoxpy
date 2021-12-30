@@ -1,18 +1,19 @@
 """General utilities."""
 
 from typing import Optional
+
 import numpy as np
 from aiida.common import InputValidationError
 from aiida.engine import calcfunction
 from aiida.orm import (
-    Bool,
-    Float,
-    Dict,
-    StructureData,
     ArrayData,
-    XyData,
     BandsData,
+    Bool,
+    Dict,
+    Float,
     KpointsData,
+    StructureData,
+    XyData,
 )
 from phonopy import Phonopy
 from phonopy.interface.calculator import get_default_physical_units
