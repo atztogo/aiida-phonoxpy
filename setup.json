@@ -31,7 +31,7 @@
     ],
     "entry_points": {
         "aiida.calculations": [
-            "phonoxpy.phonopy = aiida_phonoxpy.calcs.phonopy: PhonopyCalculation"
+            "phonoxpy.phonopy = aiida_phonoxpy.calculations.phonopy: PhonopyCalculation"
         ],
         "aiida.parsers": [
             "phonoxpy.phonopy = aiida_phonoxpy.parsers.phonopy: PhonopyParser"

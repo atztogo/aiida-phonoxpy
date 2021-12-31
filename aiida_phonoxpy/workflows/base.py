@@ -13,7 +13,7 @@ from aiida.orm import (
     XyData,
 )
 
-from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
+from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
