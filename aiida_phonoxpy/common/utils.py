@@ -123,7 +123,7 @@ def setup_phonopy_calculation(
         params = _get_phonopy_postprocess_info(phonon_settings)
         ph_settings.update(params)
 
-    ph = _get_phonopy_instance(
+    ph = get_phonopy_instance(
         structure, ph_settings, symmetry_tolerance=symmetry_tolerance.value
     )
     ph_settings["version"] = ph.version
@@ -293,7 +293,7 @@ def get_force_constants(
     displacements: Optional[ArrayData] = None,
 ):
     """Calculate force constants."""
-    phonon = _get_phonopy_instance(
+    phonon = get_phonopy_instance(
         structure, phonon_setting_info, symmetry_tolerance=symmetry_tolerance.value
     )
     if displacement_dataset is not None:
@@ -328,7 +328,7 @@ def get_phonon_properties(
 ):
     """Calculate phonon properties."""
     phonon_settings_dict = phonon_setting_info.get_dict()
-    ph = _get_phonopy_instance(
+    ph = get_phonopy_instance(
         structure,
         phonon_settings_dict,
         symmetry_tolerance=symmetry_tolerance.value,
@@ -549,17 +549,21 @@ def get_kpoints_data(kpoints_dict, structure=None):
     return kpoints
 
 
-def _get_phonopy_instance(
+def get_phonopy_instance(
     structure: StructureData,
     phonon_settings_dict: dict,
     nac_params: Optional[ArrayData] = None,
     symmetry_tolerance: float = 1e-5,
 ) -> Phonopy:
     """Create Phonopy instance."""
+    if "primitive_matrix" in phonon_settings_dict:
+        primitive_matrix = phonon_settings_dict["primitive_matrix"]
+    else:
+        primitive_matrix = "auto"
     phpy = Phonopy(
         phonopy_atoms_from_structure(structure),
         supercell_matrix=phonon_settings_dict["supercell_matrix"],
-        primitive_matrix="auto",
+        primitive_matrix=primitive_matrix,
         symprec=symmetry_tolerance,
     )
     if nac_params:
