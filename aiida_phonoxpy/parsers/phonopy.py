@@ -1,16 +1,17 @@
 """Parsers of phonopy output files."""
-from aiida.orm import Str
-from aiida.engine import ExitCode
 from aiida.common.exceptions import NotExistent
+from aiida.engine import ExitCode
+from aiida.orm import Str
 from aiida.parsers.parser import Parser
 from aiida.plugins import CalculationFactory
+
 from aiida_phonoxpy.common.raw_parsers import (
-    parse_thermal_properties,
-    parse_FORCE_CONSTANTS,
-    parse_projected_dos,
-    parse_total_dos,
     parse_band_structure,
+    parse_FORCE_CONSTANTS,
     parse_phonopy_yaml,
+    parse_projected_dos,
+    parse_thermal_properties,
+    parse_total_dos,
 )
 
 PhonopyCalculation = CalculationFactory("phonoxpy.phonopy")
@@ -18,10 +19,6 @@ PhonopyCalculation = CalculationFactory("phonoxpy.phonopy")
 
 class PhonopyParser(Parser):
     """Parser the DATA files from phonopy."""
-
-    def __init__(self, calc):
-        """Call Parser.__init__."""
-        super().__init__(calc)
 
     def parse(self, **kwargs):
         """Parse retrieved files."""

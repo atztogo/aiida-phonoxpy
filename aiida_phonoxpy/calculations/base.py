@@ -43,12 +43,6 @@ class BasePhonopyCalculation(CalcJob):
             "nac_params", valid_type=ArrayData, required=False, help="NAC parameters."
         )
         spec.input(
-            "primitive",
-            valid_type=StructureData,
-            required=False,
-            help="Primitive cell structure only necessary NAC is applied.",
-        )
-        spec.input(
             "displacement_dataset",
             valid_type=Dict,
             required=False,

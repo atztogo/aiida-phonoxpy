@@ -40,3 +40,6 @@ nosetests.xml
 .buildinfo
 .doctrees
 _build
+
+# vscode
+.vscode

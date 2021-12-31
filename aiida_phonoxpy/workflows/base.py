@@ -346,7 +346,6 @@ class BasePhonopyWorkChain(WorkChain):
         builder.force_sets = self.ctx.force_sets
         if "nac_params" in self.ctx:
             builder.nac_params = self.ctx.nac_params
-            builder.primitive = self.ctx.primitive
         if "displacements" in self.ctx:
             builder.displacements = self.ctx.displacements
         if "displacement_dataset" in self.ctx:
