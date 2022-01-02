@@ -294,7 +294,9 @@ def get_force_constants(
 ):
     """Calculate force constants."""
     phonon = get_phonopy_instance(
-        structure, phonon_setting_info, symmetry_tolerance=symmetry_tolerance.value
+        structure,
+        phonon_setting_info.get_dict(),
+        symmetry_tolerance=symmetry_tolerance.value,
     )
     if displacement_dataset is not None:
         dataset = displacement_dataset.get_dict()
@@ -394,7 +396,7 @@ def get_structure_from_vasp_immigrant(wc_node):
 
 def get_mesh_property_data(ph, mesh):
     """Return total DOS, PDOS, thermal properties."""
-    ph.set_mesh(mesh)
+    ph.run_mesh(mesh=mesh)
     ph.run_total_dos()
 
     dos = get_total_dos(ph.get_total_dos_dict())
@@ -402,7 +404,7 @@ def get_mesh_property_data(ph, mesh):
     ph.run_thermal_properties()
     tprops = get_thermal_properties(ph.get_thermal_properties_dict())
 
-    ph.set_mesh(mesh, is_eigenvectors=True, is_mesh_symmetry=False)
+    ph.run_mesh(mesh=mesh, with_eigenvectors=True, is_mesh_symmetry=False)
     ph.run_projected_dos()
     pdos = get_projected_dos(ph.get_projected_dos_dict())
 

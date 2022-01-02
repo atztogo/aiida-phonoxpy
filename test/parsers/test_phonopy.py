@@ -27,6 +27,7 @@ def test_phonopy_default(
     generate_parser,
     generate_inputs,
     data_regression,
+    num_regression,
 ):
     """Test a phonopy calculation."""
     name = "default"
@@ -47,7 +48,7 @@ def test_phonopy_default(
     assert not orm.Log.objects.get_logs_for(node), [
         log.message for log in orm.Log.objects.get_logs_for(node)
     ]
-    print()
+
     for key in [
         "force_constants",
         "pdos",
@@ -59,11 +60,16 @@ def test_phonopy_default(
 
     data_regression.check(
         {
-            "force_constants": results["force_constants"]
-            .get_array("force_constants")
-            .tolist(),
             "pdos": results["pdos"].attributes,
             "thermal_properties": results["thermal_properties"].attributes,
             "band_structure": results["band_structure"].attributes,
+        }
+    )
+
+    num_regression.check(
+        {
+            "force_constants": results["force_constants"]
+            .get_array("force_constants")
+            .ravel()
         }
     )

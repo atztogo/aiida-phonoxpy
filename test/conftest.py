@@ -104,6 +104,136 @@ def generate_structure():
 
 
 @pytest.fixture
+def generate_displacements():
+    """Return a `ArrayData` of displacements of NaCl."""
+
+    def _generate_displacements(structure_id="NaCl"):
+        from aiida.orm import ArrayData
+
+        if structure_id == "NaCl":
+            displacements = ArrayData()
+            displacements.set_array(
+                "displacements",
+                np.array(
+                    [
+                        [
+                            [-0.02273746, -0.01931934, -0.00312583],
+                            [-0.0228422, 0.0193765, 0.00166885],
+                            [0.0224281, 0.01592108, 0.01197912],
+                            [-0.00064646, 0.00217048, -0.0299144],
+                            [0.01862151, -0.01785433, -0.01531217],
+                            [0.00067696, 0.00025026, 0.02999132],
+                            [-0.01435842, -0.02476933, 0.00896193],
+                            [0.00253315, -0.00924756, 0.0284265],
+                        ],
+                        [
+                            [-0.01740268, -0.02413313, 0.00383909],
+                            [0.0170104, -0.00024372, -0.02471006],
+                            [0.01743549, -0.01667561, -0.01783052],
+                            [-0.0135311, 0.02481529, 0.01005539],
+                            [0.01114619, -0.00962554, -0.0261364],
+                            [0.0214863, 0.02083848, 0.00202403],
+                            [-0.0225386, -0.01897413, 0.0056563],
+                            [-0.02252869, -0.01415487, 0.01385993],
+                        ],
+                        [
+                            [-0.01523419, 0.0214319, -0.01444275],
+                            [-0.00511404, -0.02951603, -0.00162813],
+                            [0.01960127, 0.01683884, 0.01523954],
+                            [0.01784544, -0.00675864, -0.02314867],
+                            [-0.00760845, -0.01536795, 0.0246158],
+                            [-0.01329461, -0.02031615, 0.01762123],
+                            [0.01470665, 0.01854289, 0.01843571],
+                            [-0.02344855, 0.00723628, -0.01725693],
+                        ],
+                        [
+                            [0.00796995, -0.02797597, 0.00733656],
+                            [-0.01105009, -0.00621813, -0.02718879],
+                            [-0.00927974, -0.01958591, 0.02074316],
+                            [-0.01964515, 0.01527182, -0.01675827],
+                            [-0.01851097, 0.0215803, 0.00957259],
+                            [0.02018503, 0.00962468, -0.01999826],
+                            [-0.0153828, 0.01394675, -0.02165312],
+                            [0.02233025, -0.01916396, -0.00583974],
+                        ],
+                    ]
+                ),
+            )
+        else:
+            raise KeyError(f'Unknown structure_id="{structure_id}"')
+        return displacements
+
+    return _generate_displacements
+
+
+@pytest.fixture
+def generate_displacement_dataset():
+    """Return a `Dict` of displacement dataset of NaCl."""
+
+    def _generate_displacement_dataset(structure_id="NaCl"):
+        from aiida.orm import Dict
+
+        if structure_id == "NaCl":
+            dataset = Dict(
+                dict={
+                    "natom": 8,
+                    "first_atoms": [
+                        {"number": 0, "displacement": [0.03, 0.0, 0.0]},
+                        {"number": 4, "displacement": [0.03, 0.0, 0.0]},
+                    ],
+                }
+            )
+        else:
+            raise KeyError(f'Unknown structure_id="{structure_id}"')
+        return dataset
+
+    return _generate_displacement_dataset
+
+
+@pytest.fixture
+def generate_force_sets():
+    """Return a `ArrayData` of force sets of NaCl."""
+
+    def _generate_force_sets(structure_id="NaCl"):
+        from aiida.orm import ArrayData
+
+        if structure_id == "NaCl":
+            force_sets = ArrayData()
+            force_sets.set_array(
+                "force_sets",
+                np.array(
+                    [
+                        [
+                            [-0.04527346, 0.0, 0.0],
+                            [-0.00208978, 0.0, 0.0],
+                            [0.00575753, 0.0, 0.0],
+                            [0.00575753, 0.0, 0.0],
+                            [-0.00179103, 0.0, 0.0],
+                            [0.02865135, 0.0, 0.0],
+                            [0.00449393, 0.0, 0.0],
+                            [0.00449393, 0.0, 0.0],
+                        ],
+                        [
+                            [-0.00159392, 0.0, 0.0],
+                            [0.0288482, 0.0, 0.0],
+                            [0.00468471, 0.0, 0.0],
+                            [0.00468471, 0.0, 0.0],
+                            [-0.0661841, 0.0, 0.0],
+                            [-0.00333842, 0.0, 0.0],
+                            [0.01644941, 0.0, 0.0],
+                            [0.01644941, 0.0, 0.0],
+                        ],
+                    ]
+                ),
+            )
+        else:
+            raise KeyError(f'Unknown structure_id="{structure_id}"')
+        return force_sets
+
+    return _generate_force_sets
+
+
+@pytest.fixture
 def generate_nac_params():
     """Return a `ArrayData` of NAC params of NaCl."""
 
@@ -397,3 +527,28 @@ def generate_calc_job_node(fixture_localhost):
         return node
 
     return _generate_calc_job_node
+
+
+@pytest.fixture
+def generate_inputs_phonopy_wc(
+    fixture_code,
+    generate_structure,
+    generate_displacement_dataset,
+    generate_force_sets,
+    generate_nac_params,
+    generate_phonopy_settings,
+):
+    """Return inputs for phonopy workchain."""
+
+    def _generate_inputs_phonopy(metadata=None):
+        return {
+            "code": fixture_code("phonoxpy.phonopy"),
+            "structure": generate_structure(),
+            "settings": generate_phonopy_settings(),
+            "metadata": metadata or {},
+            "force_sets": generate_force_sets(),
+            "displacement_dataset": generate_displacement_dataset(),
+            "nac_params": generate_nac_params(),
+        }
+
+    return _generate_inputs_phonopy
