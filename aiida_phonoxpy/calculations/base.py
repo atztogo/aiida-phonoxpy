@@ -1,15 +1,8 @@
 """Base class of PhonopyCalculation and Phono3pyCalculation."""
 
-from aiida.engine import CalcJob
 from aiida.common import CalcInfo, CodeInfo
-from aiida.plugins import DataFactory
-from aiida_phonoxpy.common.file_generators import get_BORN_txt
-
-Dict = DataFactory("dict")
-StructureData = DataFactory("structure")
-ArrayData = DataFactory("array")
-Float = DataFactory("float")
-Bool = DataFactory("bool")
+from aiida.engine import CalcJob
+from aiida.orm import ArrayData, Bool, Dict, Float, StructureData
 
 
 class BasePhonopyCalculation(CalcJob):
@@ -19,14 +12,20 @@ class BasePhonopyCalculation(CalcJob):
 
     """
 
-    _INPUT_NAC = "BORN"
-
     @classmethod
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
-        spec.input("settings", valid_type=Dict, help="Phonopy parameters.")
-        spec.input("structure", valid_type=StructureData, help="Unit cell structure.")
+        spec.input("metadata.options.withmpi", valid_type=bool, default=False)
+        spec.input(
+            "structure",
+            valid_type=StructureData,
+            required=True,
+            help="Unit cell structure.",
+        )
+        spec.input(
+            "settings", valid_type=Dict, required=True, help="Phonopy parameters."
+        )
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
         spec.input(
             "fc_only",
@@ -42,12 +41,6 @@ class BasePhonopyCalculation(CalcJob):
         )
         spec.input(
             "nac_params", valid_type=ArrayData, required=False, help="NAC parameters."
-        )
-        spec.input(
-            "primitive",
-            valid_type=StructureData,
-            required=False,
-            help="Primitive cell structure only necessary NAC is applied.",
         )
         spec.input(
             "displacement_dataset",
@@ -70,27 +63,13 @@ class BasePhonopyCalculation(CalcJob):
         self._internal_retrieve_list = []
         self._additional_cmd_params = []
         self._calculation_cmd = []
+
         self._create_additional_files(folder)
+        self._set_commands_and_retrieve_list()
 
-        # ================= prepare the python input files =================
-
-        # BORN
-        if (
-            not self.inputs.fc_only
-            and "nac_params" in self.inputs
-            and "primitive" in self.inputs
-        ):
-            born_txt = get_BORN_txt(
-                self.inputs.nac_params,
-                self.inputs.primitive,
-                self.inputs.symmetry_tolerance,
-            )
-            with folder.open(self._INPUT_NAC, "w", encoding="utf8") as handle:
-                handle.write(born_txt)
+        if not self.inputs.fc_only and "nac_params" in self.inputs:
             for params in self._additional_cmd_params:
                 params.append("--nac")
-
-        self.inputs.metadata.options.withmpi = False
 
         # ============================ calcinfo ===============================
 
@@ -118,3 +97,11 @@ class BasePhonopyCalculation(CalcJob):
 
     def _create_additional_files(self, folder):
         raise NotImplementedError()
+
+    def _set_commands(self):
+        raise NotImplementedError()
+
+    def _get_nac_params(self, nac_data):
+        born_charges = nac_data.get_array("born_charges")
+        epsilon = nac_data.get_array("epsilon")
+        return {"born": born_charges, "dielectric": epsilon}

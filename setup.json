@@ -29,9 +29,20 @@
     "setup_requires": [
         "reentry"
     ],
+    "extras_require": {
+        "pre-commit": [
+            "pre-commit~=2.2",
+            "pylint~=2.6.0"
+        ],
+        "tests": [
+            "pgtest~=1.3",
+            "pytest~=6.0",
+            "pytest-regressions~=1.0"
+        ]
+    },
     "entry_points": {
         "aiida.calculations": [
-            "phonoxpy.phonopy = aiida_phonoxpy.calcs.phonopy: PhonopyCalculation"
+            "phonoxpy.phonopy = aiida_phonoxpy.calculations.phonopy: PhonopyCalculation"
         ],
         "aiida.parsers": [
             "phonoxpy.phonopy = aiida_phonoxpy.parsers.phonopy: PhonopyParser"

@@ -1,12 +1,11 @@
 """Collection of functions to generate phonopy/phono3py files."""
-from phonopy import Phonopy
-from phonopy.structure.dataset import forces_in_dataset
-from phonopy.interface.phonopy_yaml import PhonopyYaml
 from phonopy.file_IO import (
-    get_FORCE_SETS_lines,
     get_BORN_lines,
     get_FORCE_CONSTANTS_lines,
+    get_FORCE_SETS_lines,
 )
+from phonopy.structure.dataset import forces_in_dataset
+
 from aiida_phonoxpy.common.utils import phonopy_atoms_from_structure
 
 
@@ -53,20 +52,3 @@ def get_FORCE_CONSTANTS_txt(force_constants_object):
     lines = get_FORCE_CONSTANTS_lines(force_constants, p2s_map=p2s_map)
 
     return "\n".join(lines)
-
-
-def get_phonopy_yaml_txt(
-    structure, supercell_matrix=None, primitive_matrix=None, calculator=None
-):
-    """Return phonopy.yaml file as text."""
-    unitcell = phonopy_atoms_from_structure(structure)
-    ph = Phonopy(
-        unitcell,
-        supercell_matrix=supercell_matrix,
-        primitive_matrix="auto",
-        calculator=calculator,
-    )
-    phpy_yaml = PhonopyYaml()
-    phpy_yaml.set_phonon_info(ph)
-
-    return str(phpy_yaml)

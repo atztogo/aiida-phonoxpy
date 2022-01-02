@@ -1,0 +1,62 @@
+band_structure:
+  array|bands:
+  - 424
+  - 6
+  array|kpoints:
+  - 424
+  - 3
+  label_numbers:
+  - 0
+  - 94
+  - 127
+  - 128
+  - 228
+  - 229
+  - 310
+  - 376
+  - 423
+  labels:
+  - GAMMA
+  - X
+  - U
+  - K
+  - GAMMA
+  - GAMMA
+  - L
+  - W
+  - X
+  units: THz
+pdos:
+  array|x_array:
+  - 201
+  array|y_array_0:
+  - 201
+  array|y_array_1:
+  - 201
+  x_name: Frequency
+  x_units: THz
+  y_names:
+  - Projected DOS
+  - Projected DOS
+  y_units:
+  - 1/THz
+  - 1/THz
+thermal_properties:
+  array|x_array:
+  - 101
+  array|y_array_0:
+  - 101
+  array|y_array_1:
+  - 101
+  array|y_array_2:
+  - 101
+  x_name: Temperature
+  x_units: K
+  y_names:
+  - Helmholtz free energy
+  - Entropy
+  - Cv
+  y_units:
+  - kJ/mol
+  - J/K/mol
+  - J/K/mol

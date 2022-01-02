@@ -13,7 +13,7 @@ from aiida.orm import (
     XyData,
 )
 
-from aiida_phonoxpy.calcs.phonopy import PhonopyCalculation
+from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.common.utils import (
     collect_forces_and_energies,
     get_force_constants,
@@ -105,14 +105,6 @@ class BasePhonopyWorkChain(WorkChain):
         spec.input(
             "calculator_inputs.nac", valid_type=dict, required=False, non_db=True
         )
-        spec.input_namespace(
-            "remote_workdirs",
-            help="Directory names to import force and NAC calculations.",
-        )
-        spec.input(
-            "remote_workdirs.force", valid_type=list, required=False, non_db=True
-        )
-        spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
         spec.input(
             "subtract_residual_forces", valid_type=Bool, default=lambda: Bool(False)
@@ -354,7 +346,6 @@ class BasePhonopyWorkChain(WorkChain):
         builder.force_sets = self.ctx.force_sets
         if "nac_params" in self.ctx:
             builder.nac_params = self.ctx.nac_params
-            builder.primitive = self.ctx.primitive
         if "displacements" in self.ctx:
             builder.displacements = self.ctx.displacements
         if "displacement_dataset" in self.ctx:

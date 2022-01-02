@@ -1,12 +1,10 @@
 """CalcJob to run phonopy at a remote host."""
 
-from aiida.orm import BandsData, ArrayData, XyData, Dict, Str
-from aiida_phonoxpy.calcs.base import BasePhonopyCalculation
-from aiida.common import InputValidationError
-from aiida_phonoxpy.common.file_generators import (
-    get_FORCE_SETS_txt,
-    get_phonopy_yaml_txt,
-)
+from aiida.orm import ArrayData, BandsData, Dict, Str, XyData
+from phonopy.interface.phonopy_yaml import PhonopyYaml
+
+from aiida_phonoxpy.calculations.base import BasePhonopyCalculation
+from aiida_phonoxpy.common.utils import get_phonopy_instance
 
 
 class PhonopyCalculation(BasePhonopyCalculation):
@@ -17,8 +15,7 @@ class PhonopyCalculation(BasePhonopyCalculation):
     _OUTPUT_THERMAL_PROPERTIES = "thermal_properties.yaml"
     _OUTPUT_BAND_STRUCTURE = "band.yaml"
     _INOUT_FORCE_CONSTANTS = "force_constants.hdf5"
-    _INPUT_CELL = "phonopy_cells.yaml"
-    _INPUT_FORCE_SETS = "FORCE_SETS"
+    _INPUT_PARAMS = "phonopy_params.yaml"
 
     @classmethod
     def define(cls, spec):
@@ -62,10 +59,14 @@ class PhonopyCalculation(BasePhonopyCalculation):
     def _create_additional_files(self, folder):
         self.logger.info("create_additional_files")
 
-        self._create_phonopy_yaml(folder)
-        self._create_FORCE_SETS(folder)
-        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
+        ph = self._get_phonopy_instance()
+        phpy_yaml = PhonopyYaml()
+        phpy_yaml.set_phonon_info(ph)
+        with folder.open(self._INPUT_PARAMS, "w") as handle:
+            handle.write(str(phpy_yaml))
 
+    def _set_commands_and_retrieve_list(self):
+        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
         if "displacements" in self.inputs:
             if "--alm" not in fc_opts:
                 fc_opts.append("--alm")
@@ -83,57 +84,45 @@ class PhonopyCalculation(BasePhonopyCalculation):
         # First run with --writefc, and with --readfc for remaining runs
         if self.inputs.fc_only:
             self._calculation_cmd = [
-                ["-c", self._INPUT_CELL],
+                ["-c", self._INPUT_PARAMS],
             ]
         else:
             self._calculation_cmd = [
-                ["-c", self._INPUT_CELL, "--pdos=auto"] + mesh_opts,
-                ["-c", self._INPUT_CELL, "-t", "--dos"] + mesh_opts,
+                ["-c", self._INPUT_PARAMS, "--pdos=auto"] + mesh_opts,
+                ["-c", self._INPUT_PARAMS, "-t"] + mesh_opts,
                 [
                     "-c",
-                    self._INPUT_CELL,
+                    self._INPUT_PARAMS,
                     "--band=auto",
                     "--band-points=101",
                     "--band-const-interval",
                 ],
             ]
             self._internal_retrieve_list += [
-                self._OUTPUT_TOTAL_DOS,
                 self._OUTPUT_PROJECTED_DOS,
                 self._OUTPUT_THERMAL_PROPERTIES,
                 self._OUTPUT_BAND_STRUCTURE,
             ]
 
-    def _create_phonopy_yaml(self, folder):
-        phpy_yaml_txt = get_phonopy_yaml_txt(
-            self.inputs.structure,
-            supercell_matrix=self.inputs.settings["supercell_matrix"],
+    def _get_phonopy_instance(self):
+        kwargs = {"symmetry_tolerance": self.inputs.symmetry_tolerance.value}
+        if not self.inputs.fc_only and "nac_params" in self.inputs:
+            kwargs["nac_params"] = self.inputs.nac_params
+        ph = get_phonopy_instance(
+            self.inputs.structure, self.inputs.settings.get_dict(), **kwargs
         )
-        with folder.open(self._INPUT_CELL, "w", encoding="utf8") as handle:
-            handle.write(phpy_yaml_txt)
+        self._set_dataset(ph)
+        return ph
 
-    def _create_FORCE_SETS(self, folder):
-        if "force_sets" in self.inputs:
-            force_sets = self.inputs.force_sets
-        else:
-            force_sets = None
+    def _set_dataset(self, ph):
         if "displacement_dataset" in self.inputs:
-            dataset = self.inputs.displacement_dataset.get_dict()
+            ph.dataset = self.inputs.displacement_dataset.get_dict()
         elif "displacements" in self.inputs:
-            dataset = {
+            ph.dataset = {
                 "displacements": self.inputs.displacements.get_array("displacements")
             }
-        else:
-            dataset = None
-
-        # can work both for type-I and type-II
-        force_sets_txt = get_FORCE_SETS_txt(dataset, force_sets=force_sets)
-        if force_sets_txt is None:
-            msg = "Displacements or forces were not found."
-            raise InputValidationError(msg)
-
-        with folder.open(self._INPUT_FORCE_SETS, "w", encoding="utf8") as handle:
-            handle.write(force_sets_txt)
+        if "force_sets" in self.inputs:
+            ph.forces = self.inputs.force_sets.get_array("force_sets")
 
 
 def _get_phonopy_options(settings: Dict):
