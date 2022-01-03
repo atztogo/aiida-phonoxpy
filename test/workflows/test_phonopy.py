@@ -24,6 +24,15 @@ def test_initialize_with_dataset(
     wc.initialize()
 
     assert "displacement_dataset" not in wc.inputs
+    phonon_setting_info_keys = [
+        "version",
+        "distance",
+        "symmetry",
+        "symmetry_tolerance",
+        "primitive_matrix",
+        "supercell_matrix",
+    ]
+    assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
     _assert_dataset(wc, dataset)
 
 
@@ -50,6 +59,14 @@ def test_initialize_with_dataset_input(
     wc.initialize()
 
     assert "displacement_dataset" in wc.inputs
+    phonon_setting_info_keys = [
+        "version",
+        "symmetry",
+        "symmetry_tolerance",
+        "primitive_matrix",
+        "supercell_matrix",
+    ]
+    assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
     _assert_dataset(wc, dataset)
 
 
@@ -92,15 +109,6 @@ def _assert_dataset(wc, dataset):
         scell_disp = phonopy_atoms_from_structure(wc.ctx.supercells[key])
         assert isclose(scell_disp, scell_per)
 
-    phonon_setting_info_keys = [
-        "version",
-        "distance",
-        "symmetry",
-        "primitive_matrix",
-        "supercell_matrix",
-    ]
-    assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
-
     _assert_cells(wc)
 
 
@@ -124,6 +132,7 @@ def test_initialize_with_displacements(
         "version",
         "distance",
         "symmetry",
+        "symmetry_tolerance",
         "primitive_matrix",
         "supercell_matrix",
         "number_of_snapshots",
@@ -164,8 +173,8 @@ def test_initialize_with_displacements_input(
     )
     phonon_setting_info_keys = [
         "version",
-        "distance",
         "symmetry",
+        "symmetry_tolerance",
         "primitive_matrix",
         "supercell_matrix",
     ]
@@ -242,6 +251,33 @@ def test_launch_process_with_dataset_inputs(
     from aiida.engine import launch
 
     inputs = generate_inputs_phonopy_wc()
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+    output_keys = ["phonon_setting_info", "primitive", "supercell"]
+    assert set(list(result)) == set(output_keys)
+
+
+def test_launch_process_with_displacements_inputs(
+    fixture_code,
+    generate_structure,
+    generate_phonopy_settings,
+    generate_workchain,
+    generate_force_sets,
+    generate_displacements,
+    generate_nac_params,
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+
+    inputs = {
+        "code": fixture_code("phonoxpy.phonopy"),
+        "structure": generate_structure(),
+        "settings": generate_phonopy_settings(),
+        "metadata": {},
+        "force_sets": generate_force_sets("NaCl-displacements"),
+        "displacements": generate_displacements(),
+        "nac_params": generate_nac_params(),
+    }
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
     output_keys = ["phonon_setting_info", "primitive", "supercell"]

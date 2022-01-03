@@ -105,11 +105,13 @@ class PhonopyCalculation(BasePhonopyCalculation):
             ]
 
     def _get_phonopy_instance(self):
-        kwargs = {"symmetry_tolerance": self.inputs.symmetry_tolerance.value}
+        nac_params = None
         if not self.inputs.fc_only and "nac_params" in self.inputs:
-            kwargs["nac_params"] = self.inputs.nac_params
+            nac_params = self.inputs.nac_params
         ph = get_phonopy_instance(
-            self.inputs.structure, self.inputs.settings.get_dict(), **kwargs
+            self.inputs.structure,
+            self.inputs.settings.get_dict(),
+            nac_params=nac_params,
         )
         self._set_dataset(ph)
         return ph
