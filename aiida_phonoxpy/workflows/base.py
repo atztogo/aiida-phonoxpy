@@ -395,15 +395,14 @@ class BasePhonopyWorkChain(WorkChain):
         """Run phonopy calculation locally."""
         self.report("phonopy calculation in workchain")
 
-        params = {}
+        nac_params = None
         if "nac_params" in self.ctx:
-            params["nac_params"] = self.ctx.nac_params
+            nac_params = self.ctx.nac_params
         result = get_phonon_properties(
             self.inputs.structure,
             self.ctx.phonon_setting_info,
             self.ctx.force_constants,
-            self.inputs.symmetry_tolerance,
-            **params,
+            nac_params=nac_params,
         )
         self.out("thermal_properties", result["thermal_properties"])
         self.out("dos", result["dos"])

@@ -168,7 +168,6 @@ class ForcesWorkChain(WorkChain, DoNothingMixIn):
         """Initialize outline control parameters."""
         self.report("initialization")
         self.ctx.plugin_name = get_plugin_names(self.inputs.calculator_inputs)[0]
-        self.ctx.wait_counter = 0
 
     def run_calculation(self):
         """Run supercell force calculation."""
