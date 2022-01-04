@@ -14,7 +14,7 @@ from aiida.orm import (
 )
 
 from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
-from aiida_phonoxpy.common.utils import (
+from aiida_phonoxpy.utils.utils import (
     collect_forces_and_energies,
     get_force_constants,
     get_force_sets,
@@ -96,9 +96,9 @@ class BasePhonopyWorkChain(WorkChain):
         )
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("settings", valid_type=Dict, required=True)
-        spec.input_namespace(
-            "calculator_inputs", help="Inputs passed to force and NAC calculators."
-        )
+        # spec.input_namespace(
+        #     "calculator_inputs", help="Inputs passed to force and NAC calculators."
+        # )
         spec.input(
             "calculator_inputs.force", valid_type=dict, required=False, non_db=True
         )

@@ -5,7 +5,7 @@ from aiida.engine import WorkChain
 from aiida.plugins import WorkflowFactory, DataFactory
 from aiida.orm import Bool, Float, Int, QueryBuilder, Group, load_node, Code
 from aiida.engine import while_, if_, calcfunction
-from aiida_phonoxpy.common.utils import (
+from aiida_phonoxpy.utils.utils import (
     phonopy_atoms_from_structure,
     get_remote_fc_calculation_settings,
 )

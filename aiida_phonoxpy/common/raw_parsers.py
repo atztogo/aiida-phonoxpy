@@ -9,7 +9,7 @@ except ImportError:
     from yaml import Loader
 import numpy as np
 from aiida.plugins import DataFactory
-from aiida_phonoxpy.common.utils import (
+from aiida_phonoxpy.utils.utils import (
     get_total_dos,
     get_projected_dos,
     get_thermal_properties,

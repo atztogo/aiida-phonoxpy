@@ -3,12 +3,12 @@
 from aiida.engine import if_, while_
 from aiida.orm import ArrayData, Dict, Float, StructureData
 
-from aiida_phonoxpy.common.utils import setup_phono3py_calculation
+from aiida_phonoxpy.utils.utils import setup_phono3py_calculation
 from aiida_phonoxpy.workflows.base import BasePhonopyWorkChain
-from aiida_phonoxpy.workflows.phonopy import PhonopyImmigrantMixIn
+from aiida_phonoxpy.workflows.phonopy import ImmigrantMixIn
 
 
-class Phono3pyWorkChain(BasePhonopyWorkChain, PhonopyImmigrantMixIn):
+class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
     """Phono3py workchain."""
 
     @classmethod

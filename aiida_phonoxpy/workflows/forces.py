@@ -10,7 +10,7 @@ from aiida_phonoxpy.common.builders import (
     get_plugin_names,
     get_workchain_inputs,
 )
-from aiida_phonoxpy.common.utils import (
+from aiida_phonoxpy.utils.utils import (
     compare_structures,
     get_structure_from_vasp_immigrant,
 )

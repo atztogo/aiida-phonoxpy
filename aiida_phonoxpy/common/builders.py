@@ -12,7 +12,7 @@ from aiida.orm import (
 from aiida.common import AttributeDict
 from aiida.plugins import WorkflowFactory
 
-from aiida_phonoxpy.common.utils import get_kpoints_data
+from aiida_phonoxpy.utils.utils import get_kpoints_data
 
 
 def get_workchain_inputs(calculator_inputs, structure, label=None, ctx=None):
