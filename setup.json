@@ -22,9 +22,7 @@
         "phonopy>=2.11.0",
         "numpy",
         "seekpath",
-        "aiida-core>=1.6.5,<2.0.0",
-        "aiida-vasp>=2.1.1",
-        "aiida-donothing>=0.1"
+        "aiida-core>=1.6.5,<2.0.0"
     ],
     "setup_requires": [
         "reentry"
@@ -37,7 +35,8 @@
         "tests": [
             "pgtest~=1.3",
             "pytest~=6.0",
-            "pytest-regressions~=1.0"
+            "pytest-regressions~=2.0",
+            "pandas"
         ]
     },
     "entry_points": {
