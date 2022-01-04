@@ -6,7 +6,7 @@ from phonopy.file_IO import (
 )
 from phonopy.structure.dataset import forces_in_dataset
 
-from aiida_phonoxpy.common.utils import phonopy_atoms_from_structure
+from aiida_phonoxpy.utils.utils import phonopy_atoms_from_structure
 
 
 def get_BORN_txt(nac_data, structure, symmetry_tolerance):

@@ -4,7 +4,7 @@ from aiida.orm import ArrayData, BandsData, Dict, Str, XyData
 from phonopy.interface.phonopy_yaml import PhonopyYaml
 
 from aiida_phonoxpy.calculations.base import BasePhonopyCalculation
-from aiida_phonoxpy.common.utils import get_phonopy_instance
+from aiida_phonoxpy.utils.utils import get_phonopy_instance
 
 
 class PhonopyCalculation(BasePhonopyCalculation):

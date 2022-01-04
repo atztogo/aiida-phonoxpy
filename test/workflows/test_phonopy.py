@@ -2,7 +2,7 @@
 import numpy as np
 from phonopy.structure.cells import isclose
 
-from aiida_phonoxpy.common.utils import phonopy_atoms_from_structure
+from aiida_phonoxpy.utils.utils import phonopy_atoms_from_structure
 
 
 def test_initialize_with_dataset(
@@ -282,3 +282,45 @@ def test_launch_process_with_displacements_inputs(
     result, node = launch.run_get_node(process)
     output_keys = ["phonon_setting_info", "primitive", "supercell"]
     assert set(list(result)) == set(output_keys)
+
+
+def test_ForcesWorkChain_with_vasp_output(
+    fixture_code,
+    generate_structure,
+    generate_phonopy_settings,
+    generate_workchain,
+    generate_force_sets,
+    mock_calculator_code,
+    monkeypatch,
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool, ArrayData
+    from aiida.plugins import WorkflowFactory
+    from aiida.common import AttributeDict
+
+    force_sets = generate_force_sets().get_array("force_sets")
+
+    def forces_run_calculation(self):
+        """Replace ForcesWorkChain.run_calculation method."""
+        label = self.inputs.structure.label
+        forces_index = int(label.split("_")[1]) - 1
+        forces = ArrayData()
+        forces.set_array("final", np.array(force_sets[forces_index]))
+        self.ctx.calc = AttributeDict()
+        self.ctx.calc.outputs = AttributeDict()
+        self.ctx.calc.outputs.forces = forces
+
+    ForcesWorkChain = WorkflowFactory("phonoxpy.forces")
+    monkeypatch.setattr(ForcesWorkChain, "run_calculation", forces_run_calculation)
+
+    inputs = {
+        "code": fixture_code("phonoxpy.phonopy"),
+        "structure": generate_structure(),
+        "settings": generate_phonopy_settings(),
+        "metadata": {},
+        "calculator_inputs": {"force": {"code": mock_calculator_code("vasp.vasp")}},
+        "run_phonopy": Bool(False),
+    }
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)

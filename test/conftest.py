@@ -512,7 +512,7 @@ def generate_calc_job_node(fixture_localhost):
         if filepath_folder:
             from phonopy.interface.calculator import read_crystal_structure
 
-            from aiida_phonoxpy.common.utils import phonopy_atoms_to_structure
+            from aiida_phonoxpy.utils.utils import phonopy_atoms_to_structure
 
             phonopy_cell, _ = read_crystal_structure(
                 filepath_input, interface_mode="phonopy_yaml"
@@ -601,3 +601,18 @@ def generate_inputs_phonopy_wc(
         }
 
     return _generate_inputs_phonopy
+
+
+@pytest.fixture
+def mock_calculator_code():
+    """Return Code instance mock that returns plugin name."""
+
+    def _mock_code(plugin_name):
+        class MockCode:
+            @staticmethod
+            def get_input_plugin_name():
+                return plugin_name
+
+        return MockCode()
+
+    return _mock_code
