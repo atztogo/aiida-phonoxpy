@@ -9,39 +9,51 @@ from aiida_phonoxpy.workflows.phonopy import ImmigrantMixIn
 
 
 class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
-    """Phono3py workchain."""
+    """Phono3py workchain.
+
+    This workchain generates sudpercells with displacements and calculates
+    supercell forces and parameters for non-analytical term correction.
+
+    """
 
     @classmethod
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
+        spec.input_namespace(
+            "remote_workdirs",
+            help="Directory names to import force and NAC calculations.",
+        )
+        spec.input(
+            "remote_workdirs.force", valid_type=list, required=False, non_db=True
+        )
+        spec.input(
+            "calculator_inputs.phonon_force",
+            valid_type=dict,
+            required=False,
+            non_db=True,
+        )
+        spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
         spec.input("phonon_force_sets", valid_type=ArrayData, required=False)
-        spec.input("immigrant_calculation_folders", valid_type=Dict, required=False)
+        spec.input("phonon_displacement_dataset", valid_type=Dict, required=False)
+        spec.input("phonon_displacements", valid_type=ArrayData, required=False)
 
         spec.outline(
             cls.initialize,
             if_(cls.import_calculations_from_files)(
                 cls.initialize_immigrant,
                 while_(cls.continue_import)(
-                    cls.read_force_calculations_from_files,
+                    cls.import_force_calculations_from_files,
                 ),
                 if_(cls.is_nac)(
-                    cls.read_nac_calculations_from_files,
+                    cls.import_nac_calculations_from_files,
                 ),
             ).else_(
                 cls.run_force_and_nac_calculations,
             ),
             cls.create_force_sets,
+            if_(cls.should_run_phonon_supercell)(cls.create_phonon_force_sets),
             if_(cls.is_nac)(cls.attach_nac_params),
-            if_(cls.run_phonopy)(
-                if_(cls.remote_phonopy)(
-                    cls.run_phono3py_remote,
-                    cls.collect_remote_data,
-                ).else_(
-                    cls.create_force_constants,
-                    cls.run_phono3py_in_workchain,
-                )
-            ),
         )
         spec.output("fc3", valid_type=ArrayData, required=False)
         spec.output("fc2", valid_type=ArrayData, required=False)
@@ -49,6 +61,20 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         spec.output("phonon_force_sets", valid_type=ArrayData, required=False)
         spec.output("phonon_supercell_forces", valid_type=ArrayData, required=False)
         spec.output("phonon_supercell_energy", valid_type=Float, required=False)
+        spec.output("phonon_displacement_dataset", valid_type=Dict, required=False)
+        spec.output("phonon_displacements", valid_type=ArrayData, required=False)
+        spec.output(
+            "phonon_supercell_forces",
+            valid_type=ArrayData,
+            required=False,
+            help="Forces of perfect fc2 supercell.",
+        )
+        spec.output(
+            "phonon_supercell_energy",
+            valid_type=Float,
+            required=False,
+            help="Energy of perfect fc2 supercell.",
+        )
         spec.exit_code(
             1003,
             "ERROR_INCONSISTENT_IMMIGRANT_FORCES_FOLDERS",
@@ -56,6 +82,13 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                 "Number of supercell folders is different from number "
                 "of expected supercells."
             ),
+        )
+
+    def should_run_phonon_supercell(self):
+        """Return boolen for outline."""
+        return (
+            "phonon_supercell_matrix" in self.inputs.settings.keys()
+            and "phonon_force" in self.inputs.calculator_inputs
         )
 
     def continue_import(self):
@@ -84,37 +117,50 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         self.report("initialize")
 
         kwargs = {}
-        if "displacement_dataset" in self.inputs:
-            kwargs["dataset"] = self.inputs.displacement_dataset
+        for key in (
+            "displacement_dataset",
+            "displacements",
+            "phonon_displacement_dataset",
+            "phonon_displacements",
+        ):
+            if key in self.inputs:
+                kwargs[key] = self.inputs[key]
+                self.ctx[key] = self.inputs[key]
         return_vals = setup_phono3py_calculation(
             self.inputs.settings,
             self.inputs.structure,
             self.inputs.symmetry_tolerance,
-            **kwargs
+            **kwargs,
         )
 
-        for key in ("phonon_setting_info", "primitive", "supercell"):
-            self.ctx[key] = return_vals[key]
-            self.out(key, self.ctx[key])
+        for key in (
+            "phonon_setting_info",
+            "primitive",
+            "supercell",
+            "phonon_supercell",
+            "displacements",
+            "displacement_dataset",
+            "phonon_displacements",
+            "phonon_displacement_dataset",
+        ):
+            if key in return_vals:
+                self.ctx[key] = return_vals[key]
+                self.out(key, self.ctx[key])
         self.ctx.supercells = {}
         self.ctx.phonon_supercells = {}
         for key in return_vals:
-            if "supercell_" in key and "phonon_" not in key:
-                self.ctx.supercells[key] = return_vals[key]
             if "phonon_supercell_" in key:
                 self.ctx.phonon_supercells[key] = return_vals[key]
-        self.ctx.primitive = return_vals["primitive"]
-        self.ctx.supercell = return_vals["supercell"]
-        if "phonon_supercell" in return_vals:
-            self.ctx.phonon_supercell = return_vals["phonon_supercell"]
+            elif "supercell_" in key:
+                self.ctx.supercells[key] = return_vals[key]
 
         if self.inputs.subtract_residual_forces:
             digits = len(str(len(self.ctx.supercells)))
-            label = "supercell_%s" % "0".zfill(digits)
-            self.ctx.supercells[label] = return_vals["supercell"]
+            key = "supercell_%s" % "0".zfill(digits)
+            self.ctx.supercells[key] = return_vals["supercell"]
             digits = len(str(len(self.ctx.phonon_supercells)))
-            label = "phonon_supercell_%s" % "0".zfill(digits)
-            self.ctx.phonon_supercells[label] = return_vals["phonon_supercell"]
+            key = "phonon_supercell_%s" % "0".zfill(digits)
+            self.ctx.phonon_supercells[key] = return_vals["phonon_supercell"]
 
     def run_force_and_nac_calculations(self):
         """Run supercell force, phonon supercell force, and NAC params calculations.
@@ -127,7 +173,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             self.report("skip force calculation.")
             self.ctx.force_sets = self.inputs.force_sets
         else:
-            self._run_force_calculations(self.ctx.supercells, label_prefix="force_calc")
+            self._run_force_calculations(self.ctx.supercells)
 
         if "phonon_supercell" in self.ctx:
             if "phonon_force_sets" in self.inputs:
@@ -144,9 +190,16 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         elif self.is_nac():
             self._run_nac_params_calculation()
 
-    def postprocess_of_dry_run(self):
-        """Do nothing."""
-        self.report("Finish here because of dry-run setting")
+    def create_phonon_force_sets(self):
+        """Attach phonon force sets to outputs.
+
+        outputs.phonon_force_sets
+        outputs.phonon_supercell_forces (optional)
+        outputs.phonon_supercell_energy (optional)
+
+        """
+        self.report("create phonon force sets")
+        self._create_force_sets(self.ctx.phonon_supercells, key_prefix="phonon_")
 
     def run_phono3py_remote(self):
         """Do nothing."""

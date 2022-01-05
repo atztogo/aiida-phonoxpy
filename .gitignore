@@ -43,3 +43,6 @@ _build
 
 # vscode
 .vscode
+
+# mypy
+.mypy_cache
