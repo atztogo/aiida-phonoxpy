@@ -76,12 +76,17 @@ jobs:
 
       - name: Install python dependencies
         run: |
-          pip install --upgrade setuptools
+          pip install --upgrade setuptools wheel
           pip install -e .[tests]
           reentry scan
 
       - name: Install phono3py
         run: |
+          git clone https://github.com/phonopy/phonopy.git
+          cd phonopy
+          python setup.py build
+          pip install -e .
+          cd ..
           git clone https://github.com/phonopy/phono3py.git
           cd phono3py
           python setup.py build
