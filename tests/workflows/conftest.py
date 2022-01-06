@@ -1,36 +1,37 @@
 """Pytest fixtures for workflows."""
-import pytest
 import numpy as np
+import pytest
 
 
 @pytest.fixture
-def mock_forces_run_calculation(generate_force_sets, monkeypatch):
+def mock_forces_run_calculation(monkeypatch):
     """Return mock ForcesWorkChain.run_calculation method.
 
     VASP and QE-pw calculation outputs are mocked.
 
-    `self.ctx.plugin_name` should be set via `inputs.code`. See
-    ForceWorkChain.initialize()
+    `self.ctx.plugin_name` is determined by `inputs.calculator_inputs['code']`
+    in ForceWorkChain. See ForceWorkChain.initialize()
+
+    As the rule of this test, `force_sets` has to be passed through
+    `inputs.calculator_inputs['force_sets']` in ForceWorkChain.
 
     """
 
-    def _mock_forces_run_calculation(structure_id="NaCl"):
+    def _mock_forces_run_calculation():
         from aiida.plugins import WorkflowFactory
 
         ForcesWorkChain = WorkflowFactory("phonoxpy.forces")
-        force_sets_data = generate_force_sets(structure_id=structure_id)
-        force_sets = force_sets_data.get_array("force_sets")
 
         def _mock(self):
-            from aiida.orm import ArrayData
             from aiida.common import AttributeDict
+            from aiida.orm import ArrayData
 
             label = self.inputs.structure.label
             forces_index = int(label.split("_")[1]) - 1
             forces = ArrayData()
             self.ctx.calc = AttributeDict()
             self.ctx.calc.outputs = AttributeDict()
-
+            force_sets = self.inputs.calculator_inputs["force_sets"]
             if self.ctx.plugin_name == "vasp.vasp":
                 forces.set_array("final", np.array(force_sets[forces_index]))
                 self.ctx.calc.outputs.forces = forces
@@ -44,27 +45,30 @@ def mock_forces_run_calculation(generate_force_sets, monkeypatch):
 
 
 @pytest.fixture
-def mock_nac_params_run_calculation(generate_nac_params, monkeypatch):
+def mock_nac_params_run_calculation(monkeypatch):
     """Return mock NacParamsWorkChain.run_calculation method.
 
     VASP and QE-{pw,ph} calculation outputs are mocked.
 
-    `self.ctx.plugin_names[0]` should be set via `inputs.code`. See
-    NacParamsWorkChain.initialize()
+    `self.ctx.plugin_names` should be set via `inputs.calculator_inputs['code']`
+    in NacParamsWorkChain. See NacParamsWorkChain.initialize()
+
+    As the rule of this test, `born_charges` and `epsilon` have to be passed through
+    `inputs.calculator_inputs` in NacParamsWorkChain.
 
     """
 
-    def _mock_nac_params_run_calculation(structure_id="NaCl"):
+    def _mock_nac_params_run_calculation():
         from aiida.plugins import WorkflowFactory
 
         NacParamsWorkChain = WorkflowFactory("phonoxpy.nac_params")
-        nac_params_data = generate_nac_params(structure_id=structure_id)
-        born_charges = nac_params_data.get_array("born_charges")
-        epsilon = nac_params_data.get_array("epsilon")
 
         def _mock(self):
-            from aiida.orm import ArrayData, Dict
             from aiida.common import AttributeDict
+            from aiida.orm import ArrayData, Dict
+
+            born_charges = self.inputs.calculator_inputs["born_charges"]
+            epsilon = self.inputs.calculator_inputs["epsilon"]
 
             if self.ctx.plugin_names[0] == "vasp.vasp":
                 calc = AttributeDict()

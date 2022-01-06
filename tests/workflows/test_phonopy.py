@@ -300,22 +300,28 @@ def test_passing_through_ForcesWorkChain(
     from aiida.engine import launch
     from aiida.orm import Bool
 
-    mock_forces_run_calculation()
-
+    force_sets = generate_force_sets().get_array("force_sets")
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
         "structure": generate_structure(),
         "settings": generate_phonopy_settings(),
         "metadata": {},
-        "calculator_inputs": {"force": {"code": mock_calculator_code(plugin_name)}},
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code(plugin_name),
+                "force_sets": force_sets,
+            }
+        },
         "run_phonopy": Bool(False),
     }
+
+    mock_forces_run_calculation()
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
 
     np.testing.assert_allclose(
         result["force_sets"].get_array("force_sets"),
-        generate_force_sets().get_array("force_sets"),
+        force_sets,
         atol=1e-8,
         rtol=0,
     )
@@ -335,6 +341,7 @@ def test_passing_through_NacParamsWorkChain(
     generate_structure,
     generate_phonopy_settings,
     generate_workchain,
+    generate_force_sets,
     generate_nac_params,
     mock_calculator_code,
     mock_forces_run_calculation,
@@ -345,17 +352,27 @@ def test_passing_through_NacParamsWorkChain(
     from aiida.engine import launch
     from aiida.orm import Bool
 
-    mock_forces_run_calculation()
-    mock_nac_params_run_calculation()
+    nac_params_data = generate_nac_params()
+    born_charges = nac_params_data.get_array("born_charges")
+    epsilon = nac_params_data.get_array("epsilon")
+    force_sets = generate_force_sets().get_array("force_sets")
 
     if plugin_name == "vasp.vasp":
-        nac_inputs = {"code": mock_calculator_code(plugin_name)}
+        nac_inputs = {
+            "code": mock_calculator_code(plugin_name),
+            "born_charges": born_charges,
+            "epsilon": epsilon,
+        }
     elif plugin_name == "quantumespresso.pw":
         nac_inputs = {
             "steps": [
                 {"code": mock_calculator_code("quantumespresso.pw")},
-                {"code": mock_calculator_code("quantumespresso.ph")},
-            ]
+                {
+                    "code": mock_calculator_code("quantumespresso.ph"),
+                },
+            ],
+            "born_charges": born_charges,
+            "epsilon": epsilon,
         }
     else:
         raise RuntimeError("plugin_name doesn't exist.")
@@ -366,11 +383,18 @@ def test_passing_through_NacParamsWorkChain(
         "settings": generate_phonopy_settings(),
         "metadata": {},
         "calculator_inputs": {
-            "force": {"code": mock_calculator_code(plugin_name)},
+            "force": {
+                "code": mock_calculator_code(plugin_name),
+                "force_sets": force_sets,
+            },
             "nac": nac_inputs,
         },
         "run_phonopy": Bool(False),
     }
+
+    mock_forces_run_calculation()
+    mock_nac_params_run_calculation()
+
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
 
