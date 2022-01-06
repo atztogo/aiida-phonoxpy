@@ -1,15 +1,7 @@
 """BasePhonopyWorkChain."""
 
 from aiida.engine import WorkChain
-from aiida.orm import (
-    ArrayData,
-    Bool,
-    Code,
-    Dict,
-    Float,
-    Str,
-    StructureData,
-)
+from aiida.orm import ArrayData, Bool, Code, Dict, Float, Str, StructureData
 
 from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.utils.utils import collect_forces_and_energies, get_force_sets
@@ -195,7 +187,7 @@ class BasePhonopyWorkChain(WorkChain):
         self.report("run nac params calculation")
 
         builder = NacParamsWorkChain.get_builder()
-        builder.metadata.label = "nac_params"
+        builder.metadata.label = "nac_params_calc"
         builder.structure = self.ctx.primitive
         if "nac" in self.inputs.calculator_inputs:
             calculator_inputs = self.inputs.calculator_inputs.nac

@@ -5,14 +5,14 @@ from aiida.common import AttributeDict
 
 
 @pytest.fixture
-def generate_inputs(generate_structure, generate_nac_params, generate_phonopy_settings):
+def generate_inputs(generate_structure, generate_nac_params, generate_settings):
     """Return only those inputs that the parser will expect to be there."""
 
     def _generate_inputs(metadata=None):
         return AttributeDict(
             {
                 "structure": generate_structure(),
-                "settings": generate_phonopy_settings(),
+                "settings": generate_settings(),
                 "metadata": metadata or {},
                 "nac_params": generate_nac_params(),
             }

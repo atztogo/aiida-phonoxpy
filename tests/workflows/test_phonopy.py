@@ -10,7 +10,7 @@ def test_initialize_with_dataset(
     generate_workchain,
     generate_structure,
     generate_displacement_dataset,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -18,7 +18,7 @@ def test_initialize_with_dataset(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings()
+    settings = generate_settings()
     dataset = generate_displacement_dataset()
     inputs = {"structure": structure, "settings": settings}
     wc = generate_workchain("phonoxpy.phonopy", inputs)
@@ -41,7 +41,7 @@ def test_initialize_with_dataset_input(
     generate_workchain,
     generate_structure,
     generate_displacement_dataset,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -49,7 +49,7 @@ def test_initialize_with_dataset_input(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings()
+    settings = generate_settings()
     dataset = generate_displacement_dataset()
     inputs = {
         "structure": structure,
@@ -116,7 +116,7 @@ def _assert_dataset(wc, dataset):
 def test_initialize_with_displacements(
     generate_workchain,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -124,7 +124,7 @@ def test_initialize_with_displacements(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings(number_of_snapshots=4)
+    settings = generate_settings(number_of_snapshots=4)
     inputs = {"structure": structure, "settings": settings}
     wc = generate_workchain("phonoxpy.phonopy", inputs)
     wc.initialize()
@@ -146,7 +146,7 @@ def test_initialize_with_displacements_input(
     generate_workchain,
     generate_structure,
     generate_displacements,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -154,7 +154,7 @@ def test_initialize_with_displacements_input(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings()
+    settings = generate_settings()
     displacements = generate_displacements()
     inputs = {
         "structure": structure,
@@ -200,8 +200,8 @@ def _assert_displacements(wc):
     _assert_cells(wc)
 
     disps = wc.ctx.displacements.get_array("displacements")
+    ndigits = len(str(len(disps)))
     for i, d in enumerate(disps):
-        ndigits = len(str(len(disps)))
         num = str(i + 1).zfill(ndigits)
         key = f"supercell_{num}"
         assert key in wc.ctx.supercells
@@ -261,7 +261,7 @@ def test_launch_process_with_dataset_inputs(
 def test_launch_process_with_displacements_inputs(
     fixture_code,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
     generate_workchain,
     generate_force_sets,
     generate_displacements,
@@ -273,7 +273,7 @@ def test_launch_process_with_displacements_inputs(
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
         "structure": generate_structure(),
-        "settings": generate_phonopy_settings(),
+        "settings": generate_settings(),
         "metadata": {},
         "force_sets": generate_force_sets("NaCl-displacements"),
         "displacements": generate_displacements(),
@@ -289,7 +289,7 @@ def test_launch_process_with_displacements_inputs(
 def test_passing_through_ForcesWorkChain(
     fixture_code,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
     generate_workchain,
     generate_force_sets,
     mock_calculator_code,
@@ -304,7 +304,7 @@ def test_passing_through_ForcesWorkChain(
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
         "structure": generate_structure(),
-        "settings": generate_phonopy_settings(),
+        "settings": generate_settings(),
         "metadata": {},
         "calculator_inputs": {
             "force": {
@@ -339,7 +339,7 @@ def test_passing_through_ForcesWorkChain(
 def test_passing_through_NacParamsWorkChain(
     fixture_code,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
     generate_workchain,
     generate_force_sets,
     generate_nac_params,
@@ -380,7 +380,7 @@ def test_passing_through_NacParamsWorkChain(
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
         "structure": generate_structure(),
-        "settings": generate_phonopy_settings(),
+        "settings": generate_settings(),
         "metadata": {},
         "calculator_inputs": {
             "force": {

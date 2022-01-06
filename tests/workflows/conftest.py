@@ -23,11 +23,19 @@ def mock_forces_run_calculation(monkeypatch):
         ForcesWorkChain = WorkflowFactory("phonoxpy.forces")
 
         def _mock(self):
+            """Mock method to replace ForceWorkChain.run_calculation.
+
+            self.inputs.structure is a supercell with the label, e.g.,
+
+            supercell_01, ...
+            phonon_supercell_1, ...
+
+            """
             from aiida.common import AttributeDict
             from aiida.orm import ArrayData
 
             label = self.inputs.structure.label
-            forces_index = int(label.split("_")[1]) - 1
+            forces_index = int(label.split("_")[-1]) - 1
             forces = ArrayData()
             self.ctx.calc = AttributeDict()
             self.ctx.calc.outputs = AttributeDict()
