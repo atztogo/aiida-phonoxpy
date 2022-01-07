@@ -6,111 +6,11 @@ from phonopy.structure.cells import isclose
 from aiida_phonoxpy.utils.utils import phonopy_atoms_from_structure
 
 
-@pytest.fixture
-def mock_forces_run_calculation(generate_force_sets, monkeypatch):
-    """Return mock ForcesWorkChain.run_calculation method.
-
-    VASP and QE-pw calculation outputs are mocked.
-
-    `self.ctx.plugin_name` should be set via `inputs.code`. See
-    ForceWorkChain.initialize()
-
-    """
-
-    def _mock_forces_run_calculation(structure_id="NaCl"):
-        from aiida.plugins import WorkflowFactory
-
-        ForcesWorkChain = WorkflowFactory("phonoxpy.forces")
-        force_sets_data = generate_force_sets(structure_id=structure_id)
-        force_sets = force_sets_data.get_array("force_sets")
-
-        def _mock(self):
-            from aiida.orm import ArrayData
-            from aiida.common import AttributeDict
-
-            label = self.inputs.structure.label
-            forces_index = int(label.split("_")[1]) - 1
-            forces = ArrayData()
-            self.ctx.calc = AttributeDict()
-            self.ctx.calc.outputs = AttributeDict()
-
-            if self.ctx.plugin_name == "vasp.vasp":
-                forces.set_array("final", np.array(force_sets[forces_index]))
-                self.ctx.calc.outputs.forces = forces
-            elif self.ctx.plugin_name == "quantumespresso.pw":
-                forces.set_array("forces", np.array(force_sets[forces_index]))
-                self.ctx.calc.outputs.output_trajectory = forces
-
-        monkeypatch.setattr(ForcesWorkChain, "run_calculation", _mock)
-
-    return _mock_forces_run_calculation
-
-
-@pytest.fixture
-def mock_nac_params_run_calculation(generate_nac_params, monkeypatch):
-    """Return mock NacParamsWorkChain.run_calculation method.
-
-    VASP and QE-{pw,ph} calculation outputs are mocked.
-
-    `self.ctx.plugin_names[0]` should be set via `inputs.code`. See
-    NacParamsWorkChain.initialize()
-
-    """
-
-    def _mock_nac_params_run_calculation(structure_id="NaCl"):
-        from aiida.plugins import WorkflowFactory
-
-        NacParamsWorkChain = WorkflowFactory("phonoxpy.nac_params")
-        nac_params_data = generate_nac_params(structure_id=structure_id)
-        born_charges = nac_params_data.get_array("born_charges")
-        epsilon = nac_params_data.get_array("epsilon")
-
-        def _mock(self):
-            from aiida.orm import ArrayData, Dict
-            from aiida.common import AttributeDict
-
-            if self.ctx.plugin_names[0] == "vasp.vasp":
-                calc = AttributeDict()
-                calc.inputs = AttributeDict()
-                calc.outputs = AttributeDict()
-                calc.inputs.structure = self.inputs.structure
-                born_charges_data = ArrayData()
-                born_charges_data.set_array("born_charges", born_charges)
-                epsilon_data = ArrayData()
-                epsilon_data.set_array("epsilon", epsilon)
-                calc.outputs.born_charges = born_charges_data
-                calc.outputs.dielectrics = epsilon_data
-                self.ctx.nac_params_calcs = [calc]
-            elif self.ctx.plugin_names[0] == "quantumespresso.pw":
-                if self.ctx.iteration == 1:
-                    assert self.ctx.plugin_names[0] == "quantumespresso.pw"
-                    pw_calc = AttributeDict()
-                    pw_calc.inputs = AttributeDict()
-                    pw_calc.inputs.pw = AttributeDict()
-                    pw_calc.inputs.pw.structure = self.inputs.structure
-                    self.ctx.nac_params_calcs = [pw_calc]
-                elif self.ctx.iteration == 2:
-                    assert self.ctx.plugin_names[1] == "quantumespresso.ph"
-                    ph_calc = AttributeDict()
-                    ph_calc.outputs = AttributeDict()
-                    ph_calc.outputs.output_parameters = Dict(
-                        dict={
-                            "effective_charges_eu": born_charges,
-                            "dielectric_constant": epsilon,
-                        }
-                    )
-                    self.ctx.nac_params_calcs.append(ph_calc)
-
-        monkeypatch.setattr(NacParamsWorkChain, "run_calculation", _mock)
-
-    return _mock_nac_params_run_calculation
-
-
 def test_initialize_with_dataset(
     generate_workchain,
     generate_structure,
     generate_displacement_dataset,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -118,7 +18,7 @@ def test_initialize_with_dataset(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings()
+    settings = generate_settings()
     dataset = generate_displacement_dataset()
     inputs = {"structure": structure, "settings": settings}
     wc = generate_workchain("phonoxpy.phonopy", inputs)
@@ -141,7 +41,7 @@ def test_initialize_with_dataset_input(
     generate_workchain,
     generate_structure,
     generate_displacement_dataset,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -149,7 +49,7 @@ def test_initialize_with_dataset_input(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings()
+    settings = generate_settings()
     dataset = generate_displacement_dataset()
     inputs = {
         "structure": structure,
@@ -216,7 +116,7 @@ def _assert_dataset(wc, dataset):
 def test_initialize_with_displacements(
     generate_workchain,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -224,7 +124,7 @@ def test_initialize_with_displacements(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings(number_of_snapshots=4)
+    settings = generate_settings(number_of_snapshots=4)
     inputs = {"structure": structure, "settings": settings}
     wc = generate_workchain("phonoxpy.phonopy", inputs)
     wc.initialize()
@@ -246,7 +146,7 @@ def test_initialize_with_displacements_input(
     generate_workchain,
     generate_structure,
     generate_displacements,
-    generate_phonopy_settings,
+    generate_settings,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -254,7 +154,7 @@ def test_initialize_with_displacements_input(
 
     """
     structure = generate_structure()
-    settings = generate_phonopy_settings()
+    settings = generate_settings()
     displacements = generate_displacements()
     inputs = {
         "structure": structure,
@@ -300,8 +200,8 @@ def _assert_displacements(wc):
     _assert_cells(wc)
 
     disps = wc.ctx.displacements.get_array("displacements")
+    ndigits = len(str(len(disps)))
     for i, d in enumerate(disps):
-        ndigits = len(str(len(disps)))
         num = str(i + 1).zfill(ndigits)
         key = f"supercell_{num}"
         assert key in wc.ctx.supercells
@@ -361,7 +261,7 @@ def test_launch_process_with_dataset_inputs(
 def test_launch_process_with_displacements_inputs(
     fixture_code,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
     generate_workchain,
     generate_force_sets,
     generate_displacements,
@@ -373,7 +273,7 @@ def test_launch_process_with_displacements_inputs(
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
         "structure": generate_structure(),
-        "settings": generate_phonopy_settings(),
+        "settings": generate_settings(),
         "metadata": {},
         "force_sets": generate_force_sets("NaCl-displacements"),
         "displacements": generate_displacements(),
@@ -389,8 +289,9 @@ def test_launch_process_with_displacements_inputs(
 def test_passing_through_ForcesWorkChain(
     fixture_code,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
     generate_workchain,
+    generate_force_sets,
     mock_calculator_code,
     mock_forces_run_calculation,
     plugin_name,
@@ -399,26 +300,49 @@ def test_passing_through_ForcesWorkChain(
     from aiida.engine import launch
     from aiida.orm import Bool
 
-    mock_forces_run_calculation()
-
+    force_sets = generate_force_sets().get_array("force_sets")
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
         "structure": generate_structure(),
-        "settings": generate_phonopy_settings(),
+        "settings": generate_settings(),
         "metadata": {},
-        "calculator_inputs": {"force": {"code": mock_calculator_code(plugin_name)}},
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code(plugin_name),
+                "force_sets": force_sets,
+            }
+        },
         "run_phonopy": Bool(False),
     }
+
+    mock_forces_run_calculation()
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
+
+    np.testing.assert_allclose(
+        result["force_sets"].get_array("force_sets"),
+        force_sets,
+        atol=1e-8,
+        rtol=0,
+    )
+    output_keys = (
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "displacement_dataset",
+        "force_sets",
+    )
+    assert set(list(result)) == set(output_keys)
 
 
 @pytest.mark.parametrize("plugin_name", ["vasp.vasp", "quantumespresso.pw"])
 def test_passing_through_NacParamsWorkChain(
     fixture_code,
     generate_structure,
-    generate_phonopy_settings,
+    generate_settings,
     generate_workchain,
+    generate_force_sets,
+    generate_nac_params,
     mock_calculator_code,
     mock_forces_run_calculation,
     mock_nac_params_run_calculation,
@@ -428,17 +352,27 @@ def test_passing_through_NacParamsWorkChain(
     from aiida.engine import launch
     from aiida.orm import Bool
 
-    mock_forces_run_calculation()
-    mock_nac_params_run_calculation()
+    nac_params_data = generate_nac_params()
+    born_charges = nac_params_data.get_array("born_charges")
+    epsilon = nac_params_data.get_array("epsilon")
+    force_sets = generate_force_sets().get_array("force_sets")
 
     if plugin_name == "vasp.vasp":
-        nac_inputs = {"code": mock_calculator_code(plugin_name)}
+        nac_inputs = {
+            "code": mock_calculator_code(plugin_name),
+            "born_charges": born_charges,
+            "epsilon": epsilon,
+        }
     elif plugin_name == "quantumespresso.pw":
         nac_inputs = {
             "steps": [
                 {"code": mock_calculator_code("quantumespresso.pw")},
-                {"code": mock_calculator_code("quantumespresso.ph")},
-            ]
+                {
+                    "code": mock_calculator_code("quantumespresso.ph"),
+                },
+            ],
+            "born_charges": born_charges,
+            "epsilon": epsilon,
         }
     else:
         raise RuntimeError("plugin_name doesn't exist.")
@@ -446,13 +380,38 @@ def test_passing_through_NacParamsWorkChain(
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
         "structure": generate_structure(),
-        "settings": generate_phonopy_settings(),
+        "settings": generate_settings(),
         "metadata": {},
         "calculator_inputs": {
-            "force": {"code": mock_calculator_code(plugin_name)},
+            "force": {
+                "code": mock_calculator_code(plugin_name),
+                "force_sets": force_sets,
+            },
             "nac": nac_inputs,
         },
         "run_phonopy": Bool(False),
     }
+
+    mock_forces_run_calculation()
+    mock_nac_params_run_calculation()
+
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
+
+    for key in ("born_charges", "epsilon"):
+        np.testing.assert_allclose(
+            result["nac_params"].get_array(key),
+            generate_nac_params().get_array(key),
+            atol=1e-8,
+            rtol=0,
+        )
+
+    output_keys = (
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "displacement_dataset",
+        "force_sets",
+        "nac_params",
+    )
+    assert set(list(result)) == set(output_keys)

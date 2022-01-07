@@ -41,6 +41,12 @@ class DoNothingMixIn:
 class ImmigrantMixIn:
     """List of methods to import calculations."""
 
+    def is_nac(self):
+        """Return boolean for outline."""
+        if "nac" in self.inputs.remote_workdirs:
+            return True
+        return super().is_nac()
+
     def import_calculations_from_files(self):
         """Return boolen for outline."""
         return "force" in self.inputs.remote_workdirs
