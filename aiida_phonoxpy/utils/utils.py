@@ -272,7 +272,7 @@ def setup_phono3py_calculation(
             phonon_settings["phonon_supercell_matrix"],
             smat_type="phonon_supercell_matrix",
         )
-    ph = _get_phono3py_instance(structure, ph_settings)
+    ph = get_phono3py_instance(structure, ph_settings)
     ph_settings["primitive_matrix"] = ph.primitive_matrix
     ph_settings["version"] = ph.version
     _set_symmetry_info(ph_settings, ph)
@@ -641,7 +641,7 @@ def get_phonopy_instance(
     return phpy
 
 
-def _get_phono3py_instance(
+def get_phono3py_instance(
     structure: StructureData,
     phonon_settings_dict: dict,
     nac_params: Optional[ArrayData] = None,
@@ -663,7 +663,7 @@ def _get_phono3py_instance(
         ]
     ph3py = Phono3py(phonopy_atoms_from_structure(structure), **kwargs)
     if nac_params:
-        _set_nac_params(ph3py, nac_params["nac_params"])
+        _set_nac_params(ph3py, nac_params)
     return ph3py
 
 

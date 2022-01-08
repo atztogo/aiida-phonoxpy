@@ -41,10 +41,12 @@
     },
     "entry_points": {
         "aiida.calculations": [
-            "phonoxpy.phonopy = aiida_phonoxpy.calculations.phonopy: PhonopyCalculation"
+            "phonoxpy.phonopy = aiida_phonoxpy.calculations.phonopy: PhonopyCalculation",
+            "phonoxpy.phono3py = aiida_phonoxpy.calculations.phono3py: Phono3pyCalculation"
         ],
         "aiida.parsers": [
-            "phonoxpy.phonopy = aiida_phonoxpy.parsers.phonopy: PhonopyParser"
+            "phonoxpy.phonopy = aiida_phonoxpy.parsers.phonopy: PhonopyParser",
+            "phonoxpy.phono3py = aiida_phonoxpy.parsers.phono3py: Phono3pyParser"
         ],
         "aiida.workflows": [
             "phonoxpy.phonopy = aiida_phonoxpy.workflows.phonopy: PhonopyWorkChain",

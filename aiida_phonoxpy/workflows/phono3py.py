@@ -1,8 +1,9 @@
 """WorkChan to run ph-ph calculation by phono3py and force calculators."""
 
 from aiida.engine import if_, while_
-from aiida.orm import ArrayData, Dict, Float, StructureData
+from aiida.orm import ArrayData, Bool, Code, Dict, Float, StructureData
 
+from aiida_phonoxpy.calculations.phono3py import Phono3pyCalculation
 from aiida_phonoxpy.utils.utils import setup_phono3py_calculation
 from aiida_phonoxpy.workflows.base import BasePhonopyWorkChain
 from aiida_phonoxpy.workflows.phonopy import ImmigrantMixIn
@@ -20,6 +21,12 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
+        spec.expose_inputs(
+            Phono3pyCalculation, namespace="phono3py", include=("metadata",)
+        )
+        spec.input(
+            "phono3py.metadata.options.resources", valid_type=dict, required=False
+        )
         spec.input_namespace(
             "remote_workdirs",
             help="Directory names to import force and NAC calculations.",
@@ -37,6 +44,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         spec.input("phonon_force_sets", valid_type=ArrayData, required=False)
         spec.input("phonon_displacement_dataset", valid_type=Dict, required=False)
         spec.input("phonon_displacements", valid_type=ArrayData, required=False)
+        spec.input("run_phono3py", valid_type=Bool, default=lambda: Bool(False))
 
         spec.outline(
             cls.initialize,
@@ -54,6 +62,11 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             cls.create_force_sets,
             if_(cls.should_run_phonon_supercell)(cls.create_phonon_force_sets),
             if_(cls.is_nac)(cls.attach_nac_params),
+            if_(cls.should_run_phono3py)(
+                cls.run_phono3py_remote,
+                cls.collect_remote_data,
+            ),
+            cls.finalize,
         )
         spec.output("fc3", valid_type=ArrayData, required=False)
         spec.output("fc2", valid_type=ArrayData, required=False)
@@ -83,6 +96,10 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                 "of expected supercells."
             ),
         )
+
+    def should_run_phono3py(self):
+        """Return boolean for outline."""
+        return self.inputs.run_phono3py
 
     def should_run_phonon_supercell(self):
         """Return boolen for outline."""
@@ -202,17 +219,38 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         self._create_force_sets(self.ctx.phonon_supercells, key_prefix="phonon_")
 
     def run_phono3py_remote(self):
-        """Do nothing."""
+        """Run phonopy at remote computer."""
         self.report("remote phonopy calculation")
+
+        if "code_string" in self.inputs:
+            code = Code.get_from_string(self.inputs.code_string.value)
+        elif "code" in self.inputs:
+            code = self.inputs.code
+        builder = code.get_builder()
+        builder.structure = self.inputs.structure
+        builder.settings = self.ctx.phonon_setting_info
+        builder.symmetry_tolerance = self.inputs.symmetry_tolerance
+        if "label" in self.inputs.metadata:
+            builder.metadata.label = self.inputs.metadata.label
+        if "options" in self.inputs.phono3py.metadata:
+            builder.metadata.options.update(self.inputs.phono3py.metadata.options)
+        builder.force_sets = self.ctx.force_sets
+        if "nac_params" in self.ctx:
+            builder.nac_params = self.ctx.nac_params
+        if "displacements" in self.ctx:
+            builder.displacements = self.ctx.displacements
+        if "displacement_dataset" in self.ctx:
+            builder.displacement_dataset = self.ctx.displacement_dataset
+        future = self.submit(builder)
+
+        self.report("phono3py calculation: {}".format(future.pk))
+        self.to_context(**{"phonon_properties": future})
+        # return ToContext(phonon_properties=future)
 
     def collect_remote_data(self):
         """Do nothing."""
         self.report("collect data")
 
-    def create_force_constants(self):
-        """Do nothing."""
-        self.report("create force constants")
-
-    def run_phono3py_in_workchain(self):
-        """Do nothing."""
-        self.report("phonopy calculation in workchain")
+    def finalize(self):
+        """Show final message."""
+        self.report("phonopy calculation has been done.")

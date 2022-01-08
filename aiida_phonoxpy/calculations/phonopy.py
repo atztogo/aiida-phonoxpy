@@ -1,4 +1,5 @@
 """CalcJob to run phonopy at a remote host."""
+import lzma
 
 from aiida.orm import ArrayData, BandsData, Dict, Str, XyData
 from phonopy.interface.phonopy_yaml import PhonopyYaml
@@ -15,7 +16,7 @@ class PhonopyCalculation(BasePhonopyCalculation):
     _OUTPUT_THERMAL_PROPERTIES = "thermal_properties.yaml"
     _OUTPUT_BAND_STRUCTURE = "band.yaml"
     _INOUT_FORCE_CONSTANTS = "force_constants.hdf5"
-    _INPUT_PARAMS = "phonopy_params.yaml"
+    _INPUT_PARAMS = "phonopy_params.yaml.xz"
 
     @classmethod
     def define(cls, spec):
@@ -62,8 +63,9 @@ class PhonopyCalculation(BasePhonopyCalculation):
         ph = self._get_phonopy_instance()
         phpy_yaml = PhonopyYaml()
         phpy_yaml.set_phonon_info(ph)
-        with folder.open(self._INPUT_PARAMS, "w") as handle:
-            handle.write(str(phpy_yaml))
+
+        with folder.open(self._INPUT_PARAMS, "wb") as handle:
+            handle.write(lzma.compress(str(phpy_yaml).encode()))
 
     def _set_commands_and_retrieve_list(self):
         mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
@@ -115,16 +117,6 @@ class PhonopyCalculation(BasePhonopyCalculation):
         )
         self._set_dataset(ph)
         return ph
-
-    def _set_dataset(self, ph):
-        if "displacement_dataset" in self.inputs:
-            ph.dataset = self.inputs.displacement_dataset.get_dict()
-        elif "displacements" in self.inputs:
-            ph.dataset = {
-                "displacements": self.inputs.displacements.get_array("displacements")
-            }
-        if "force_sets" in self.inputs:
-            ph.forces = self.inputs.force_sets.get_array("force_sets")
 
 
 def _get_phonopy_options(settings: Dict):

@@ -3,7 +3,6 @@
 from aiida.engine import WorkChain
 from aiida.orm import ArrayData, Bool, Code, Dict, Float, Str, StructureData
 
-from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.utils.utils import collect_forces_and_energies, get_force_sets
 from aiida_phonoxpy.workflows.forces import ForcesWorkChain
 from aiida_phonoxpy.workflows.nac_params import NacParamsWorkChain
@@ -72,12 +71,6 @@ class BasePhonopyWorkChain(WorkChain):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
-        spec.expose_inputs(
-            PhonopyCalculation, namespace="phonopy", include=("metadata",)
-        )
-        spec.input(
-            "phonopy.metadata.options.resources", valid_type=dict, required=False
-        )
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("settings", valid_type=Dict, required=True)
         spec.input(
@@ -90,8 +83,6 @@ class BasePhonopyWorkChain(WorkChain):
         spec.input(
             "subtract_residual_forces", valid_type=Bool, default=lambda: Bool(False)
         )
-        spec.input("run_phonopy", valid_type=Bool, default=lambda: Bool(False))
-        spec.input("remote_phonopy", valid_type=Bool, default=lambda: Bool(False))
         spec.input("displacement_dataset", valid_type=Dict, required=False)
         spec.input("displacements", valid_type=ArrayData, required=False)
         spec.input("force_sets", valid_type=ArrayData, required=False)
@@ -233,7 +224,3 @@ class BasePhonopyWorkChain(WorkChain):
 
         self.ctx.nac_params = self.ctx.nac_params_calc.outputs.nac_params
         self.out("nac_params", self.ctx.nac_params)
-
-    def finalize(self):
-        """Show final message."""
-        self.report("phonopy calculation has been done.")

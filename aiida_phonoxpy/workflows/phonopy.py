@@ -1,16 +1,16 @@
 """PhonopyWorkChain."""
 
 from aiida.engine import if_, while_
-from aiida.orm import Dict, Code, XyData, BandsData
+from aiida.orm import BandsData, Bool, Code, Dict, XyData
 
-
-from aiida_phonoxpy.workflows.base import BasePhonopyWorkChain
-from aiida_phonoxpy.workflows.mixin import ImmigrantMixIn
+from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.utils.utils import (
-    setup_phonopy_calculation,
     get_force_constants,
     get_phonon_properties,
+    setup_phonopy_calculation,
 )
+from aiida_phonoxpy.workflows.base import BasePhonopyWorkChain
+from aiida_phonoxpy.workflows.mixin import ImmigrantMixIn
 
 
 class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
@@ -41,6 +41,12 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
+        spec.expose_inputs(
+            PhonopyCalculation, namespace="phonopy", include=("metadata",)
+        )
+        spec.input(
+            "phonopy.metadata.options.resources", valid_type=dict, required=False
+        )
         spec.input_namespace(
             "remote_workdirs",
             help="Directory names to import force and NAC calculations.",
@@ -50,6 +56,8 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         )
         spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
         spec.input("calculator_settings", valid_type=Dict, required=False)
+        spec.input("run_phonopy", valid_type=Bool, default=lambda: Bool(False))
+        spec.input("remote_phonopy", valid_type=Bool, default=lambda: Bool(False))
 
         spec.outline(
             cls.initialize,
@@ -267,3 +275,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         self.out("band_structure", result["band_structure"])
 
         self.report("finish phonon")
+
+    def finalize(self):
+        """Show final message."""
+        self.report("phonopy calculation has been done.")
