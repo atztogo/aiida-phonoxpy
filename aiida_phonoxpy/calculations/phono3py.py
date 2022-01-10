@@ -95,7 +95,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             self.inputs.metadata.options.output_filename,
         ]
 
-        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
+        mesh_opts, fc_opts = _get_phono3py_options(self.inputs.settings)
         if not self.inputs.fc_only and "fc2" in self.inputs and "fc3" in self.inputs:
             comm_opts = ["--fc2", "--fc3"] + mesh_opts + ["--br", "--ts", "300"]
         else:
@@ -104,8 +104,11 @@ class Phono3pyCalculation(BasePhonopyCalculation):
                     fc_opts.append("--alm")
             if "--alm" not in fc_opts:
                 fc_opts.append("--sym-fc")
+            fc_opts.append("--compact-fc")
             for key in ("fc2", "fc3"):
-                if key not in self.inputs:
+                if key in self.inputs:
+                    fc_opts.append(f"--{key}")
+                else:
                     self._internal_retrieve_list.append(f"{key}.hdf5")
             comm_opts = fc_opts
         self._additional_cmd_params = [comm_opts]
@@ -131,7 +134,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         return ph3
 
 
-def _get_phonopy_options(settings: Dict):
+def _get_phono3py_options(settings: Dict):
     """Return phonopy command options as strings."""
     mesh_opts = []
     if "mesh" in settings.keys():

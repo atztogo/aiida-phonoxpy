@@ -9,6 +9,7 @@ from collections.abc import Mapping
 
 import numpy as np
 import pytest
+from aiida.orm import SinglefileData
 
 pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
 
@@ -17,12 +18,6 @@ pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
 def filepath_tests():
     """Return the absolute filepath of the `tests` folder."""
     return os.path.dirname(os.path.abspath(__file__))
-
-
-@pytest.fixture
-def filepath_fixtures(filepath_tests):
-    """Return the absolute filepath to the directory containing the file `fixtures`."""
-    return os.path.join(filepath_tests, "fixtures")
 
 
 @pytest.fixture(scope="function")
@@ -935,12 +930,51 @@ def generate_nac_params():
     return _generate_nac_params
 
 
+@pytest.fixture
+def generate_fc3_filedata(filepath_tests):
+    """Generate a `SinglefileData` instance with fc3.hdf5 file."""
+
+    def _generate_fc3_filedata():
+        filepath = os.path.join(
+            filepath_tests,
+            "parsers",
+            "fixtures",
+            "phono3py",
+            "default",
+            "fc3.hdf5",
+        )
+        return SinglefileData(filepath)
+
+    return _generate_fc3_filedata
+
+
+@pytest.fixture
+def generate_fc2_filedata(filepath_tests):
+    """Generate a `SinglefileData` instance with fc2.hdf5 file."""
+
+    def _generate_fc2_filedata():
+        filepath = os.path.join(
+            filepath_tests,
+            "parsers",
+            "fixtures",
+            "phono3py",
+            "default",
+            "fc2.hdf5",
+        )
+        return SinglefileData(filepath)
+
+    return _generate_fc2_filedata
+
+
 @pytest.fixture(scope="session")
 def generate_settings():
     """Return a `Dict` of phonopy settings."""
 
     def _generate_settings(
-        supercell_matrix=None, phonon_supercell_matrix=None, number_of_snapshots=None
+        supercell_matrix=None,
+        phonon_supercell_matrix=None,
+        number_of_snapshots=None,
+        mesh=None,
     ):
         from aiida.orm import Dict
 
@@ -950,12 +984,15 @@ def generate_settings():
         else:
             settings["supercell_matrix"] = supercell_matrix
 
-        if phonon_supercell_matrix is None:
-            settings["mesh"] = 50.0
-            if number_of_snapshots is not None:
-                settings["number_of_snapshots"] = number_of_snapshots
-        else:
+        if number_of_snapshots is not None:
+            settings["number_of_snapshots"] = number_of_snapshots
+
+        if phonon_supercell_matrix is not None:
             settings["phonon_supercell_matrix"] = phonon_supercell_matrix
+
+        if mesh is not None:
+            settings["mesh"] = mesh
+
         return Dict(dict=settings)
 
     return _generate_settings
@@ -1237,3 +1274,33 @@ def mock_calculator_code():
         return MockCode()
 
     return _mock_code
+
+
+@pytest.fixture
+def generate_calc_job():
+    """Fixture to construct a new `CalcJob` instance.
+
+    This calls `prepare_for_submission` for testing `CalcJob` classes. The fixture
+    will return the `CalcInfo` returned by `prepare_for_submission` and the
+    temporary folder that was passed to it, into which the raw input files will
+    have been written.
+
+    """
+
+    def _generate_calc_job(folder, entry_point_name, inputs=None):
+        """Fixture to generate a mock `CalcInfo` for testing calculation jobs."""
+        from aiida.engine.utils import instantiate_process
+        from aiida.manage.manager import get_manager
+        from aiida.plugins import CalculationFactory
+
+        manager = get_manager()
+        runner = manager.get_runner()
+
+        process_class = CalculationFactory(entry_point_name)
+        process = instantiate_process(runner, process_class, **inputs)
+
+        calc_info = process.prepare_for_submission(folder)
+
+        return calc_info
+
+    return _generate_calc_job

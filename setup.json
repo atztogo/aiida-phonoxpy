@@ -53,7 +53,8 @@
             "phonoxpy.phono3py = aiida_phonoxpy.workflows.phono3py: Phono3pyWorkChain",
             "phonoxpy.iter_ha = aiida_phonoxpy.workflows.iter_ha: IterHarmonicApprox",
             "phonoxpy.forces = aiida_phonoxpy.workflows.forces: ForcesWorkChain",
-            "phonoxpy.nac_params = aiida_phonoxpy.workflows.nac_params: NacParamsWorkChain"
+            "phonoxpy.nac_params = aiida_phonoxpy.workflows.nac_params: NacParamsWorkChain",
+            "phonoxpy.phono3py_fc = aiida_phonoxpy.workflows.phono3py_fc: Phono3pyFCWorkChain"
         ]
     }
 }

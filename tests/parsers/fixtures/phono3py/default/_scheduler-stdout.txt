@@ -20,10 +20,9 @@ Primitive matrix:
   [0.5 0.5 0. ]
 Spacegroup: Fm-3m (225)
 Use -v option to watch primitive cell, unit cell, and supercell structures.
-NAC parameters were read from "phono3py_params.yaml.xz".
 ----------------------------- Force constants ------------------------------
-Imposing translational and index exchange symmetry to fc2: False
-Imposing translational and index exchange symmetry to fc3: False
+Imposing translational and index exchange symmetry to fc2: True
+Imposing translational and index exchange symmetry to fc3: True
 Imposing symmetry of index exchange to fc3 in reciprocal space: False
 Displacement dataset for fc3 was read from "phono3py_params.yaml.xz".
 Computing fc3[ 1, x, x ] using numpy.linalg.pinv with a displacement:
@@ -32,10 +31,10 @@ Computing fc3[ 5, x, x ] using numpy.linalg.pinv with a displacement:
     [ 0.0300  0.0000  0.0000]
 Expanding fc3.
 Writing fc3 to "fc3.hdf5".
-Max drift of fc3: 0.000000 (zzz) -0.000000 (xxx) 0.000000 (xxx)
+Max drift of fc3: 0.000000 (xxx) 0.000000 (xxx) 0.000000 (xxx)
 Displacement dataset for phonon_fc2 was read from "phono3py_params.yaml.xz".
 Writing fc2 to "fc2.hdf5".
-Max drift of fc2: 0.001076 (yy) 0.000001 (zz)
+Max drift of fc2: 0.000000 (zz) 0.000000 (zz)
 ----------- None of ph-ph interaction calculation was performed. -----------
 
 Summary of calculation was written in "phono3py.yaml".

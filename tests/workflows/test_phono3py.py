@@ -259,23 +259,23 @@ def test_Phono3pyWorkChain_full(
     mock_nac_params_run_calculation()
 
     process = generate_workchain("phonoxpy.phono3py", inputs)
-    result, node = launch.run_get_node(process)
+    results, node = launch.run_get_node(process)
 
     np.testing.assert_allclose(
-        result["force_sets"].get_array("force_sets"),
+        results["force_sets"].get_array("force_sets"),
         force_sets,
         atol=1e-8,
         rtol=0,
     )
     np.testing.assert_allclose(
-        result["phonon_force_sets"].get_array("force_sets"),
+        results["phonon_force_sets"].get_array("force_sets"),
         phonon_force_sets,
         atol=1e-8,
         rtol=0,
     )
     for key in ("born_charges", "epsilon"):
         np.testing.assert_allclose(
-            result["nac_params"].get_array(key),
+            results["nac_params"].get_array(key),
             generate_nac_params().get_array(key),
             atol=1e-8,
             rtol=0,
@@ -292,4 +292,4 @@ def test_Phono3pyWorkChain_full(
         "primitive",
         "supercell",
     )
-    assert set(list(result)) == set(output_keys)
+    assert set(list(results)) == set(output_keys)
