@@ -1,5 +1,66 @@
 """WorkChain mix-in's."""
-from aiida.orm import Int
+from aiida.orm import Code, Int
+
+from aiida_phonoxpy.calculations.phono3py import Phono3pyCalculation
+
+
+class RunPhono3pyMixIn:
+    """Mix-in to run Phono3pyCalculation."""
+
+    def _run_phono3py(self, calc_type="fc"):
+        """Run phonopy at remote computer."""
+        self.report("remote phono3py calculation")
+
+        if "code_string" in self.inputs:
+            code = Code.get_from_string(self.inputs.code_string.value)
+        elif "code" in self.inputs:
+            code = self.inputs.code
+
+        metadata = {"options": {}}
+        if "label" in self.inputs.metadata:
+            metadata["label"] = self.inputs.metadata.label
+        if "options" in self.inputs.phono3py.metadata:
+            # self.inputs.phono3py.metadata.options is AttributesFrozendict.
+            # This can't be passed as metadata['options'].
+            if "resources" in self.inputs.phono3py.metadata.options:
+                resources = self.inputs.phono3py.metadata.options.resources
+                metadata["options"]["resources"] = resources
+
+        self.report(f"metadata: {metadata}")
+
+        inputs = {
+            "code": code,
+            "structure": self.inputs.structure,
+            "settings": self.ctx.phonon_setting_info,
+            "symmetry_tolerance": self.inputs.symmetry_tolerance,
+            "metadata": metadata,
+        }
+
+        if calc_type == "fc":
+            input_keys = (
+                "force_sets",
+                "displacements",
+                "displacement_dataset",
+                "phonon_force_sets",
+                "phonon_displacements",
+                "phonon_displacement_dataset",
+                "fc2",
+                "fc3",
+            )
+        else:
+            input_keys = ("fc2", "fc3", "nac_params")
+        for key in input_keys:
+            if key in self.ctx:
+                inputs[key] = self.ctx[key]
+
+        future = self.submit(Phono3pyCalculation, **inputs)
+
+        if calc_type == "fc":
+            self.report(f"fc calculation: {future.pk}")
+            self.to_context(**{"fc_calc": future})
+        else:
+            self.report(f"ltc calculation: {future.pk}")
+            self.to_context(**{"ltc_calc": future})
 
 
 class DoNothingMixIn:

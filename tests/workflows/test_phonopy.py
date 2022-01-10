@@ -293,7 +293,6 @@ def test_passing_through_ForcesWorkChain(
     generate_workchain,
     generate_force_sets,
     mock_calculator_code,
-    mock_forces_run_calculation,
     plugin_name,
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
@@ -315,7 +314,6 @@ def test_passing_through_ForcesWorkChain(
         "run_phonopy": Bool(False),
     }
 
-    mock_forces_run_calculation()
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
 
@@ -344,8 +342,6 @@ def test_passing_through_NacParamsWorkChain(
     generate_force_sets,
     generate_nac_params,
     mock_calculator_code,
-    mock_forces_run_calculation,
-    mock_nac_params_run_calculation,
     plugin_name,
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
@@ -391,9 +387,6 @@ def test_passing_through_NacParamsWorkChain(
         },
         "run_phonopy": Bool(False),
     }
-
-    mock_forces_run_calculation()
-    mock_nac_params_run_calculation()
 
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
