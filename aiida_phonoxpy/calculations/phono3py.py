@@ -1,7 +1,7 @@
 """CalcJob to run phonopy at a remote host."""
 import lzma
 
-from aiida.orm import ArrayData, Dict, Str
+from aiida.orm import ArrayData, Dict, SinglefileData, Str
 
 from aiida_phonoxpy.calculations.base import BasePhonopyCalculation
 from aiida_phonoxpy.utils.utils import get_phono3py_instance
@@ -22,24 +22,62 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         # parser_name has to be set to invoke parsing.
         spec.input("metadata.options.parser_name", default="phonoxpy.phono3py")
         spec.input("metadata.options.output_filename", default="phono3py.yaml")
+        spec.input(
+            "phonon_force_sets",
+            valid_type=ArrayData,
+            required=False,
+            help="Sets of forces in supercells for fc2",
+        )
+        spec.input(
+            "phonon_displacement_dataset",
+            valid_type=Dict,
+            required=False,
+            help="Type-I displacement dataset for fc2.",
+        )
+        spec.input(
+            "phonon_displacements",
+            valid_type=ArrayData,
+            required=False,
+            help="Displacements of all atoms corresponding to force_sets for fc2.",
+        )
+        spec.input(
+            "fc3",
+            valid_type=(ArrayData, SinglefileData),
+            required=False,
+            help="Third order force constants",
+        )
+        spec.input(
+            "fc2",
+            valid_type=(ArrayData, SinglefileData),
+            required=False,
+            help="Second order force constants",
+        )
 
         spec.output(
             "fc3",
-            valid_type=ArrayData,
+            valid_type=(ArrayData, SinglefileData),
             required=False,
-            help="Calculated third order force constants",
+            help="Third order force constants",
         )
         spec.output(
             "fc2",
-            valid_type=ArrayData,
+            valid_type=(ArrayData, SinglefileData),
             required=False,
-            help="Calculated second order force constants",
+            help="Second order force constants",
         )
         spec.output("version", valid_type=Str, required=False, help="Version number")
 
     def prepare_for_submission(self, folder):
         """Prepare calcinfo."""
-        return super().prepare_for_submission(folder)
+        calcinfo = super().prepare_for_submission(folder)
+        for key in ("fc3", "fc2"):
+            if key in self.inputs:
+                fc_file = self.inputs[key]
+                if isinstance(fc_file, SinglefileData):
+                    calcinfo.local_copy_list.append(
+                        (fc_file.uuid, fc_file.filename, fc_file.filename)
+                    )
+        return calcinfo
 
     def _create_additional_files(self, folder):
         from phono3py.interface.phono3py_yaml import Phono3pyYaml
@@ -53,19 +91,25 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             handle.write(lzma.compress(str(ph3py_yaml).encode()))
 
     def _set_commands_and_retrieve_list(self):
-        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
-        if "displacements" in self.inputs:
-            if "--alm" not in fc_opts:
-                fc_opts.append("--alm")
-
         self._internal_retrieve_list = [
             self.inputs.metadata.options.output_filename,
         ]
-        self._additional_cmd_params = [
-            fc_opts,
-        ]
 
-        # First run with --writefc, and with --readfc for remaining runs
+        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
+        if not self.inputs.fc_only and "fc2" in self.inputs and "fc3" in self.inputs:
+            comm_opts = ["--fc2", "--fc3"] + mesh_opts + ["--br", "--ts", "300"]
+        else:
+            if "displacements" in self.inputs:
+                if "--alm" not in fc_opts:
+                    fc_opts.append("--alm")
+            if "--alm" not in fc_opts:
+                fc_opts.append("--sym-fc")
+            for key in ("fc2", "fc3"):
+                if key not in self.inputs:
+                    self._internal_retrieve_list.append(f"{key}.hdf5")
+            comm_opts = fc_opts
+        self._additional_cmd_params = [comm_opts]
+
         if self.inputs.fc_only:
             self._calculation_cmd = [
                 ["-c", self._INPUT_PARAMS],
@@ -76,13 +120,11 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             ]
 
     def _get_phono3py_instance(self):
-        nac_params = None
+        kwargs = {}
         if not self.inputs.fc_only and "nac_params" in self.inputs:
-            nac_params = self.inputs.nac_params
+            kwargs.update({"nac_params": self.inputs.nac_params})
         ph3 = get_phono3py_instance(
-            self.inputs.structure,
-            self.inputs.settings.get_dict(),
-            nac_params=nac_params,
+            self.inputs.structure, self.inputs.settings.get_dict(), **kwargs
         )
         self._set_dataset(ph3)
         self._set_dataset(ph3, prefix="phonon_")
@@ -99,7 +141,6 @@ def _get_phonopy_options(settings: Dict):
             mesh_opts.append("--mesh=%f" % length)
         except TypeError:
             mesh_opts.append('--mesh="%d %d %d"' % tuple(mesh))
-        mesh_opts.append("--nowritemesh")
 
     fc_opts = []
     if "fc_calculator" in settings.keys():

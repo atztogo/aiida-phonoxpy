@@ -4,6 +4,31 @@ import pytest
 
 
 @pytest.fixture
+def generate_inputs_phonopy_wc(
+    fixture_code,
+    generate_structure,
+    generate_displacement_dataset,
+    generate_force_sets,
+    generate_nac_params,
+    generate_settings,
+):
+    """Return inputs for phonopy workchain."""
+
+    def _generate_inputs_phonopy(metadata=None):
+        return {
+            "code": fixture_code("phonoxpy.phonopy"),
+            "structure": generate_structure(),
+            "settings": generate_settings(),
+            "metadata": metadata or {},
+            "force_sets": generate_force_sets(),
+            "displacement_dataset": generate_displacement_dataset(),
+            "nac_params": generate_nac_params(),
+        }
+
+    return _generate_inputs_phonopy
+
+
+@pytest.fixture
 def mock_forces_run_calculation(monkeypatch):
     """Return mock ForcesWorkChain.run_calculation method.
 

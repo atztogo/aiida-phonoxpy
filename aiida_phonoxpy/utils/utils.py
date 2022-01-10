@@ -664,6 +664,7 @@ def get_phono3py_instance(
     ph3py = Phono3py(phonopy_atoms_from_structure(structure), **kwargs)
     if nac_params:
         _set_nac_params(ph3py, nac_params)
+
     return ph3py
 
 

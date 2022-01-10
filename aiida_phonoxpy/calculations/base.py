@@ -24,7 +24,7 @@ class BasePhonopyCalculation(CalcJob):
             help="Unit cell structure.",
         )
         spec.input(
-            "settings", valid_type=Dict, required=True, help="Phonopy parameters."
+            "settings", valid_type=Dict, required=True, help="Phono3py parameters."
         )
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
         spec.input(

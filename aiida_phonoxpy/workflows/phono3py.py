@@ -63,7 +63,10 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             if_(cls.should_run_phonon_supercell)(cls.create_phonon_force_sets),
             if_(cls.is_nac)(cls.attach_nac_params),
             if_(cls.should_run_phono3py)(
-                cls.run_phono3py_remote,
+                if_(cls.should_run_fc_calculation)(
+                    cls.run_phono3py_fc_only, cls.collect_fc
+                ),
+                cls.run_phono3py,
                 cls.collect_remote_data,
             ),
             cls.finalize,
@@ -107,6 +110,10 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             "phonon_supercell_matrix" in self.inputs.settings.keys()
             and "phonon_force" in self.inputs.calculator_inputs
         )
+
+    def should_run_fc_calculation(self):
+        """Return boolen for outline."""
+        return "fc2" not in self.inputs or "fc3" not in self.inputs
 
     def continue_import(self):
         """Return boolen for outline."""
@@ -218,33 +225,76 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         self.report("create phonon force sets")
         self._create_force_sets(self.ctx.phonon_supercells, key_prefix="phonon_")
 
-    def run_phono3py_remote(self):
+    def run_phono3py_fc_only(self):
+        """Run phonopy to calculate fc3 and fc2."""
+        self.report("run fc3 and fc2 calculations.")
+        self._run_phono3py(fc_only=True)
+
+    def collect_fc(self):
+        """Collect fc2 and fc3."""
+        for key in ("fc2", "fc3"):
+            if key in self.ctx.fc_calc.outputs:
+                self.ctx[key] = self.ctx.fc_calc.outputs[key]
+
+    def run_phono3py(self):
+        """Run phonopy to calculate phonon properties."""
+        self.report("run phonon property calculations.")
+        self._run_phono3py()
+
+    def _run_phono3py(self, fc_only=False):
         """Run phonopy at remote computer."""
-        self.report("remote phonopy calculation")
+        self.report("remote phono3py calculation")
 
         if "code_string" in self.inputs:
             code = Code.get_from_string(self.inputs.code_string.value)
         elif "code" in self.inputs:
             code = self.inputs.code
-        builder = code.get_builder()
-        builder.structure = self.inputs.structure
-        builder.settings = self.ctx.phonon_setting_info
-        builder.symmetry_tolerance = self.inputs.symmetry_tolerance
-        if "label" in self.inputs.metadata:
-            builder.metadata.label = self.inputs.metadata.label
-        if "options" in self.inputs.phono3py.metadata:
-            builder.metadata.options.update(self.inputs.phono3py.metadata.options)
-        builder.force_sets = self.ctx.force_sets
-        if "nac_params" in self.ctx:
-            builder.nac_params = self.ctx.nac_params
-        if "displacements" in self.ctx:
-            builder.displacements = self.ctx.displacements
-        if "displacement_dataset" in self.ctx:
-            builder.displacement_dataset = self.ctx.displacement_dataset
-        future = self.submit(builder)
 
-        self.report("phono3py calculation: {}".format(future.pk))
-        self.to_context(**{"phonon_properties": future})
+        metadata = {"options": {}}
+        if "label" in self.inputs.metadata:
+            metadata["label"] = self.inputs.metadata.label
+        if "options" in self.inputs.phono3py.metadata:
+            # self.inputs.phono3py.metadata.options is AttributesFrozendict.
+            # This can't be passed as metadata['options'].
+            resources = self.inputs.phono3py.metadata.options.resources
+            metadata["options"]["resources"] = resources
+
+        self.report(f"metadata: {metadata}")
+
+        inputs = {
+            "code": code,
+            "structure": self.inputs.structure,
+            "settings": self.ctx.phonon_setting_info,
+            "symmetry_tolerance": self.inputs.symmetry_tolerance,
+            "metadata": metadata,
+            "fc_only": Bool(fc_only),
+        }
+
+        if fc_only:
+            input_keys = (
+                "force_sets",
+                "displacements",
+                "displacement_dataset",
+                "phonon_force_sets",
+                "phonon_displacements",
+                "phonon_displacement_dataset",
+                "fc2",
+                "fc3",
+            )
+        else:
+            input_keys = ("fc2", "fc3", "nac_params")
+        for key in input_keys:
+            if key in self.ctx:
+                inputs[key] = self.ctx[key]
+
+        future = self.submit(Phono3pyCalculation, **inputs)
+
+        if fc_only:
+            self.report(f"fc calculation: {future.pk}")
+            self.to_context(**{"fc_calc": future})
+        else:
+            self.report(f"phonon property calculation: {future.pk}")
+            self.to_context(**{"phonon_calc": future})
         # return ToContext(phonon_properties=future)
 
     def collect_remote_data(self):
