@@ -1062,38 +1062,6 @@ def generate_remote_data():
 
 
 @pytest.fixture
-def generate_workchain():
-    """Generate an instance of a `WorkChain`."""
-
-    def _generate_workchain(entry_point, inputs):
-        """Generate an instance of a `WorkChain` with the given entry point and inputs.
-
-        Parameters
-        ----------
-        entry_point : str
-            Entry point name of the work chain subclass.
-        inputs : dict
-            Inputs to be passed to process construction.
-
-        Returns
-        -------
-        WorkChain
-
-        """
-        from aiida.engine.utils import instantiate_process
-        from aiida.manage.manager import get_manager
-        from aiida.plugins import WorkflowFactory
-
-        process_class = WorkflowFactory(entry_point)
-        runner = get_manager().get_runner()
-        process = instantiate_process(runner, process_class, **inputs)
-
-        return process
-
-    return _generate_workchain
-
-
-@pytest.fixture
 def generate_calc_job_node(fixture_localhost):
     """Fixture to generate a mock `CalcJobNode` for testing parsers."""
 

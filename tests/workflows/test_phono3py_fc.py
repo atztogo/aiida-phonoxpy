@@ -1,12 +1,16 @@
 """Tests for Phono3pyFCWorkChain."""
+import pytest
 
 
+@pytest.mark.usefixtures("mock_run_phono3py_fc")
 def test_initialize(
     generate_workchain,
     generate_structure,
     generate_settings,
 ):
     """Test of Phono3pyFCWorkChain.initialize() using NaCl data."""
+    # mock_run_phono3py_fc()
+
     structure = generate_structure()
     settings = generate_settings()
 
@@ -25,16 +29,18 @@ def test_initialize(
     assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
 
 
+@pytest.mark.usefixtures("mock_run_phono3py_fc")
 def test_Phono3pyFCWorkChain_full(
     generate_structure,
     generate_workchain,
     generate_displacement_dataset,
     generate_force_sets,
-    mock_run_phono3py_fc,
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
     from aiida.engine import launch
     from aiida.orm import Dict
+
+    # mock_run_phono3py_fc()
 
     settings = {
         "supercell_matrix": [1, 1, 1],
@@ -53,7 +59,6 @@ def test_Phono3pyFCWorkChain_full(
         "phonon_force_sets": generate_force_sets(structure_id="NaCl-64"),
     }
 
-    mock_run_phono3py_fc()
     process = generate_workchain("phonoxpy.phono3py_fc", inputs)
     results, node = launch.run_get_node(process)
 

@@ -189,6 +189,9 @@ def _assert_cells(wc):
         )
 
 
+@pytest.mark.usefixtures(
+    "mock_forces_run_calculation", "mock_nac_params_run_calculation"
+)
 @pytest.mark.parametrize("plugin_name", ["vasp.vasp", "quantumespresso.pw"])
 def test_Phono3pyWorkChain_full(
     generate_structure,
@@ -196,8 +199,6 @@ def test_Phono3pyWorkChain_full(
     generate_force_sets,
     generate_nac_params,
     mock_calculator_code,
-    mock_forces_run_calculation,
-    mock_nac_params_run_calculation,
     plugin_name,
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
@@ -254,9 +255,6 @@ def test_Phono3pyWorkChain_full(
             "nac": nac_inputs,
         },
     }
-
-    mock_forces_run_calculation()
-    mock_nac_params_run_calculation()
 
     process = generate_workchain("phonoxpy.phono3py", inputs)
     results, node = launch.run_get_node(process)
