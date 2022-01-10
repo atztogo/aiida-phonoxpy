@@ -24,7 +24,7 @@ class BasePhonopyCalculation(CalcJob):
             help="Unit cell structure.",
         )
         spec.input(
-            "settings", valid_type=Dict, required=True, help="Phonopy parameters."
+            "settings", valid_type=Dict, required=True, help="Phono3py parameters."
         )
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
         spec.input(
@@ -105,3 +105,20 @@ class BasePhonopyCalculation(CalcJob):
         born_charges = nac_data.get_array("born_charges")
         epsilon = nac_data.get_array("epsilon")
         return {"born": born_charges, "dielectric": epsilon}
+
+    def _set_dataset(self, ph, prefix=""):
+        """Prefix can be `` or `phonon_`."""
+        key_dataset = prefix + "displacement_dataset"
+        key_disps = prefix + "displacements"
+        key_forces = prefix + "forces"
+        key_force_sets = prefix + "force_sets"
+        if key_dataset in self.inputs:
+            setattr(ph, prefix + "dataset", self.inputs[key_dataset].get_dict())
+        elif key_disps in self.inputs:
+            setattr(
+                ph,
+                prefix + "dataset",
+                {"displacements": self.inputs[key_disps].get_array("displacements")},
+            )
+        if key_force_sets in self.inputs:
+            setattr(ph, key_forces, self.inputs[key_force_sets].get_array("force_sets"))

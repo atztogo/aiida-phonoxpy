@@ -69,7 +69,7 @@ def fixture_code(fixture_localhost):
     return _fixture_code
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def generate_structure():
     """Return a `StructureData` of conventional unit cell of NaCl."""
 
@@ -103,7 +103,7 @@ def generate_structure():
     return _generate_structure
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def generate_displacements():
     """Return a `ArrayData` of displacements of NaCl."""
 
@@ -166,7 +166,7 @@ def generate_displacements():
     return _generate_displacements
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def generate_displacement_dataset():
     """Return a `Dict` of displacement dataset of NaCl."""
 
@@ -412,7 +412,7 @@ def generate_displacement_dataset():
     return _generate_displacement_dataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def generate_force_sets():
     """Return a `ArrayData` of force sets of NaCl."""
 
@@ -914,7 +914,7 @@ def generate_force_sets():
     return _generate_force_sets
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def generate_nac_params():
     """Return a `ArrayData` of NAC params of NaCl."""
 
@@ -935,7 +935,7 @@ def generate_nac_params():
     return _generate_nac_params
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def generate_settings():
     """Return a `Dict` of phonopy settings."""
 
@@ -961,7 +961,7 @@ def generate_settings():
     return _generate_settings
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def generate_kpoints_mesh():
     """Return a `KpointsData` node."""
 
@@ -1125,18 +1125,19 @@ def generate_calc_job_node(fixture_localhost):
             computer = fixture_localhost
 
         filepath_folder = None
+        codename = entry_point_name[len("phonoxpy.") :]
 
         if test_name is not None:
             basepath = os.path.dirname(os.path.abspath(__file__))
-            filename = os.path.join(entry_point_name[len("phonoxpy.") :], test_name)
+            filename = os.path.join(codename, test_name)
             filepath_folder = os.path.join(basepath, "parsers", "fixtures", filename)
-            filepath_input = os.path.join(filepath_folder, "phonopy_params.yaml")
+            filepath_input = os.path.join(filepath_folder, f"{codename}_params.yaml.xz")
 
         entry_point = format_entry_point_string("aiida.calculations", entry_point_name)
 
         node = CalcJobNode(computer=computer, process_type=entry_point)
         # node.set_attribute("input_filename", "aiida.in")
-        node.set_attribute("output_filename", "phonopy.yaml")
+        node.set_attribute("output_filename", f"{codename}.yaml")
         # node.set_attribute("error_filename", "aiida.err")
         node.set_option("resources", {"num_machines": 1, "num_mpiprocs_per_machine": 1})
         node.set_option("max_wallclock_seconds", 1800)
@@ -1145,16 +1146,26 @@ def generate_calc_job_node(fixture_localhost):
             node.set_attribute_many(attributes)
 
         if filepath_folder:
-            from phonopy.interface.calculator import read_crystal_structure
-
             from aiida_phonoxpy.utils.utils import phonopy_atoms_to_structure
 
-            phonopy_cell, _ = read_crystal_structure(
-                filepath_input, interface_mode="phonopy_yaml"
-            )
-            inputs["structure"] = phonopy_atoms_to_structure(phonopy_cell)
-            supercell_matrix = [[1, 0, 0], [0, 1, 0], [0, 1, 0]]
-            inputs["settings"] = Dict(dict={"supercell_matrix": supercell_matrix})
+            if codename == "phonopy":
+                from phonopy.interface.phonopy_yaml import PhonopyYaml
+
+                phyml = PhonopyYaml()
+            elif codename == "phono3py":
+                from phono3py.interface.phono3py_yaml import Phono3pyYaml
+
+                phyml = Phono3pyYaml()
+            else:
+                raise RuntimeError(f"{codename} is not supported.")
+            phyml.read(filepath_input)
+            inputs["structure"] = phonopy_atoms_to_structure(phyml.unitcell)
+            settings = {"supercell_matrix": phyml.supercell_matrix, "distance": 0.03}
+            if codename == "phono3py" and phyml.phonon_supercell_matrix is not None:
+                settings.update(
+                    {"phonon_supercell_matrix": phyml.phonon_supercell_matrix}
+                )
+            inputs["settings"] = Dict(dict=settings)
 
         if inputs:
             metadata = inputs.pop("metadata", {})
@@ -1211,31 +1222,6 @@ def generate_calc_job_node(fixture_localhost):
         return node
 
     return _generate_calc_job_node
-
-
-@pytest.fixture
-def generate_inputs_phonopy_wc(
-    fixture_code,
-    generate_structure,
-    generate_displacement_dataset,
-    generate_force_sets,
-    generate_nac_params,
-    generate_settings,
-):
-    """Return inputs for phonopy workchain."""
-
-    def _generate_inputs_phonopy(metadata=None):
-        return {
-            "code": fixture_code("phonoxpy.phonopy"),
-            "structure": generate_structure(),
-            "settings": generate_settings(),
-            "metadata": metadata or {},
-            "force_sets": generate_force_sets(),
-            "displacement_dataset": generate_displacement_dataset(),
-            "nac_params": generate_nac_params(),
-        }
-
-    return _generate_inputs_phonopy
 
 
 @pytest.fixture
