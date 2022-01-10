@@ -79,7 +79,6 @@ class Phono3pyFCWorkChain(WorkChain, RunPhono3pyMixIn):
 
     def collect_fc(self):
         """Collect fc2 and fc3."""
-        print(list(self.ctx.fc_calc.outputs))
         for key in ("fc2", "fc3"):
             if key in self.ctx.fc_calc.outputs:
                 self.ctx[key] = self.ctx.fc_calc.outputs[key]

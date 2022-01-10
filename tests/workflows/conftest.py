@@ -138,3 +138,26 @@ def mock_nac_params_run_calculation(monkeypatch):
         monkeypatch.setattr(NacParamsWorkChain, "run_calculation", _mock)
 
     return _mock_nac_params_run_calculation
+
+
+@pytest.fixture
+def mock_run_phono3py_fc(monkeypatch, generate_fc3_filedata, generate_fc2_filedata):
+    """Return mock Phono3pyFCWorkChain.run_phono3py_fc method."""
+
+    def _mock_run_phono3py_fc():
+        from aiida.plugins import WorkflowFactory
+
+        Phono3pyFCWorkChain = WorkflowFactory("phonoxpy.phono3py_fc")
+
+        def _mock(self):
+            """Mock method to replace Phono3pyFCWorkChain.run_phono3py_fc."""
+            from aiida.common import AttributeDict
+
+            self.ctx.fc_calc = AttributeDict()
+            self.ctx.fc_calc.outputs = AttributeDict()
+            self.ctx.fc_calc.outputs.fc3 = generate_fc3_filedata()
+            self.ctx.fc_calc.outputs.fc2 = generate_fc2_filedata()
+
+        monkeypatch.setattr(Phono3pyFCWorkChain, "run_phono3py_fc", _mock)
+
+    return _mock_run_phono3py_fc

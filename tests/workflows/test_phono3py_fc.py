@@ -30,14 +30,11 @@ def test_Phono3pyFCWorkChain_full(
     generate_workchain,
     generate_displacement_dataset,
     generate_force_sets,
-    generate_fc3_filedata,
-    generate_fc2_filedata,
-    monkeypatch,
+    mock_run_phono3py_fc,
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
     from aiida.engine import launch
     from aiida.orm import Dict
-    from aiida.plugins import WorkflowFactory
 
     settings = {
         "supercell_matrix": [1, 1, 1],
@@ -56,19 +53,7 @@ def test_Phono3pyFCWorkChain_full(
         "phonon_force_sets": generate_force_sets(structure_id="NaCl-64"),
     }
 
-    Phono3pyFCWorkChain = WorkflowFactory("phonoxpy.phono3py_fc")
-
-    def _mock(self):
-        """Mock method to replace Phono3pyFCWorkChain.run_phono3py_fc."""
-        from aiida.common import AttributeDict
-
-        self.ctx.fc_calc = AttributeDict()
-        self.ctx.fc_calc.outputs = AttributeDict()
-        self.ctx.fc_calc.outputs.fc3 = generate_fc3_filedata()
-        self.ctx.fc_calc.outputs.fc2 = generate_fc2_filedata()
-
-    monkeypatch.setattr(Phono3pyFCWorkChain, "run_phono3py_fc", _mock)
-
+    mock_run_phono3py_fc()
     process = generate_workchain("phonoxpy.phono3py_fc", inputs)
     results, node = launch.run_get_node(process)
 
