@@ -2,7 +2,7 @@
 
 from aiida.common import CalcInfo, CodeInfo
 from aiida.engine import CalcJob
-from aiida.orm import ArrayData, Bool, Dict, Float, StructureData
+from aiida.orm import ArrayData, Dict, Float, StructureData
 
 
 class BasePhonopyCalculation(CalcJob):
@@ -27,12 +27,6 @@ class BasePhonopyCalculation(CalcJob):
             "settings", valid_type=Dict, required=True, help="Phono3py parameters."
         )
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input(
-            "fc_only",
-            valid_type=Bool,
-            help="Only force constants are calculated.",
-            default=lambda: Bool(False),
-        )
         spec.input(
             "force_sets",
             valid_type=ArrayData,
@@ -67,7 +61,7 @@ class BasePhonopyCalculation(CalcJob):
         self._create_additional_files(folder)
         self._set_commands_and_retrieve_list()
 
-        if not self.inputs.fc_only and "nac_params" in self.inputs:
+        if "nac_params" in self.inputs:
             for params in self._additional_cmd_params:
                 params.append("--nac")
 

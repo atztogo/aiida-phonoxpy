@@ -186,6 +186,8 @@ def setup_phono3py_calculation(
     phonon_settings: Dict,
     structure: StructureData,
     symmetry_tolerance: Float,
+    run_fc: Bool,
+    run_ltc: Bool,
     displacement_dataset: Optional[Dict] = None,
     displacements: Optional[ArrayData] = None,
     phonon_displacement_dataset: Optional[Dict] = None,
@@ -211,7 +213,11 @@ def setup_phono3py_calculation(
          'is_plusminus',
          'is_diagonal',
          'is_trigonal')
-    ```.
+    ```
+    (4) Force constants (`run_fc=True`) and LTC calculation (`run_ltc=True`).
+    ```
+        ('fc_calculator', 'mesh')
+    ```
 
     `primitive_matrix` is always `auto` and the determined `primitive_matrix` by
     phonopy is stored in returned `phonon_setting_info`.
@@ -353,6 +359,12 @@ def setup_phono3py_calculation(
                     dict=ph.phonon_dataset
                 )
 
+    # Key-set 4
+    if run_fc and "fc_calculator" in phonon_settings.keys():
+        ph_settings["fc_calculator"] = phonon_settings["fc_calculator"]
+    if run_ltc and "mesh" in phonon_settings.keys():
+        ph_settings["mesh"] = phonon_settings["mesh"]
+
     if structures_dict:
         return_vals.update(structures_dict)
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
@@ -397,6 +409,44 @@ def setup_phono3py_fc_calculation(
     _setup_phono3py_calculation_keyset1(
         ph_settings, phonon_settings, structure, symmetry_tolerance.value
     )
+
+    # Key-set 4
+    if "fc_calculator" in phonon_settings.keys():
+        ph_settings["fc_calculator"] = phonon_settings["fc_calculator"]
+
+    return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
+    return return_vals
+
+
+@calcfunction
+def setup_phono3py_ltc_calculation(
+    phonon_settings: Dict,
+    structure: StructureData,
+    symmetry_tolerance: Float,
+):
+    """Set up phono3py lattice thermal conductivity calculation.
+
+    Returns
+    -------
+    * key-set 1 amd 2 as described in `setup_phono3py_calculation`.
+
+    """
+    ph_settings: dict = {}
+    return_vals = {}
+
+    # Key-set 1
+    _setup_phono3py_calculation_keyset1(
+        ph_settings, phonon_settings, structure, symmetry_tolerance.value
+    )
+
+    # Key-set 2
+    ph = get_phono3py_instance(structure, ph_settings)
+    _set_symmetry_info(ph_settings, ph)
+
+    # Key-set 4
+    if "mesh" in phonon_settings.keys():
+        ph_settings["mesh"] = phonon_settings["mesh"]
+
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
     return return_vals
 

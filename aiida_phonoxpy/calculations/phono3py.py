@@ -42,28 +42,34 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         )
         spec.input(
             "fc3",
-            valid_type=(ArrayData, SinglefileData),
+            valid_type=SinglefileData,
             required=False,
-            help="Third order force constants",
+            help="Third order force constants (fc3.hdf5)",
         )
         spec.input(
             "fc2",
-            valid_type=(ArrayData, SinglefileData),
+            valid_type=SinglefileData,
             required=False,
-            help="Second order force constants",
+            help="Second order force constants (fc2.hdf5)",
         )
 
         spec.output(
             "fc3",
-            valid_type=(ArrayData, SinglefileData),
+            valid_type=SinglefileData,
             required=False,
-            help="Third order force constants",
+            help="Third order force constants (fc3.hdf5).",
         )
         spec.output(
             "fc2",
-            valid_type=(ArrayData, SinglefileData),
+            valid_type=SinglefileData,
             required=False,
-            help="Second order force constants",
+            help="Second order force constants (fc2.hdf5)",
+        )
+        spec.output(
+            "ltc",
+            valid_type=SinglefileData,
+            required=False,
+            help="Lattice thermal conductivity (kappa-xxx.hdf5)",
         )
         spec.output("version", valid_type=Str, required=False, help="Version number")
 
@@ -95,8 +101,8 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             self.inputs.metadata.options.output_filename,
         ]
 
-        mesh_opts, fc_opts = _get_phono3py_options(self.inputs.settings)
-        if not self.inputs.fc_only and "fc2" in self.inputs and "fc3" in self.inputs:
+        mesh_opts, fc_opts = _get_phono3py_options(self.inputs.settings, self.logger)
+        if "fc2" in self.inputs and "fc3" in self.inputs:
             comm_opts = ["--fc2", "--fc3"] + mesh_opts + ["--br", "--ts", "300"]
         else:
             if "displacements" in self.inputs:
@@ -112,19 +118,11 @@ class Phono3pyCalculation(BasePhonopyCalculation):
                     self._internal_retrieve_list.append(f"{key}.hdf5")
             comm_opts = fc_opts
         self._additional_cmd_params = [comm_opts]
-
-        if self.inputs.fc_only:
-            self._calculation_cmd = [
-                ["-c", self._INPUT_PARAMS],
-            ]
-        else:
-            self._calculation_cmd = [
-                ["-c", self._INPUT_PARAMS],
-            ]
+        self._calculation_cmd = [["-c", self._INPUT_PARAMS]]
 
     def _get_phono3py_instance(self):
         kwargs = {}
-        if not self.inputs.fc_only and "nac_params" in self.inputs:
+        if "nac_params" in self.inputs:
             kwargs.update({"nac_params": self.inputs.nac_params})
         ph3 = get_phono3py_instance(
             self.inputs.structure, self.inputs.settings.get_dict(), **kwargs
@@ -134,16 +132,18 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         return ph3
 
 
-def _get_phono3py_options(settings: Dict):
+def _get_phono3py_options(settings: Dict, logger):
     """Return phonopy command options as strings."""
-    mesh_opts = []
     if "mesh" in settings.keys():
         mesh = settings["mesh"]
         try:
             length = float(mesh)
-            mesh_opts.append("--mesh=%f" % length)
+            mesh_opts = ["--mesh", f"{length}"]
         except TypeError:
-            mesh_opts.append('--mesh="%d %d %d"' % tuple(mesh))
+            mesh_opts = ["--mesh", f"{mesh[0]}", f"{mesh[1]}", f"{mesh[2]}"]
+    else:
+        logger.info("mesh setting not found. Set mesh=30.")
+        mesh_opts = ["--mesh", "30"]
 
     fc_opts = []
     if "fc_calculator" in settings.keys():

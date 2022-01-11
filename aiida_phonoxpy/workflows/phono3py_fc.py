@@ -1,4 +1,4 @@
-"""WorkChan to run ph-ph calculation by phono3py and force calculators."""
+"""WorkChan to calculate force constants by phono3py."""
 
 from aiida.engine import WorkChain
 from aiida.orm import ArrayData, Code, Dict, Float, StructureData
@@ -43,8 +43,8 @@ class Phono3pyFCWorkChain(WorkChain, RunPhono3pyMixIn):
             cls.collect_fc,
             cls.finalize,
         )
-        spec.output("fc3", valid_type=(ArrayData, SinglefileData), required=False)
-        spec.output("fc2", valid_type=(ArrayData, SinglefileData), required=False)
+        spec.output("fc3", valid_type=SinglefileData, required=False)
+        spec.output("fc2", valid_type=SinglefileData, required=False)
         spec.output("phonon_setting_info", valid_type=Dict, required=False)
 
     def initialize(self):
@@ -86,4 +86,4 @@ class Phono3pyFCWorkChain(WorkChain, RunPhono3pyMixIn):
 
     def finalize(self):
         """Show final message."""
-        self.report("phonopy calculation has been done.")
+        self.report("phono3py force constants calculation has been done.")

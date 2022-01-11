@@ -17,18 +17,27 @@ class Phono3pyParser(Parser):
         """Parse retrieved files."""
         self.logger.info("parse retrieved files")
 
-        # select the folder object
-        # Check that the retrieved folder is there
         try:
             output_folder = self.retrieved
         except NotExistent:
             return self.exit_codes.ERROR_NO_RETRIEVED_FOLDER
 
-        # check what is inside the folder
         list_of_filenames = output_folder.list_object_names()
         options = self.node.get_options()
 
-        for filename in [options["output_filename"], "fc2.hdf5", "fc3.hdf5"]:
+        kappa_filename = None
+        if "fc2" in self.node.inputs and "fc3" in self.node.inputs:
+            for filename in list_of_filenames:
+                if "kappa" in filename:
+                    kappa_filename = filename
+                    filenames_parsed = (options["output_filename"], kappa_filename)
+                    break
+            if not kappa_filename:
+                filenames_parsed = (options["output_filename"],)
+        else:
+            filenames_parsed = (options["output_filename"], "fc2.hdf5", "fc3.hdf5")
+
+        for filename in filenames_parsed:
             if filename not in list_of_filenames:
                 return self.exit_codes.ERROR_MISSING_OUTPUT_FILES
 
@@ -37,9 +46,15 @@ class Phono3pyParser(Parser):
             self.out("version", Str(yaml_dict["phono3py"]["version"]))
 
         for filename in ("fc2.hdf5", "fc3.hdf5"):
+            if filename in filename in filenames_parsed:
+                with output_folder.open(filename, "rb") as handle:
+                    output_node = SinglefileData(file=handle)
+                    self.out(filename.replace(".hdf5", ""), output_node)
+
+        if kappa_filename:
             with output_folder.open(filename, "rb") as handle:
                 output_node = SinglefileData(file=handle)
-                self.out(filename.replace(".hdf5", ""), output_node)
+                self.out("ltc", output_node)
 
         self.logger.info("Parsing done.")
         return ExitCode(0)

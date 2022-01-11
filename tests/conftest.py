@@ -934,15 +934,28 @@ def generate_nac_params():
 def generate_fc3_filedata(filepath_tests):
     """Generate a `SinglefileData` instance with fc3.hdf5 file."""
 
-    def _generate_fc3_filedata():
-        filepath = os.path.join(
-            filepath_tests,
-            "parsers",
-            "fixtures",
-            "phono3py",
-            "default",
-            "fc3.hdf5",
-        )
+    def _generate_fc3_filedata(structure_id: str = "NaCl"):
+        if structure_id == "NaCl":
+            filepath = os.path.join(
+                filepath_tests,
+                "parsers",
+                "fixtures",
+                "phono3py",
+                "default",
+                "fc3.hdf5",
+            )
+        elif structure_id == "NaCl-64":
+            filepath = os.path.join(
+                filepath_tests,
+                "parsers",
+                "fixtures",
+                "phono3py",
+                "ltc-default",
+                "fc3.hdf5",
+            )
+        else:
+            raise KeyError(f'Unknown structure_id="{structure_id}"')
+
         return SinglefileData(filepath)
 
     return _generate_fc3_filedata
@@ -952,18 +965,53 @@ def generate_fc3_filedata(filepath_tests):
 def generate_fc2_filedata(filepath_tests):
     """Generate a `SinglefileData` instance with fc2.hdf5 file."""
 
-    def _generate_fc2_filedata():
-        filepath = os.path.join(
-            filepath_tests,
-            "parsers",
-            "fixtures",
-            "phono3py",
-            "default",
-            "fc2.hdf5",
-        )
+    def _generate_fc2_filedata(structure_id: str = "NaCl-64"):
+        if structure_id == "NaCl-64":
+            filepath = os.path.join(
+                filepath_tests,
+                "parsers",
+                "fixtures",
+                "phono3py",
+                "default",
+                "fc2.hdf5",
+            )
+        elif structure_id == "NaCl-512":
+            filepath = os.path.join(
+                filepath_tests,
+                "parsers",
+                "fixtures",
+                "phono3py",
+                "ltc-default",
+                "fc2.hdf5",
+            )
+        else:
+            raise KeyError(f'Unknown structure_id="{structure_id}"')
+
         return SinglefileData(filepath)
 
     return _generate_fc2_filedata
+
+
+@pytest.fixture
+def generate_ltc_filedata(filepath_tests):
+    """Generate a `SinglefileData` instance with kappa-xxx.hdf5 file."""
+
+    def _generate_ltc_filedata(structure_id: str = "NaCl-ltc"):
+        if structure_id == "NaCl-ltc":
+            filepath = os.path.join(
+                filepath_tests,
+                "parsers",
+                "fixtures",
+                "phono3py",
+                "ltc-default",
+                "kappa-m999.hdf5",
+            )
+        else:
+            raise KeyError(f'Unknown structure_id="{structure_id}"')
+
+        return SinglefileData(filepath)
+
+    return _generate_ltc_filedata
 
 
 @pytest.fixture(scope="session")

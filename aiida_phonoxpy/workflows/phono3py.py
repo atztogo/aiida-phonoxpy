@@ -150,6 +150,8 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn, RunPhono3pyMixIn):
             self.inputs.settings,
             self.inputs.structure,
             self.inputs.symmetry_tolerance,
+            self.inputs.run_fc,
+            self.inputs.run_ltc,
             **kwargs,
         )
 
