@@ -44,8 +44,6 @@ class RunPhono3pyMixIn:
                 "phonon_force_sets",
                 "phonon_displacements",
                 "phonon_displacement_dataset",
-                "fc2",
-                "fc3",
             )
         else:
             input_keys = ("fc2", "fc3", "nac_params")

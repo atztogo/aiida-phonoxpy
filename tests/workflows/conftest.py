@@ -5,7 +5,10 @@ import pytest
 
 @pytest.fixture
 def generate_workchain(
-    mock_forces_run_calculation, mock_nac_params_run_calculation, mock_run_phono3py_fc
+    mock_forces_run_calculation,
+    mock_nac_params_run_calculation,
+    mock_run_phono3py_fc,
+    mock_run_phono3py_ltc,
 ):
     """Generate an instance of a `WorkChain`.
 
@@ -187,3 +190,21 @@ def mock_run_phono3py_fc(monkeypatch, generate_fc3_filedata, generate_fc2_fileda
         self.ctx.fc_calc.outputs.fc2 = generate_fc2_filedata()
 
     monkeypatch.setattr(Phono3pyFCWorkChain, "run_phono3py_fc", _mock)
+
+
+@pytest.fixture
+def mock_run_phono3py_ltc(monkeypatch, generate_ltc_filedata):
+    """Return mock Phono3pyLTCWorkChain.run_phono3py_ltc method."""
+    from aiida.plugins import WorkflowFactory
+
+    Phono3pyLTCWorkChain = WorkflowFactory("phonoxpy.phono3py_ltc")
+
+    def _mock(self):
+        """Mock method to replace Phono3pyLTCWorkChain.run_phono3py_ltc."""
+        from aiida.common import AttributeDict
+
+        self.ctx.ltc_calc = AttributeDict()
+        self.ctx.ltc_calc.outputs = AttributeDict()
+        self.ctx.ltc_calc.outputs.ltc = generate_ltc_filedata()
+
+    monkeypatch.setattr(Phono3pyLTCWorkChain, "run_phono3py_ltc", _mock)

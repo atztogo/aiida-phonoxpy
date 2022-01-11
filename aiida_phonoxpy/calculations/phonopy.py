@@ -77,18 +77,10 @@ class PhonopyCalculation(BasePhonopyCalculation):
             self._INOUT_FORCE_CONSTANTS,
             self.inputs.metadata.options.output_filename,
         ]
-        self._additional_cmd_params = [
-            ["--writefc", "--writefc-format=hdf5"] + fc_opts,
-            ["--readfc", "--readfc-format=hdf5"],
-            ["--readfc", "--readfc-format=hdf5"],
-        ]
 
-        # First run with --writefc, and with --readfc for remaining runs
-        if self.inputs.fc_only:
-            self._calculation_cmd = [
-                ["-c", self._INPUT_PARAMS],
-            ]
-        else:
+        self._additional_cmd_params = [["--writefc", "--writefc-format=hdf5"] + fc_opts]
+
+        if mesh_opts:
             self._calculation_cmd = [
                 ["-c", self._INPUT_PARAMS, "--pdos=auto"] + mesh_opts,
                 ["-c", self._INPUT_PARAMS, "-t"] + mesh_opts,
@@ -105,10 +97,18 @@ class PhonopyCalculation(BasePhonopyCalculation):
                 self._OUTPUT_THERMAL_PROPERTIES,
                 self._OUTPUT_BAND_STRUCTURE,
             ]
+            self._additional_cmd_params += [
+                ["--readfc", "--readfc-format=hdf5"],
+                ["--readfc", "--readfc-format=hdf5"],
+            ]
+        else:
+            self._calculation_cmd = [
+                ["-c", self._INPUT_PARAMS],
+            ]
 
     def _get_phonopy_instance(self):
         nac_params = None
-        if not self.inputs.fc_only and "nac_params" in self.inputs:
+        if "nac_params" in self.inputs:
             nac_params = self.inputs.nac_params
         ph = get_phonopy_instance(
             self.inputs.structure,
