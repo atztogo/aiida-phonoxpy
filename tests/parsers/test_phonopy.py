@@ -51,7 +51,7 @@ def test_phonopy_default(
 
     for key in [
         "force_constants",
-        "pdos",
+        "projected_dos",
         "thermal_properties",
         "band_structure",
         "version",
@@ -60,7 +60,7 @@ def test_phonopy_default(
 
     data_regression.check(
         {
-            "pdos": results["pdos"].attributes,
+            "pdos": results["projected_dos"].attributes,
             "thermal_properties": results["thermal_properties"].attributes,
             "band_structure": results["band_structure"].attributes,
         }

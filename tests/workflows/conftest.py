@@ -56,6 +56,8 @@ def generate_inputs_phonopy_wc(
     """Return inputs for phonopy workchain."""
 
     def _generate_inputs_phonopy(metadata=None):
+        from aiida.orm import Bool
+
         return {
             "code": fixture_code("phonoxpy.phonopy"),
             "structure": generate_structure(),
@@ -64,6 +66,7 @@ def generate_inputs_phonopy_wc(
             "force_sets": generate_force_sets(),
             "displacement_dataset": generate_displacement_dataset(),
             "nac_params": generate_nac_params(),
+            "run_phonopy": Bool(False),
         }
 
     return _generate_inputs_phonopy
