@@ -231,11 +231,12 @@ def test_launch_process_with_dataset_inputs_and_run_phonopy(
 
     inputs = generate_inputs_phonopy_wc()
     inputs["run_phonopy"] = Bool(True)
+    inputs["remote_phonopy"] = Bool(False)
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
     output_keys = [
         "band_structure",
-        "dos",
+        "total_dos",
         "force_constants",
         "phonon_setting_info",
         "primitive",
@@ -269,6 +270,7 @@ def test_launch_process_with_displacements_inputs(
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
     from aiida.engine import launch
+    from aiida.orm import Bool
 
     inputs = {
         "code": fixture_code("phonoxpy.phonopy"),
@@ -278,6 +280,7 @@ def test_launch_process_with_displacements_inputs(
         "force_sets": generate_force_sets("NaCl-displacements"),
         "displacements": generate_displacements(),
         "nac_params": generate_nac_params(),
+        "run_phonopy": Bool(False),
     }
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)

@@ -42,12 +42,12 @@ class PhonopyParser(Parser):
         projected_dos_filename = PhonopyCalculation._OUTPUT_PROJECTED_DOS
         if projected_dos_filename in list_of_files:
             with output_folder.open(projected_dos_filename) as f:
-                self.out("pdos", parse_projected_dos(f))
+                self.out("projected_dos", parse_projected_dos(f))
 
         total_dos_filename = PhonopyCalculation._OUTPUT_TOTAL_DOS
         if total_dos_filename in list_of_files:
             with output_folder.open(total_dos_filename) as f:
-                self.out("dos", parse_total_dos(f))
+                self.out("total_dos", parse_total_dos(f))
 
         tp_filename = PhonopyCalculation._OUTPUT_THERMAL_PROPERTIES
         if tp_filename in list_of_files:
