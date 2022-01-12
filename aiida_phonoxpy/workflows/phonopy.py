@@ -57,7 +57,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
         spec.input("calculator_settings", valid_type=Dict, required=False)
         spec.input("run_phonopy", valid_type=Bool, default=lambda: Bool(False))
-        spec.input("remote_phonopy", valid_type=Bool, default=lambda: Bool(False))
+        spec.input("remote_phonopy", valid_type=Bool, default=lambda: Bool(True))
 
         spec.outline(
             cls.initialize,
@@ -91,8 +91,8 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         )
         spec.output("thermal_properties", valid_type=XyData, required=False)
         spec.output("band_structure", valid_type=BandsData, required=False)
-        spec.output("dos", valid_type=XyData, required=False)
-        spec.output("pdos", valid_type=XyData, required=False)
+        spec.output("total_dos", valid_type=XyData, required=False)
+        spec.output("projected_dos", valid_type=XyData, required=False)
         spec.exit_code(
             1003,
             "ERROR_INCONSISTENT_IMMIGRANT_FORCES_FOLDERS",
@@ -227,8 +227,8 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         self.report("collect data")
         ph_props = (
             "thermal_properties",
-            "dos",
-            "pdos",
+            "total_dos",
+            "projected_dos",
             "band_structure",
             "force_constants",
         )
@@ -271,7 +271,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             nac_params=nac_params,
         )
         self.out("thermal_properties", result["thermal_properties"])
-        self.out("dos", result["dos"])
+        self.out("total_dos", result["total_dos"])
         self.out("band_structure", result["band_structure"])
 
         self.report("finish phonon")

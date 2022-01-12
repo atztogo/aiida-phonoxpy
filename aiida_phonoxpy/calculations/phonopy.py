@@ -34,10 +34,13 @@ class PhonopyCalculation(BasePhonopyCalculation):
             help="Calculated force constants",
         )
         spec.output(
-            "dos", valid_type=XyData, required=False, help="Calculated total DOS"
+            "total_dos", valid_type=XyData, required=False, help="Calculated total DOS"
         )
         spec.output(
-            "pdos", valid_type=XyData, required=False, help="Calculated projected DOS"
+            "projected_dos",
+            valid_type=XyData,
+            required=False,
+            help="Calculated projected DOS",
         )
         spec.output(
             "thermal_properties",

@@ -69,8 +69,7 @@ def setup_phonopy_calculation(
          'number_of_snapshots',
          'random_seed',
          'is_plusminus',
-         'is_diagonal',
-         'is_trigonal')
+         'is_diagonal')
     ```.
 
     `primitive_matrix` is always `auto` and the determined `primitive_matrix` by
@@ -211,8 +210,7 @@ def setup_phono3py_calculation(
          'phonon_number_of_snapshots',
          'random_seed',
          'is_plusminus',
-         'is_diagonal',
-         'is_trigonal')
+         'is_diagonal')
     ```
     (4) Force constants (`run_fc=True`) and LTC calculation (`run_ltc=True`).
     ```
@@ -508,8 +506,8 @@ def get_phonon_properties(
     bs = _get_bands_data(ph)
 
     return {
-        "dos": total_dos,
-        "pdos": pdos,
+        "total_dos": total_dos,
+        "projected_dos": pdos,
         "thermal_properties": thermal_properties,
         "band_structure": bs,
     }
