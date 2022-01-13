@@ -1,3 +1,5 @@
+(phonooy_workchain)=
+
 # Phonopy workchain
 
 Phonopy workchain is used to calculate harmonic phonon properties.
@@ -6,7 +8,7 @@ Phonopy workchain is used to calculate harmonic phonon properties.
 
 Supported parameters for phonon calculation are
 
-- `supercell_matrix`: Dimension of supercell used by phonopy
+- `supercell_matrix`: Dimension of supercell used by phonopy.
 - `distance` (optional): Atomic displacement distance.
 - `mesh` (optional): Sampling mesh used in phonon projected DOS and thermal
   property calculations.
@@ -22,7 +24,7 @@ An example of settings is:
 ```python
 phonopy_settings = {
     "mesh": 50.0,
-    "supercell_matrix": supercell_matrix,
+    "supercell_matrix": [2, 2, 2],
     "distance": 0.03,
 }
 ```
@@ -42,7 +44,13 @@ nodes of
 - `displacement_dataset` or `displacements`
 - `phonon_setting_info`
 
-are created and attached to `outputs` port namespace.
+are created and attached to `outputs` port namespace. Input `structure` is
+considered as a conventional unit cell, which can be obtained using, e.g., using
+spglib. The primitive cell is found automatically and the transformation matrix
+from the input `structure` to the primitive cell is found in
+`phonon_setting_info` as `primitive_matrix`.
+
+(launch_calculators)=
 
 ## Calculations launched from Phonopy workchain
 
@@ -58,10 +66,10 @@ Since the later phonon calculation is much less computational demanding, it is
 not performed as default.
 
 - `force_sets`: Sets of supercell forces
-- `nac_params`: Parameters for non-analytical term correction
-- `force_constants`, `thermal_properties`, `band_structure`, `projected_dos`:
-  Phonon properties for which `run_phonopy = Bool(True)` has to be set to
-  perform the calculation
+- `nac_params` (optional): Parameters for non-analytical term correction. This
+  is calculated when `calculator_inputs.nac` is set.
+- `force_constants`, `thermal_properties`, `band_structure`, `projected_dos`
+  (optional): Phonon properties calculated when `run_phonopy = Bool(True)`.
 
 ## Usage and examples
 
@@ -336,7 +344,7 @@ Direct
         "kpoints_mesh": force_kpoints_mesh,
         "kpoints_offset": [0.5, 0.5, 0.5],
         "pw": {
-            "code_string": "qe-pw-6.8@nancy",
+            "code": Code.get_from_string("qe-pw-6.8@nancy"),
             "metadata": {"options": force_options},
             "pseudo_family_string": "SSSP/1.1/PBE/efficiency",
             "parameters": force_parameters,
@@ -375,7 +383,7 @@ Direct
                 "kpoints_mesh": [8, 8, 8],
                 "kpoints_offset": [0, 0, 0],
                 "pw": {
-                    "code_string": "qe-pw-6.8@nancy",
+                    Code.get_from_string("qe-pw-6.8@nancy"),
                     "metadata": {"options": nac_options},
                     "pseudo_family_string": "SSSP/1.1/PBE/efficiency",
                     "parameters": nac_pw_parameters,
@@ -383,7 +391,7 @@ Direct
             },
             {
                 "ph": {
-                    "code_string": "qe-ph-6.8@nancy",
+                    Code.get_from_string("qe-ph-6.8@nancy"),
                     "metadata": {"options": nac_options},
                     "parameters": nac_ph_parameters,
                 }
