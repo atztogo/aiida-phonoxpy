@@ -1,0 +1,677 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phono3py workchains &#8212; aiida-phonoxpy 0.6 documentation</title>
+    
+  <link href="_static/css/theme.css" rel="stylesheet">
+  <link href="_static/css/index.ff1ffe594081f20da1ef19478df9384b.css" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-book-theme.css?digest=c3fdc42140077d1ad13ad2f1588a4309" />
+    
+  <link rel="preload" as="script" href="_static/js/index.be7d3bbb2ef33a8344ce.js">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx-book-theme.d59cb220de22ca1c485ebbdc042f0030.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Phonopy workchain" href="phonopy.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<div class="col-12 col-md-3 bd-sidebar site-navigation show" id="site-navigation">
+    
+        <div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="index.html">
+      
+      
+      
+      <h1 class="site-logo" id="site-title">aiida-phonoxpy 0.6 documentation</h1>
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="install.html">
+   Installation
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="phonopy.html">
+   Phonopy workchain
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Phono3py workchains
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav> <!-- To handle the deprecated key -->
+
+<div class="navbar_extra_footer">
+  Theme by the <a href="https://ebp.jupyterbook.org">Executable Book Project</a>
+</div>
+
+</div>
+
+
+          
+
+
+          
+<main class="col py-md-3 pl-md-4 bd-content overflow-auto" role="main">
+    
+    <div class="topbar container-xl fixed-top">
+    <div class="topbar-contents row">
+        <div class="col-12 col-md-3 bd-topbar-whitespace site-navigation show"></div>
+        <div class="col pl-md-4 topbar-main">
+            
+            <button id="navbar-toggler" class="navbar-toggler ml-0" type="button" data-toggle="collapse"
+                data-toggle="tooltip" data-placement="bottom" data-target=".site-navigation" aria-controls="navbar-menu"
+                aria-expanded="true" aria-label="Toggle navigation" aria-controls="site-navigation"
+                title="Toggle navigation" data-toggle="tooltip" data-placement="left">
+                <i class="fas fa-bars"></i>
+                <i class="fas fa-arrow-left"></i>
+                <i class="fas fa-arrow-up"></i>
+            </button>
+            
+            
+<div class="dropdown-buttons-trigger">
+    <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn" aria-label="Download this page"><i
+            class="fas fa-download"></i></button>
+
+    <div class="dropdown-buttons">
+        <!-- ipynb file if we had a myst markdown file -->
+        
+        <!-- Download raw file -->
+        <a class="dropdown-buttons" href="_sources/phono3py.md.txt"><button type="button"
+                class="btn btn-secondary topbarbtn" title="Download source file" data-toggle="tooltip"
+                data-placement="left">.md</button></a>
+        <!-- Download PDF via print -->
+        <button type="button" id="download-print" class="btn btn-secondary topbarbtn" title="Print to PDF"
+                onclick="printPdf(this)" data-toggle="tooltip" data-placement="left">.pdf</button>
+    </div>
+</div>
+
+            <!-- Source interaction buttons -->
+
+            <!-- Full screen (wrap in <a> to have style consistency -->
+
+<a class="full-screen-button"><button type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip"
+        data-placement="bottom" onclick="toggleFullScreen()" aria-label="Fullscreen mode"
+        title="Fullscreen mode"><i
+            class="fas fa-expand"></i></button></a>
+
+            <!-- Launch buttons -->
+
+        </div>
+
+        <!-- Table of contents -->
+        <div class="d-none d-md-block col-md-2 bd-toc show noprint">
+            
+            <div class="tocsection onthispage pt-5 pb-3">
+                <i class="fas fa-list"></i> Contents
+            </div>
+            <nav id="bd-toc-nav" aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#phonon-phonon-interaction-calculation-settings">
+   Phonon-phonon interaction calculation settings
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#initialization">
+   Initialization
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#calculations-launched-from-phono3py-workchain">
+   Calculations launched from Phono3py workchain
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#usage-and-examples">
+   Usage and examples
+  </a>
+ </li>
+</ul>
+
+            </nav>
+        </div>
+    </div>
+</div>
+    <div id="main-content" class="row">
+        <div class="col-12 col-md-9 pl-md-3 pr-md-0">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1>Phono3py workchains</h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#phonon-phonon-interaction-calculation-settings">
+   Phonon-phonon interaction calculation settings
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#initialization">
+   Initialization
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#calculations-launched-from-phono3py-workchain">
+   Calculations launched from Phono3py workchain
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#usage-and-examples">
+   Usage and examples
+  </a>
+ </li>
+</ul>
+
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            
+              <div>
+                
+  <div class="tex2jax_ignore mathjax_ignore section" id="phono3py-workchains">
+<h1>Phono3py workchains<a class="headerlink" href="#phono3py-workchains" title="Permalink to this headline">¶</a></h1>
+<p>Before reading this section, it is recommended to read <a class="reference internal" href="phonopy.html#phonooy-workchain"><span class="std std-ref">Phonopy workchain</span></a>
+and try <code class="docutils literal notranslate"><span class="pre">PhonopyWorkChain</span></code>because how to use<code class="docutils literal notranslate"><span class="pre">Phono3pyWorkChain</span></code>is similar to
+that of<code class="docutils literal notranslate"><span class="pre">PhonopyWorkChain</span></code>and it is assumed you have already
+experienced<code class="docutils literal notranslate"><span class="pre">PhonopyWorkChain</span></code>.</p>
+<p>Phono3py workchain is used to calculate phonon-phonon interaction properties.
+There are three phono3py workchains:</p>
+<ol class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Phono3pyWorkChain</span></code>: Calculate supercell forces, parameters for
+non-analytical term correction (NAC), and optionally run the following two
+workchains.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Phono3pyFCWorkChain</span></code>: Calculate force constants from supercell forces and
+displacements.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Phono3pyLTCWorkChain</span></code>: Calculate lattice thermal conductivity from force
+constants and NAC parameters.</p></li>
+</ol>
+<div class="section" id="phonon-phonon-interaction-calculation-settings">
+<h2>Phonon-phonon interaction calculation settings<a class="headerlink" href="#phonon-phonon-interaction-calculation-settings" title="Permalink to this headline">¶</a></h2>
+<p>Supported parameters for phonon calculation are</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">supercell_matrix</span></code>: Dimension of supercell used by phono3py.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">phonon_supercell_matrix</span></code> (optional): Dimension of supercell used to calculate
+harmonic phonon by phono3py.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">distance</span></code> (optional): Atomic displacement distance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mesh</span></code> (optional): Sampling mesh used in phonon projected DOS and thermal
+property calculations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fc_calculator</span></code> (optional): Only “alm” is supported.</p></li>
+</ul>
+<p>Although random displacement setting (<code class="docutils literal notranslate"><span class="pre">number_of_snapshots</span></code>) is not directory
+supported by <code class="docutils literal notranslate"><span class="pre">Phono3pyWorkChain</span></code>, supercell forces and displacements calculated
+using random displacement setting by <code class="docutils literal notranslate"><span class="pre">PhonopyWorkChain</span></code> can be used as inputs of
+<code class="docutils literal notranslate"><span class="pre">Phono3pyFCWorkChain</span></code>.</p>
+<p>Detailed explanations about the parameters are refereed to the
+<a class="reference external" href="https://phonopy.github.io/phono3py/">phono3py documentation</a>.</p>
+<p>An example of settings is:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">phonopy_settings</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;mesh&quot;</span><span class="p">:</span> <span class="mf">50.0</span><span class="p">,</span>
+    <span class="s2">&quot;supercell_matrix&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="s2">&quot;phonon_supercell_matrix&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+    <span class="s2">&quot;distance&quot;</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The displacement information is stored in <code class="docutils literal notranslate"><span class="pre">displacement_dataset</span></code>. With setting
+<code class="docutils literal notranslate"><span class="pre">phonon_supercell_matrix</span></code>, the displacement information is stored in
+<code class="docutils literal notranslate"><span class="pre">phonon_displacement_dataset</span></code>.</p>
+</div>
+<div class="section" id="initialization">
+<h2>Initialization<a class="headerlink" href="#initialization" title="Permalink to this headline">¶</a></h2>
+<p>At the initialization step, supercells with displacements are created. Data
+nodes of</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">displacement_dataset</span></code> and <code class="docutils literal notranslate"><span class="pre">phonon_displacement_dataset</span></code> (optional).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">phonon_setting_info</span></code></p></li>
+</ul>
+<p>are created and attached to <code class="docutils literal notranslate"><span class="pre">outputs</span></code> port namespace. Input <code class="docutils literal notranslate"><span class="pre">structure</span></code> is
+considered as a conventional unit cell, which can be obtained using, e.g., using
+spglib. The primitive cell is found automatically and the transformation matrix
+from the input <code class="docutils literal notranslate"><span class="pre">structure</span></code> to the primitive cell is found in
+<code class="docutils literal notranslate"><span class="pre">phonon_setting_info</span></code> as <code class="docutils literal notranslate"><span class="pre">primitive_matrix</span></code>.</p>
+</div>
+<div class="section" id="calculations-launched-from-phono3py-workchain">
+<h2>Calculations launched from Phono3py workchain<a class="headerlink" href="#calculations-launched-from-phono3py-workchain" title="Permalink to this headline">¶</a></h2>
+<ol>
+<li><p>Supercell forces and NAC parameters</p>
+<p>Similar to <code class="docutils literal notranslate"><span class="pre">PhonopyWorkChain</span></code> (<a class="reference internal" href="phonopy.html#launch-calculators"><span class="std std-ref">Calculations launched from Phonopy workchain</span></a>),</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">force_sets</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nac_params</span></code> (optional)</p></li>
+</ul>
+<p>are obtained. In addition,</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">phonon_force_sets</span></code> (optional)</p></li>
+</ul>
+<p>is obtained when <code class="docutils literal notranslate"><span class="pre">phonon_supercell_matrix</span></code> is set.</p>
+</li>
+<li><p>Force constants (when <code class="docutils literal notranslate"><span class="pre">run_fc</span> <span class="pre">=</span> <span class="pre">Bool(True)</span></code>)</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fc2</span></code>: <code class="docutils literal notranslate"><span class="pre">SingleFileData</span></code> of <code class="docutils literal notranslate"><span class="pre">fc2.hdf5</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fc3</span></code>: <code class="docutils literal notranslate"><span class="pre">SingleFileData</span></code> of <code class="docutils literal notranslate"><span class="pre">fc3.hdf5</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Lattice thermal conductivity calculation (when <code class="docutils literal notranslate"><span class="pre">run_ltc</span> <span class="pre">=</span> <span class="pre">Bool(True)</span></code>)</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ltc</span></code>: <code class="docutils literal notranslate"><span class="pre">SingleFileData</span></code> of <code class="docutils literal notranslate"><span class="pre">kappa-xxx.hdf5</span></code>.</p></li>
+</ul>
+</li>
+</ol>
+</div>
+<div class="section" id="usage-and-examples">
+<h2>Usage and examples<a class="headerlink" href="#usage-and-examples" title="Permalink to this headline">¶</a></h2>
+<p>The basic usage is explained as a python script shown below.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">launch_phono3py_with_vasp</span></code>: Run phono3py calculation using phono3py &amp; VASP.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">launch_phono3py_fc</span></code>: Run phono3py force constants calculation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">launch_phono3py_ltc</span></code>: Run phono3py lattice thermal conductivity calculation.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;Examples to submit Phono3pyWorkChain, Phono3pyFCWorkChain, Phono3pyLTCWorkChain.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">aiida</span> <span class="kn">import</span> <span class="n">load_profile</span>
+<span class="kn">from</span> <span class="nn">aiida.engine</span> <span class="kn">import</span> <span class="n">submit</span>
+<span class="kn">from</span> <span class="nn">aiida.orm</span> <span class="kn">import</span> <span class="n">Bool</span><span class="p">,</span> <span class="n">Code</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">load_group</span><span class="p">,</span> <span class="n">load_node</span>
+<span class="kn">from</span> <span class="nn">aiida.plugins</span> <span class="kn">import</span> <span class="n">WorkflowFactory</span>
+<span class="kn">from</span> <span class="nn">aiida_phonoxpy.utils.utils</span> <span class="kn">import</span> <span class="n">phonopy_atoms_to_structure</span>
+<span class="kn">from</span> <span class="nn">phonopy.interface.vasp</span> <span class="kn">import</span> <span class="n">read_vasp_from_strings</span>
+
+<span class="n">load_profile</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">launch_phonop3y_fc</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Submit phono3py force constants calculation.&quot;&quot;&quot;</span>
+    <span class="c1"># Supercell force calculations with random displacements.</span>
+    <span class="n">n222</span> <span class="o">=</span> <span class="n">load_node</span><span class="p">(</span><span class="mi">220964</span><span class="p">)</span>  <span class="c1"># PhonopyWorkchain with 2x2x2 supercell (200 supercells)</span>
+    <span class="n">n444</span> <span class="o">=</span> <span class="n">load_node</span><span class="p">(</span><span class="mi">220888</span><span class="p">)</span>  <span class="c1"># PhonopyWorkchain with 4x4x4 supercell (4 supercells)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Settings for phono3py calculation</span>
+    <span class="c1">#</span>
+    <span class="n">phono3py_settings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;supercell_matrix&quot;</span><span class="p">:</span> <span class="n">n222</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">phonon_setting_info</span><span class="p">[</span><span class="s2">&quot;supercell_matrix&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;phonon_supercell_matrix&quot;</span><span class="p">:</span> <span class="n">n444</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">phonon_setting_info</span><span class="p">[</span><span class="s2">&quot;supercell_matrix&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+    <span class="n">phono3py_resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;parallel_env&quot;</span><span class="p">:</span> <span class="s2">&quot;mpi*&quot;</span><span class="p">,</span> <span class="s2">&quot;tot_num_mpiprocs&quot;</span><span class="p">:</span> <span class="mi">24</span><span class="p">}</span>
+    <span class="n">phono3py_metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;resources&quot;</span><span class="p">:</span> <span class="n">phono3py_resources</span><span class="p">,</span>
+            <span class="s2">&quot;max_wallclock_seconds&quot;</span><span class="p">:</span> <span class="mi">3600</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Phono3pyFCWorkChain inputs</span>
+    <span class="c1">#</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;NaCl phono3py force constants calculation (222-444)&quot;</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;phono3py@nancy&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">n222</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span>
+        <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">Dict</span><span class="p">(</span><span class="nb">dict</span><span class="o">=</span><span class="n">phono3py_settings</span><span class="p">),</span>
+        <span class="s2">&quot;force_sets&quot;</span><span class="p">:</span> <span class="n">n222</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">force_sets</span><span class="p">,</span>
+        <span class="s2">&quot;displacements&quot;</span><span class="p">:</span> <span class="n">n222</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">displacements</span><span class="p">,</span>
+        <span class="s2">&quot;phonon_force_sets&quot;</span><span class="p">:</span> <span class="n">n444</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">force_sets</span><span class="p">,</span>
+        <span class="s2">&quot;phonon_displacements&quot;</span><span class="p">:</span> <span class="n">n444</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">displacements</span><span class="p">,</span>
+        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;phono3py&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">phono3py_metadata</span><span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="n">g</span> <span class="o">=</span> <span class="n">load_group</span><span class="p">(</span><span class="s2">&quot;NaCl-222-444&quot;</span><span class="p">)</span>
+    <span class="n">Phono3pyFCWorkChain</span> <span class="o">=</span> <span class="n">WorkflowFactory</span><span class="p">(</span><span class="s2">&quot;phonoxpy.phono3py_fc&quot;</span><span class="p">)</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">submit</span><span class="p">(</span><span class="n">Phono3pyFCWorkChain</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">add_nodes</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">launch_phonop3y_ltc</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Submit phono3py force constants calculation.&quot;&quot;&quot;</span>
+    <span class="n">n_fc</span> <span class="o">=</span> <span class="n">load_node</span><span class="p">(</span><span class="mi">257252</span><span class="p">)</span>  <span class="c1"># Phono3pyFCWorkchain</span>
+    <span class="n">n_nac</span> <span class="o">=</span> <span class="n">load_node</span><span class="p">(</span><span class="mi">255135</span><span class="p">)</span>  <span class="c1"># NacParamsWorkChain</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Settings for phono3py calculation</span>
+    <span class="c1">#</span>
+    <span class="n">phono3py_settings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;supercell_matrix&quot;</span><span class="p">:</span> <span class="n">n_fc</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">phonon_setting_info</span><span class="p">[</span><span class="s2">&quot;supercell_matrix&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;phonon_supercell_matrix&quot;</span><span class="p">:</span> <span class="n">n_fc</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">phonon_setting_info</span><span class="p">[</span>
+            <span class="s2">&quot;phonon_supercell_matrix&quot;</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;mesh&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">phono3py_resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;parallel_env&quot;</span><span class="p">:</span> <span class="s2">&quot;mpi*&quot;</span><span class="p">,</span> <span class="s2">&quot;tot_num_mpiprocs&quot;</span><span class="p">:</span> <span class="mi">24</span><span class="p">}</span>
+    <span class="n">phono3py_metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;resources&quot;</span><span class="p">:</span> <span class="n">phono3py_resources</span><span class="p">,</span>
+            <span class="s2">&quot;max_wallclock_seconds&quot;</span><span class="p">:</span> <span class="mi">3600</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Phono3pyFCWorkChain inputs</span>
+    <span class="c1">#</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;NaCl phono3py lattice thermal conductivity calculation (222-444)&quot;</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;phono3py@nancy&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">n_fc</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">structure</span><span class="p">,</span>
+        <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">Dict</span><span class="p">(</span><span class="nb">dict</span><span class="o">=</span><span class="n">phono3py_settings</span><span class="p">),</span>
+        <span class="s2">&quot;fc2&quot;</span><span class="p">:</span> <span class="n">n_fc</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">fc2</span><span class="p">,</span>
+        <span class="s2">&quot;fc3&quot;</span><span class="p">:</span> <span class="n">n_fc</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">fc3</span><span class="p">,</span>
+        <span class="s2">&quot;nac_params&quot;</span><span class="p">:</span> <span class="n">n_nac</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">nac_params</span><span class="p">,</span>
+        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;phono3py&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">phono3py_metadata</span><span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="n">g</span> <span class="o">=</span> <span class="n">load_group</span><span class="p">(</span><span class="s2">&quot;NaCl-222-444&quot;</span><span class="p">)</span>
+    <span class="n">Phono3pyLTCWorkChain</span> <span class="o">=</span> <span class="n">WorkflowFactory</span><span class="p">(</span><span class="s2">&quot;phonoxpy.phono3py_ltc&quot;</span><span class="p">)</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">submit</span><span class="p">(</span><span class="n">Phono3pyLTCWorkChain</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">add_nodes</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">launch_phono3py_with_vasp</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Run Phono3pyWorkChain using aiida-vasp.&quot;&quot;&quot;</span>
+    <span class="n">unitcell_str</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot; Na Cl</span>
+<span class="s2">   1.00000000000000</span>
+<span class="s2">     5.6903014761756712    0.0000000000000000    0.0000000000000000</span>
+<span class="s2">     0.0000000000000000    5.6903014761756712    0.0000000000000000</span>
+<span class="s2">     0.0000000000000000    0.0000000000000000    5.6903014761756712</span>
+<span class="s2">   4   4</span>
+<span class="s2">Direct</span>
+<span class="s2">  0.0000000000000000  0.0000000000000000  0.0000000000000000</span>
+<span class="s2">  0.0000000000000000  0.5000000000000000  0.5000000000000000</span>
+<span class="s2">  0.5000000000000000  0.0000000000000000  0.5000000000000000</span>
+<span class="s2">  0.5000000000000000  0.5000000000000000  0.0000000000000000</span>
+<span class="s2">  0.5000000000000000  0.5000000000000000  0.5000000000000000</span>
+<span class="s2">  0.5000000000000000  0.0000000000000000  0.0000000000000000</span>
+<span class="s2">  0.0000000000000000  0.5000000000000000  0.0000000000000000</span>
+<span class="s2">  0.0000000000000000  0.0000000000000000  0.5000000000000000&quot;&quot;&quot;</span>
+
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">read_vasp_from_strings</span><span class="p">(</span><span class="n">unitcell_str</span><span class="p">)</span>
+    <span class="n">structure</span> <span class="o">=</span> <span class="n">phonopy_atoms_to_structure</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+
+    <span class="n">cutoff_energy</span> <span class="o">=</span> <span class="mi">350</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Settings for supercell forces</span>
+    <span class="c1">#</span>
+    <span class="n">supercell_matrix</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">force_kpoints_mesh</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">force_incar_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;PREC&quot;</span><span class="p">:</span> <span class="s2">&quot;Accurate&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;IBRION&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;EDIFF&quot;</span><span class="p">:</span> <span class="mf">1e-8</span><span class="p">,</span>
+        <span class="s2">&quot;NELMIN&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="s2">&quot;NELM&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+        <span class="s2">&quot;ENCUT&quot;</span><span class="p">:</span> <span class="n">cutoff_energy</span><span class="p">,</span>
+        <span class="s2">&quot;IALGO&quot;</span><span class="p">:</span> <span class="mi">38</span><span class="p">,</span>
+        <span class="s2">&quot;ISMEAR&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;SIGMA&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="s2">&quot;LREAL&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;lcharg&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;lwave&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;NPAR&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">force_code</span> <span class="o">=</span> <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;vasp621mpi@nancy&quot;</span><span class="p">)</span>
+    <span class="n">force_resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;parallel_env&quot;</span><span class="p">:</span> <span class="s2">&quot;mpi*&quot;</span><span class="p">,</span> <span class="s2">&quot;tot_num_mpiprocs&quot;</span><span class="p">:</span> <span class="mi">24</span><span class="p">}</span>
+
+    <span class="n">force_parser_settings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;add_energies&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_forces&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_stress&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">force_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">force_code</span><span class="p">,</span>
+        <span class="s2">&quot;kpoints_mesh&quot;</span><span class="p">:</span> <span class="n">force_kpoints_mesh</span><span class="p">,</span>
+        <span class="s2">&quot;kpoints_offset&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>
+        <span class="s2">&quot;potential_family&quot;</span><span class="p">:</span> <span class="s2">&quot;PBE.54&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;potential_mapping&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Na&quot;</span><span class="p">:</span> <span class="s2">&quot;Na_pv&quot;</span><span class="p">,</span> <span class="s2">&quot;Cl&quot;</span><span class="p">:</span> <span class="s2">&quot;Cl&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;resources&quot;</span><span class="p">:</span> <span class="n">force_resources</span><span class="p">,</span>
+            <span class="s2">&quot;max_wallclock_seconds&quot;</span><span class="p">:</span> <span class="mi">3600</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">force_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;parser_settings&quot;</span><span class="p">:</span> <span class="n">force_parser_settings</span><span class="p">},</span>
+            <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;incar&quot;</span><span class="p">:</span> <span class="n">force_incar_dict</span><span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Settings for phonon supercell forces</span>
+    <span class="c1">#</span>
+    <span class="n">phonon_supercell_matrix</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+    <span class="n">phonon_force_kpoints_mesh</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">phonon_force_incar_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;PREC&quot;</span><span class="p">:</span> <span class="s2">&quot;Accurate&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;IBRION&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;EDIFF&quot;</span><span class="p">:</span> <span class="mf">1e-8</span><span class="p">,</span>
+        <span class="s2">&quot;NELMIN&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="s2">&quot;NELM&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+        <span class="s2">&quot;ENCUT&quot;</span><span class="p">:</span> <span class="n">cutoff_energy</span><span class="p">,</span>
+        <span class="s2">&quot;IALGO&quot;</span><span class="p">:</span> <span class="mi">48</span><span class="p">,</span>
+        <span class="s2">&quot;ISMEAR&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;SIGMA&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="s2">&quot;LREAL&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;lcharg&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;lwave&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;NPAR&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">phonon_force_code</span> <span class="o">=</span> <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;vasp621mpi@asahi&quot;</span><span class="p">)</span>
+    <span class="n">phonon_force_resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;num_machines&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;tot_num_mpiprocs&quot;</span><span class="p">:</span> <span class="mi">96</span><span class="p">}</span>
+
+    <span class="n">phonon_force_parser_settings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;add_energies&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_forces&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_stress&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">phonon_force_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">phonon_force_code</span><span class="p">,</span>
+        <span class="s2">&quot;kpoints_mesh&quot;</span><span class="p">:</span> <span class="n">phonon_force_kpoints_mesh</span><span class="p">,</span>
+        <span class="s2">&quot;kpoints_offset&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>
+        <span class="s2">&quot;potential_family&quot;</span><span class="p">:</span> <span class="s2">&quot;PBE.54&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;potential_mapping&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Na&quot;</span><span class="p">:</span> <span class="s2">&quot;Na_pv&quot;</span><span class="p">,</span> <span class="s2">&quot;Cl&quot;</span><span class="p">:</span> <span class="s2">&quot;Cl&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="c1"># &quot;queue_name&quot;: &quot;qM048&quot;,</span>
+            <span class="s2">&quot;resources&quot;</span><span class="p">:</span> <span class="n">phonon_force_resources</span><span class="p">,</span>
+            <span class="s2">&quot;max_wallclock_seconds&quot;</span><span class="p">:</span> <span class="mi">3600</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">phonon_force_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;parser_settings&quot;</span><span class="p">:</span> <span class="n">phonon_force_parser_settings</span><span class="p">},</span>
+            <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;incar&quot;</span><span class="p">:</span> <span class="n">phonon_force_incar_dict</span><span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Settings for Born effective charges and dielectric constant.</span>
+    <span class="c1">#</span>
+    <span class="n">nac_code</span> <span class="o">=</span> <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;vasp621mpi@nancy&quot;</span><span class="p">)</span>
+    <span class="n">nac_resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;parallel_env&quot;</span><span class="p">:</span> <span class="s2">&quot;mpi*&quot;</span><span class="p">,</span> <span class="s2">&quot;tot_num_mpiprocs&quot;</span><span class="p">:</span> <span class="mi">24</span><span class="p">}</span>
+    <span class="n">nac_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">nac_code</span><span class="p">,</span>
+        <span class="s2">&quot;kpoints_mesh&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+        <span class="s2">&quot;kpoints_offset&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+        <span class="s2">&quot;potential_family&quot;</span><span class="p">:</span> <span class="s2">&quot;PBE.54&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;potential_mapping&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Na&quot;</span><span class="p">:</span> <span class="s2">&quot;Na_pv&quot;</span><span class="p">,</span> <span class="s2">&quot;Cl&quot;</span><span class="p">:</span> <span class="s2">&quot;Cl&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;resources&quot;</span><span class="p">:</span> <span class="n">nac_resources</span><span class="p">,</span> <span class="s2">&quot;max_wallclock_seconds&quot;</span><span class="p">:</span> <span class="mi">3600</span> <span class="o">*</span> <span class="mi">10</span><span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">nac_parser_settings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;add_energies&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_forces&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_stress&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_born_charges&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;add_dielectrics&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">nac_incar_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;PREC&quot;</span><span class="p">:</span> <span class="s2">&quot;Accurate&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;IBRION&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;EDIFF&quot;</span><span class="p">:</span> <span class="mf">1e-8</span><span class="p">,</span>
+        <span class="s2">&quot;NELMIN&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="s2">&quot;NELM&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+        <span class="s2">&quot;ENCUT&quot;</span><span class="p">:</span> <span class="n">cutoff_energy</span><span class="p">,</span>
+        <span class="s2">&quot;IALGO&quot;</span><span class="p">:</span> <span class="mi">38</span><span class="p">,</span>
+        <span class="s2">&quot;ISMEAR&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;SIGMA&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="s2">&quot;LREAL&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;lcharg&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;lwave&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;lepsilon&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">nac_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;parser_settings&quot;</span><span class="p">:</span> <span class="n">nac_parser_settings</span><span class="p">},</span>
+            <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;incar&quot;</span><span class="p">:</span> <span class="n">nac_incar_dict</span><span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Settings for phonopy calculation</span>
+    <span class="c1">#</span>
+    <span class="n">phono3py_settings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;mesh&quot;</span><span class="p">:</span> <span class="mf">50.0</span><span class="p">,</span>
+        <span class="s2">&quot;supercell_matrix&quot;</span><span class="p">:</span> <span class="n">supercell_matrix</span><span class="p">,</span>
+        <span class="s2">&quot;phonon_supercell_matrix&quot;</span><span class="p">:</span> <span class="n">phonon_supercell_matrix</span><span class="p">,</span>
+        <span class="s2">&quot;distance&quot;</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">phono3py_resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;parallel_env&quot;</span><span class="p">:</span> <span class="s2">&quot;mpi*&quot;</span><span class="p">,</span> <span class="s2">&quot;tot_num_mpiprocs&quot;</span><span class="p">:</span> <span class="mi">24</span><span class="p">}</span>
+    <span class="n">phono3py_metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;resources&quot;</span><span class="p">:</span> <span class="n">phono3py_resources</span><span class="p">,</span>
+            <span class="s2">&quot;max_wallclock_seconds&quot;</span><span class="p">:</span> <span class="mi">3600</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Phono3pyWorkChain inputs</span>
+    <span class="c1">#</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;NaCl phonopy </span><span class="si">%d</span><span class="s2">x</span><span class="si">%d</span><span class="s2">x</span><span class="si">%d</span><span class="s2"> kpt </span><span class="si">%d</span><span class="s2">x</span><span class="si">%d</span><span class="s2">x</span><span class="si">%d</span><span class="s2"> PBE </span><span class="si">%d</span><span class="s2"> eV (distance :</span><span class="si">%4.2f</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="nb">tuple</span><span class="p">(</span><span class="n">supercell_matrix</span><span class="p">)</span>
+        <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">force_kpoints_mesh</span><span class="p">)</span>
+        <span class="o">+</span> <span class="p">(</span>
+            <span class="n">cutoff_energy</span><span class="p">,</span>
+            <span class="n">phono3py_settings</span><span class="p">[</span><span class="s2">&quot;distance&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;structure&quot;</span><span class="p">:</span> <span class="n">structure</span><span class="p">,</span>
+        <span class="s2">&quot;calculator_inputs&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;force&quot;</span><span class="p">:</span> <span class="n">force_config</span><span class="p">,</span>
+            <span class="s2">&quot;nac&quot;</span><span class="p">:</span> <span class="n">nac_config</span><span class="p">,</span>
+            <span class="s2">&quot;phonon_force&quot;</span><span class="p">:</span> <span class="n">phonon_force_config</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;run_fc&quot;</span><span class="p">:</span> <span class="n">Bool</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span>
+        <span class="s2">&quot;run_ltc&quot;</span><span class="p">:</span> <span class="n">Bool</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span>
+        <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;phono3py@nancy&quot;</span><span class="p">),</span>
+        <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">Dict</span><span class="p">(</span><span class="nb">dict</span><span class="o">=</span><span class="n">phono3py_settings</span><span class="p">),</span>
+        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;phono3py&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">phono3py_metadata</span><span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="n">g</span> <span class="o">=</span> <span class="n">load_group</span><span class="p">(</span><span class="s2">&quot;phono3py-example&quot;</span><span class="p">)</span>
+    <span class="n">Phono3pyWorkChain</span> <span class="o">=</span> <span class="n">WorkflowFactory</span><span class="p">(</span><span class="s2">&quot;phonoxpy.phono3py&quot;</span><span class="p">)</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">submit</span><span class="p">(</span><span class="n">Phono3pyWorkChain</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">add_nodes</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+              </div>
+              
+            
+                <!-- Previous / next buttons -->
+<div class='prev-next-area'> 
+    <a class='left-prev' id="prev-link" href="phonopy.html" title="previous page">
+        <i class="fas fa-angle-left"></i>
+        <div class="prev-next-info">
+            <p class="prev-next-subtitle">previous</p>
+            <p class="prev-next-title">Phonopy workchain</p>
+        </div>
+    </a>
+</div>
+            
+        </div>
+    </div>
+    <footer class="footer">
+  <p>
+    
+      By Atsushi Togo, Abel Carreras<br/>
+    
+        &copy; Copyright 2017, Atsushi Togo, Abel Carreras.<br/>
+  </p>
+</footer>
+</main>
+
+
+      </div>
+    </div>
+  
+  <script src="_static/js/index.be7d3bbb2ef33a8344ce.js"></script>
+
+  </body>
+</html>

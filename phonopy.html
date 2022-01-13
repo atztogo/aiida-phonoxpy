@@ -34,6 +34,7 @@
     <script src="_static/sphinx-book-theme.d59cb220de22ca1c485ebbdc042f0030.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Phono3py workchains" href="phono3py.html" />
     <link rel="prev" title="Installation" href="install.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -75,6 +76,11 @@
  <li class="toctree-l1 current active">
   <a class="current reference internal" href="#">
    Phonopy workchain
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="phono3py.html">
+   Phono3py workchains
   </a>
  </li>
 </ul>
@@ -218,13 +224,13 @@
               <div>
                 
   <div class="tex2jax_ignore mathjax_ignore section" id="phonopy-workchain">
-<h1>Phonopy workchain<a class="headerlink" href="#phonopy-workchain" title="Permalink to this headline">¶</a></h1>
+<span id="phonooy-workchain"></span><h1>Phonopy workchain<a class="headerlink" href="#phonopy-workchain" title="Permalink to this headline">¶</a></h1>
 <p>Phonopy workchain is used to calculate harmonic phonon properties.</p>
 <div class="section" id="phonon-calculation-settings">
 <h2>Phonon calculation settings<a class="headerlink" href="#phonon-calculation-settings" title="Permalink to this headline">¶</a></h2>
 <p>Supported parameters for phonon calculation are</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">supercell_matrix</span></code>: Dimension of supercell used by phonopy</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">supercell_matrix</span></code>: Dimension of supercell used by phonopy.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">distance</span></code> (optional): Atomic displacement distance.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mesh</span></code> (optional): Sampling mesh used in phonon projected DOS and thermal
 property calculations.</p></li>
@@ -237,7 +243,7 @@ property calculations.</p></li>
 <p>An example of settings is:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">phonopy_settings</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;mesh&quot;</span><span class="p">:</span> <span class="mf">50.0</span><span class="p">,</span>
-    <span class="s2">&quot;supercell_matrix&quot;</span><span class="p">:</span> <span class="n">supercell_matrix</span><span class="p">,</span>
+    <span class="s2">&quot;supercell_matrix&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
     <span class="s2">&quot;distance&quot;</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
@@ -257,10 +263,14 @@ nodes of</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">displacement_dataset</span></code> or <code class="docutils literal notranslate"><span class="pre">displacements</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">phonon_setting_info</span></code></p></li>
 </ul>
-<p>are created and attached to <code class="docutils literal notranslate"><span class="pre">outputs</span></code> port namespace.</p>
+<p>are created and attached to <code class="docutils literal notranslate"><span class="pre">outputs</span></code> port namespace. Input <code class="docutils literal notranslate"><span class="pre">structure</span></code> is
+considered as a conventional unit cell, which can be obtained using, e.g., using
+spglib. The primitive cell is found automatically and the transformation matrix
+from the input <code class="docutils literal notranslate"><span class="pre">structure</span></code> to the primitive cell is found in
+<code class="docutils literal notranslate"><span class="pre">phonon_setting_info</span></code> as <code class="docutils literal notranslate"><span class="pre">primitive_matrix</span></code>.</p>
 </div>
 <div class="section" id="calculations-launched-from-phonopy-workchain">
-<h2>Calculations launched from Phonopy workchain<a class="headerlink" href="#calculations-launched-from-phonopy-workchain" title="Permalink to this headline">¶</a></h2>
+<span id="launch-calculators"></span><h2>Calculations launched from Phonopy workchain<a class="headerlink" href="#calculations-launched-from-phonopy-workchain" title="Permalink to this headline">¶</a></h2>
 <p>Specific calculations are launched from the phonopy workchain to obtain data
 necessary for phonon calculations, which are intermediate data calculated by
 external calculator, supercell forces and parameters for non-analytical term
@@ -273,10 +283,10 @@ Since the later phonon calculation is much less computational demanding, it is
 not performed as default.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">force_sets</span></code>: Sets of supercell forces</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">nac_params</span></code>: Parameters for non-analytical term correction</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">force_constants</span></code>, <code class="docutils literal notranslate"><span class="pre">thermal_properties</span></code>, <code class="docutils literal notranslate"><span class="pre">band_structure</span></code>, <code class="docutils literal notranslate"><span class="pre">projected_dos</span></code>:
-Phonon properties for which <code class="docutils literal notranslate"><span class="pre">run_phonopy</span> <span class="pre">=</span> <span class="pre">Bool(True)</span></code> has to be set to
-perform the calculation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nac_params</span></code> (optional): Parameters for non-analytical term correction. This
+is calculated when <code class="docutils literal notranslate"><span class="pre">calculator_inputs.nac</span></code> is set.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">force_constants</span></code>, <code class="docutils literal notranslate"><span class="pre">thermal_properties</span></code>, <code class="docutils literal notranslate"><span class="pre">band_structure</span></code>, <code class="docutils literal notranslate"><span class="pre">projected_dos</span></code>
+(optional): Phonon properties calculated when <code class="docutils literal notranslate"><span class="pre">run_phonopy</span> <span class="pre">=</span> <span class="pre">Bool(True)</span></code>.</p></li>
 </ul>
 </div>
 <div class="section" id="usage-and-examples">
@@ -551,7 +561,7 @@ force and NAC calculations.</p></li>
         <span class="s2">&quot;kpoints_mesh&quot;</span><span class="p">:</span> <span class="n">force_kpoints_mesh</span><span class="p">,</span>
         <span class="s2">&quot;kpoints_offset&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>
         <span class="s2">&quot;pw&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;code_string&quot;</span><span class="p">:</span> <span class="s2">&quot;qe-pw-6.8@nancy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;qe-pw-6.8@nancy&quot;</span><span class="p">),</span>
             <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="n">force_options</span><span class="p">},</span>
             <span class="s2">&quot;pseudo_family_string&quot;</span><span class="p">:</span> <span class="s2">&quot;SSSP/1.1/PBE/efficiency&quot;</span><span class="p">,</span>
             <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">force_parameters</span><span class="p">,</span>
@@ -590,7 +600,7 @@ force and NAC calculations.</p></li>
                 <span class="s2">&quot;kpoints_mesh&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
                 <span class="s2">&quot;kpoints_offset&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
                 <span class="s2">&quot;pw&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;code_string&quot;</span><span class="p">:</span> <span class="s2">&quot;qe-pw-6.8@nancy&quot;</span><span class="p">,</span>
+                    <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;qe-pw-6.8@nancy&quot;</span><span class="p">),</span>
                     <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="n">nac_options</span><span class="p">},</span>
                     <span class="s2">&quot;pseudo_family_string&quot;</span><span class="p">:</span> <span class="s2">&quot;SSSP/1.1/PBE/efficiency&quot;</span><span class="p">,</span>
                     <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">nac_pw_parameters</span><span class="p">,</span>
@@ -598,7 +608,7 @@ force and NAC calculations.</p></li>
             <span class="p">},</span>
             <span class="p">{</span>
                 <span class="s2">&quot;ph&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;code_string&quot;</span><span class="p">:</span> <span class="s2">&quot;qe-ph-6.8@nancy&quot;</span><span class="p">,</span>
+                    <span class="n">Code</span><span class="o">.</span><span class="n">get_from_string</span><span class="p">(</span><span class="s2">&quot;qe-ph-6.8@nancy&quot;</span><span class="p">),</span>
                     <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="n">nac_options</span><span class="p">},</span>
                     <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">nac_ph_parameters</span><span class="p">,</span>
                 <span class="p">}</span>
@@ -665,6 +675,13 @@ force and NAC calculations.</p></li>
             <p class="prev-next-subtitle">previous</p>
             <p class="prev-next-title">Installation</p>
         </div>
+    </a>
+    <a class='right-next' id="next-link" href="phono3py.html" title="next page">
+    <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Phono3py workchains</p>
+    </div>
+    <i class="fas fa-angle-right"></i>
     </a>
 </div>
             
