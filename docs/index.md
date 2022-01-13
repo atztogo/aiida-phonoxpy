@@ -5,4 +5,5 @@
 
 install
 phonopy
+phono3py
 ```
