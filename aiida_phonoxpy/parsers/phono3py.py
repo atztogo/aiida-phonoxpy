@@ -52,7 +52,7 @@ class Phono3pyParser(Parser):
                     self.out(filename.replace(".hdf5", ""), output_node)
 
         if kappa_filename:
-            with output_folder.open(filename, "rb") as handle:
+            with output_folder.open(kappa_filename, "rb") as handle:
                 output_node = SinglefileData(file=handle)
                 self.out("ltc", output_node)
 

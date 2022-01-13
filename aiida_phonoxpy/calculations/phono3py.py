@@ -13,6 +13,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
     _INOUT_FC2 = "fc2.hdf5"
     _INOUT_FC3 = "fc3.hdf5"
     _INPUT_PARAMS = "phono3py_params.yaml.xz"
+    _OUTPUT_LTC = "kappa-*.hdf5"
 
     @classmethod
     def define(cls, spec):
@@ -114,8 +115,12 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             for key in ("fc2", "fc3"):
                 if key in self.inputs:
                     fc_opts.append(f"--{key}")
-                else:
-                    self._internal_retrieve_list.append(f"{key}.hdf5")
+                    self._internal_retrieve_list.append(self._OUTPUT_LTC)
+                elif key == "fc2":
+                    self._internal_retrieve_list.append(self._INOUT_FC2)
+                elif key == "fc3":
+                    self._internal_retrieve_list.append(self._INOUT_FC3)
+
             comm_opts = fc_opts
         self._additional_cmd_params = [comm_opts]
         self._calculation_cmd = [["-c", self._INPUT_PARAMS]]
