@@ -69,6 +69,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn, RunPhono3pyMixIn):
         )
         spec.output("fc3", valid_type=ArrayData, required=False)
         spec.output("fc2", valid_type=ArrayData, required=False)
+        spec.output("ltc", valid_type=ArrayData, required=False)
         spec.output("phonon_supercell", valid_type=StructureData, required=False)
         spec.output("phonon_force_sets", valid_type=ArrayData, required=False)
         spec.output("phonon_supercell_forces", valid_type=ArrayData, required=False)
@@ -233,6 +234,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn, RunPhono3pyMixIn):
         for key in ("fc2", "fc3"):
             if key in self.ctx.fc_calc.outputs:
                 self.ctx[key] = self.ctx.fc_calc.outputs[key]
+                self.out(key, self.ctx[key])
 
     def run_phono3py_ltc(self):
         """Run phonopy to calculate phonon properties."""
@@ -241,10 +243,11 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn, RunPhono3pyMixIn):
 
     def collect_ltc(self):
         """Collect ltc result."""
-        for key in ("kappa",):
-            if key in self.ctx.fc_calc.outputs:
-                self.ctx[key] = self.ctx.fc_calc.outputs[key]
+        for key in ("ltc",):
+            if key in self.ctx.ltc_calc.outputs:
+                self.ctx[key] = self.ctx.ltc_calc.outputs[key]
+                self.out(key, self.ctx[key])
 
     def finalize(self):
         """Show final message."""
-        self.report("phonopy calculation has been done.")
+        self.report("phonop3y calculation has been done.")

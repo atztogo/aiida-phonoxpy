@@ -1213,12 +1213,12 @@ def generate_calc_job_node(fixture_localhost):
                 raise RuntimeError(f"{codename} is not supported.")
             phyml.read(filepath_input)
             inputs["structure"] = phonopy_atoms_to_structure(phyml.unitcell)
-            settings = {"supercell_matrix": phyml.supercell_matrix, "distance": 0.03}
-            if codename == "phono3py" and phyml.phonon_supercell_matrix is not None:
-                settings.update(
-                    {"phonon_supercell_matrix": phyml.phonon_supercell_matrix}
-                )
-            inputs["settings"] = Dict(dict=settings)
+            if "settings" not in inputs:
+                settings = {
+                    "supercell_matrix": phyml.supercell_matrix,
+                    "distance": 0.03,
+                }
+                inputs["settings"] = Dict(dict=settings)
 
         if inputs:
             metadata = inputs.pop("metadata", {})
