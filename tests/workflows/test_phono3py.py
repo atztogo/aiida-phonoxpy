@@ -203,7 +203,7 @@ def test_Phono3pyWorkChain_full(
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
     from aiida.engine import launch
-    from aiida.orm import Dict
+    from aiida.orm import Bool, Dict
 
     force_sets = generate_force_sets(structure_id="NaCl-fc3").get_array("force_sets")
     phonon_force_sets = generate_force_sets(structure_id="NaCl-64").get_array(
@@ -254,6 +254,8 @@ def test_Phono3pyWorkChain_full(
             },
             "nac": nac_inputs,
         },
+        "run_fc": Bool(True),
+        "run_ltc": Bool(True),
     }
 
     process = generate_workchain("phonoxpy.phono3py", inputs)
@@ -289,5 +291,8 @@ def test_Phono3pyWorkChain_full(
         "phonon_supercell",
         "primitive",
         "supercell",
+        "ltc",
+        "fc2",
+        "fc3",
     )
     assert set(list(results)) == set(output_keys)

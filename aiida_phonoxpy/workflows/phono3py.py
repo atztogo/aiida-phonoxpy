@@ -1,7 +1,7 @@
 """WorkChan to run ph-ph calculation by phono3py and force calculators."""
 
 from aiida.engine import if_, while_
-from aiida.orm import ArrayData, Bool, Dict, Float, StructureData
+from aiida.orm import ArrayData, Bool, Dict, Float, SinglefileData, StructureData
 
 from aiida_phonoxpy.calculations.phono3py import Phono3pyCalculation
 from aiida_phonoxpy.utils.utils import setup_phono3py_calculation
@@ -67,9 +67,9 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn, RunPhono3pyMixIn):
             if_(cls.should_run_ltc_calculation)(cls.run_phono3py_ltc, cls.collect_ltc),
             cls.finalize,
         )
-        spec.output("fc3", valid_type=ArrayData, required=False)
-        spec.output("fc2", valid_type=ArrayData, required=False)
-        spec.output("ltc", valid_type=ArrayData, required=False)
+        spec.output("fc3", valid_type=SinglefileData, required=False)
+        spec.output("fc2", valid_type=SinglefileData, required=False)
+        spec.output("ltc", valid_type=SinglefileData, required=False)
         spec.output("phonon_supercell", valid_type=StructureData, required=False)
         spec.output("phonon_force_sets", valid_type=ArrayData, required=False)
         spec.output("phonon_supercell_forces", valid_type=ArrayData, required=False)

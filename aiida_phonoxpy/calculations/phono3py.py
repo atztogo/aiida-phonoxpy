@@ -105,6 +105,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         mesh_opts, fc_opts = _get_phono3py_options(self.inputs.settings, self.logger)
         if "fc2" in self.inputs and "fc3" in self.inputs:
             comm_opts = ["--fc2", "--fc3"] + mesh_opts + ["--br", "--ts", "300"]
+            self._internal_retrieve_list.append(self._OUTPUT_LTC)
         else:
             if "displacements" in self.inputs:
                 if "--alm" not in fc_opts:
@@ -115,7 +116,6 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             for key in ("fc2", "fc3"):
                 if key in self.inputs:
                     fc_opts.append(f"--{key}")
-                    self._internal_retrieve_list.append(self._OUTPUT_LTC)
                 elif key == "fc2":
                     self._internal_retrieve_list.append(self._INOUT_FC2)
                 elif key == "fc3":
