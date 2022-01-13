@@ -9,6 +9,7 @@ def generate_workchain(
     mock_nac_params_run_calculation,
     mock_run_phono3py_fc,
     mock_run_phono3py_ltc,
+    mock_run_phono3py_fc_ltc,
 ):
     """Generate an instance of a `WorkChain`.
 
@@ -211,3 +212,43 @@ def mock_run_phono3py_ltc(monkeypatch, generate_ltc_filedata):
         self.ctx.ltc_calc.outputs.ltc = generate_ltc_filedata()
 
     monkeypatch.setattr(Phono3pyLTCWorkChain, "run_phono3py_ltc", _mock)
+
+
+@pytest.fixture
+def mock_run_phono3py_fc_ltc(
+    monkeypatch, generate_fc3_filedata, generate_fc2_filedata, generate_ltc_filedata
+):
+    """Return mock Phono3pyWorkChain.{run_phono3py_fc,run_phono3py_ltc} methods."""
+    from aiida.plugins import WorkflowFactory
+
+    Phono3pyWorkChain = WorkflowFactory("phonoxpy.phono3py")
+
+    def _mock_fc(self):
+        """Mock method to replace Phono3pyWorkChain.run_phono3py_fc.
+
+        This mock is used only for checking existance of keys of outputs.
+        More detailed test is done for Phono3pyFCWorkChain.
+
+        """
+        from aiida.common import AttributeDict
+
+        self.ctx.fc_calc = AttributeDict()
+        self.ctx.fc_calc.outputs = AttributeDict()
+        self.ctx.fc_calc.outputs.fc3 = generate_fc3_filedata(structure_id="NaCl")
+        self.ctx.fc_calc.outputs.fc2 = generate_fc2_filedata(structure_id="NaCl-64")
+
+    def _mock_ltc(self):
+        """Mock method to replace Phono3pyWorkChain.run_phono3py_ltc.
+
+        This mock is used only for checking existance of keys of outputs.
+        More detailed test is done for Phono3pyLTCWorkChain.
+
+        """
+        from aiida.common import AttributeDict
+
+        self.ctx.ltc_calc = AttributeDict()
+        self.ctx.ltc_calc.outputs = AttributeDict()
+        self.ctx.ltc_calc.outputs.ltc = generate_ltc_filedata()
+
+    monkeypatch.setattr(Phono3pyWorkChain, "run_phono3py_fc", _mock_fc)
+    monkeypatch.setattr(Phono3pyWorkChain, "run_phono3py_ltc", _mock_ltc)
