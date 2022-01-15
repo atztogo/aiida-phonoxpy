@@ -21,26 +21,6 @@ from phonopy.structure.atoms import PhonopyAtoms
 
 
 @calcfunction
-def get_remote_fc_calculation_settings(phonon_settings: Dict):
-    """Create remote force constants phonopy calculation setting.
-
-    keys condidered:
-        supercell_matrix
-        fc_calculator
-
-    """
-    key = "supercell_matrix"
-    if key in phonon_settings.keys():
-        fc_settings = {key: phonon_settings[key]}
-    else:
-        return None
-    key = "fc_calculator"
-    if key in phonon_settings.dict:
-        fc_settings["postprocess_parameters"] = {key: phonon_settings[key]}
-    return Dict(dict=fc_settings)
-
-
-@calcfunction
 def setup_phonopy_calculation(
     phonon_settings: Dict,
     structure: StructureData,
@@ -721,12 +701,13 @@ def get_phonopy_instance(
         primitive_matrix = phonon_settings_dict["primitive_matrix"]
     else:
         primitive_matrix = "auto"
-    phpy = Phonopy(
-        phonopy_atoms_from_structure(structure),
-        supercell_matrix=phonon_settings_dict["supercell_matrix"],
-        primitive_matrix=primitive_matrix,
-        symprec=phonon_settings_dict["symmetry_tolerance"],
-    )
+    kwargs = {
+        "supercell_matrix": phonon_settings_dict["supercell_matrix"],
+        "primitive_matrix": primitive_matrix,
+    }
+    if "symmetry_tolerance" in phonon_settings_dict:
+        kwargs["symprec"] = phonon_settings_dict["symmetry_tolerance"]
+    phpy = Phonopy(phonopy_atoms_from_structure(structure), **kwargs)
     if nac_params:
         _set_nac_params(phpy, nac_params)
     return phpy
