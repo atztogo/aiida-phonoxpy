@@ -18,6 +18,7 @@ from aiida.orm import (
 from phonopy import Phonopy
 from phonopy.interface.calculator import get_default_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
+from phonopy.structure.dataset import get_displacements_and_forces
 
 
 @calcfunction
@@ -1026,3 +1027,32 @@ def _generate_supercell_structures(
         structures_dict[label] = structure
 
     return structures_dict
+
+
+def get_displacements_from_phonopy_wc(node):
+    """Return displacements ArrayData from output node of PhonopyWorkChain."""
+    if "displacements" in node.outputs:
+        return node.outputs.displacements
+
+    if "displacement_dataset" in node.outputs:
+        dataset = node.outputs.displacement_dataset.get_dict()
+        d = ArrayData()
+        d.set_array(
+            "displacements",
+            np.array(get_displacements_and_forces(dataset)[0], dtype="double"),
+        )
+        return d
+
+    if "displacements" in node.inputs:
+        return node.inputs.displacements
+
+    if "displacement_dataset" in node.inputs:
+        dataset = node.inputs.displacement_dataset.get_dict()
+        d = ArrayData()
+        d.set_array(
+            "displacements",
+            np.array(get_displacements_and_forces(dataset)[0], dtype="double"),
+        )
+        return d
+
+    raise RuntimeError("displacements not found.")
