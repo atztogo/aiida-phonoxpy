@@ -1,18 +1,24 @@
+"""Run phonon calculations iteratively at temperature."""
 import numpy as np
+from aiida.engine import WorkChain, calcfunction, if_, while_
+from aiida.orm import (
+    ArrayData,
+    Bool,
+    Code,
+    Dict,
+    Float,
+    Group,
+    Int,
+    QueryBuilder,
+    load_node,
+)
 from phonopy import Phonopy
-from phonopy.structure.dataset import get_displacements_and_forces
-from aiida.engine import WorkChain
-from aiida.plugins import WorkflowFactory, DataFactory
-from aiida.orm import Bool, Float, Int, QueryBuilder, Group, load_node, Code
-from aiida.engine import while_, if_, calcfunction
+
 from aiida_phonoxpy.utils.utils import (
     phonopy_atoms_from_structure,
-    get_remote_fc_calculation_settings,
+    get_displacements_from_phonopy_wc,
 )
-
-Dict = DataFactory("dict")
-ArrayData = DataFactory("array")
-PhonopyWorkChain = WorkflowFactory("phonoxpy.phonopy")
+from aiida_phonoxpy.workflows.phonopy import PhonopyWorkChain
 
 """
 
@@ -52,7 +58,8 @@ def get_random_displacements(
     number_of_snapshots,
     temperature,
     phonon_setting_info,
-    dataset_for_fc,
+    displacements,
+    force_sets,
     random_seed=None,
 ):
     """Generate supercells with random displacemens.
@@ -76,8 +83,8 @@ def get_random_displacements(
         supercell_matrix=smat,
         primitive_matrix="auto",
     )
-    d = dataset_for_fc.get_array("displacements")
-    f = dataset_for_fc.get_array("forces")
+    d = displacements.get_array("displacements")
+    f = force_sets.get_array("forces")
     ph.dataset = {"displacements": d, "forces": f}
     ph.produce_force_constants(fc_calculator="alm")
 
@@ -110,36 +117,70 @@ def collect_dataset(number_of_steps_for_fitting, include_ratio, linear_decay, **
     """
     nitems = max([int(key.split("_")[-1]) for key in data.keys() if "forces" in key])
 
-    forces_in_db = []
-    ph_info_in_db = []
+    force_sets_in_db = []
+    displacements_in_db = []
     for i in range(nitems):
         force_sets = data["forces_%d" % (i + 1)]
-        phonon_setting_info = data["phonon_setting_info_%d" % (i + 1)]
-        forces_in_db.append(force_sets)
-        ph_info_in_db.append(phonon_setting_info)
+        displacements = data["displacements_%d" % (i + 1)]
+        force_sets_in_db.append(force_sets)
+        displacements_in_db.append(displacements)
 
-    d, f, energies = _extract_dataset_from_db(forces_in_db, ph_info_in_db)
-
-    displacements, forces, included = create_dataset(
-        d,
-        f,
-        energies,
+    my_displacements, my_force_sets, energies, included = create_dataset(
+        force_sets_in_db,
+        displacements_in_db,
         max_items=number_of_steps_for_fitting.value,
         ratio=include_ratio.value,
         linear_decay=linear_decay.value,
     )
-    dataset = ArrayData()
-    dataset.set_array("forces", forces)
-    dataset.set_array("displacements", displacements)
+    ret_force_sets = ArrayData()
+    ret_force_sets.set_array("force_sets", my_force_sets)
+    ret_displacements = ArrayData()
+    ret_displacements.set_array("displacements", my_displacements)
     supercell_energies = Dict(dict={"energies": energies, "included": included})
 
-    return {"dataset": dataset, "supercell_energies": supercell_energies}
+    return {
+        "displacements": ret_displacements,
+        "force_sets": ret_force_sets,
+        "supercell_energies": supercell_energies,
+    }
 
 
 def create_dataset(
-    displacements, forces, energies, max_items=None, ratio=None, linear_decay=False
+    force_sets_in_db,
+    displacements_in_db,
+    max_items=None,
+    ratio=None,
+    linear_decay=False,
 ):
-    """Collect data for force constants calculation."""
+    """Collect and select data for force constants calculation.
+
+    Parameters
+    ----------
+    force_sets_in_db : List of ArrayData
+        Each ArrayData is the output of PhonopyWorkChain.
+    displacements_in_db : List of ArrayData
+        Each ArrayData is the output of PhonopyWorkChain.
+
+    Returns
+    -------
+    d : ndarray
+        Sets of supercell displacements included.
+        shape=(num_included, natom_supercell, 3), dtype='double'
+    f : ndarray
+        Sets of supercell forces included.
+        shape=(num_included, natom_supercell, 3), dtype='double'
+    energies : list of ndarray of double
+        List of supercell energies in all PhonopyWorkChains calculations.
+        Maybe `len(d) != len(energies.ravel())`, but
+        `len(d) == len(energies.ravel()[np.reshape(included, (-1))])`.
+    included : list of list of bool
+        This gives information that each supercell is included or not.
+
+    """
+    displacements, forces, energies = _extract_dataset_from_db(
+        force_sets_in_db, displacements_in_db
+    )
+
     included = _choose_snapshots_by_linear_decay(
         displacements, forces, max_items=max_items, linear_decay=linear_decay
     )
@@ -149,35 +190,48 @@ def create_dataset(
         if 0 < ratio and ratio < 1:
             included = _remove_high_energy_snapshots(energies, included, ratio)
 
-    _displacements, _forces, _energies = _include_snapshots(
-        displacements, forces, energies, included
-    )
+    _displacements, _forces = _include_snapshots(displacements, forces, included)
 
     # Concatenate the data
     d = np.concatenate(_displacements, axis=0)
     f = np.concatenate(_forces, axis=0)
 
-    return d, f, included
+    return d, f, energies, included
 
 
-def _extract_dataset_from_db(forces_in_db, ph_info_in_db):
-    nitems = len(forces_in_db)
-    displacements = []
-    forces = []
-    energies = []
+def _extract_dataset_from_db(force_sets_in_db, displacements_in_db):
+    """Collect force_sets, energies, and displacements to numpy arrays.
+
+    Parameters
+    ----------
+    force_sets_in_db : List of ArrayData
+        Each ArrayData is the output of PhonopyWorkChain.
+    displacements_in_db : List of ArrayData
+        Each ArrayData is the output of PhonopyWorkChain.
+
+    Returns
+    -------
+    my_force_sets : List of ndarray
+    my_energies : List of ndarray
+    my_displacements : List of ndarray
+
+    """
+    nitems = len(force_sets_in_db)
+    my_displacements = []
+    my_force_sets = []
+    my_energies = []
 
     for i in range(nitems):
-        force_sets = forces_in_db[i].get_array("force_sets")
-        dataset = ph_info_in_db[i]["displacement_dataset"]
-        disps, _ = get_displacements_and_forces(dataset)
+        force_sets = force_sets_in_db[i].get_array("force_sets")
+        displacements = displacements_in_db[i].get_array("displacements")
 
-        forces.append(force_sets)
-        if "energies" in forces_in_db[i].get_arraynames():
-            energy_sets = forces_in_db[i].get_array("energies")
-            energies.append(energy_sets)
-        displacements.append(disps)
+        my_force_sets.append(force_sets)
+        if "energies" in force_sets_in_db[i].get_arraynames():
+            energy_sets = force_sets_in_db[i].get_array("energies")
+            my_energies.append(energy_sets)
+        my_displacements.append(displacements)
 
-    return displacements, forces, energies
+    return my_displacements, my_force_sets, my_energies
 
 
 def _choose_snapshots_by_linear_decay(
@@ -234,19 +288,13 @@ def _choose_snapshots_by_linear_decay(
     return included
 
 
-def _include_snapshots(displacements, forces, energies, included):
+def _include_snapshots(displacements, forces, included):
     _forces = [forces[i][included_batch] for i, included_batch in enumerate(included)]
     _displacements = [
         np.array(displacements[i])[included_batch]
         for i, included_batch in enumerate(included)
     ]
-    if energies:
-        _energies = [
-            energies[i][included_batch] for i, included_batch in enumerate(included)
-        ]
-    else:
-        _energies = []
-    return _displacements, _forces, _energies
+    return _displacements, _forces
 
 
 def _remove_high_energy_snapshots(energies, included, ratio):
@@ -405,10 +453,11 @@ class IterHarmonicApprox(WorkChain):
 
     @classmethod
     def define(cls, spec):
+        """Define inputs, outputs, and outline."""
         super().define(spec)
         spec.expose_inputs(
             PhonopyWorkChain,
-            exclude=["immigrant_calculation_folders", "calculation_nodes", "dry_run"],
+            exclude=["remote_workdirs", "run_phonopy", "remote_phonopy"],
         )
         spec.input("max_iteration", valid_type=Int, default=lambda: Int(10))
         spec.input("number_of_snapshots", valid_type=Int, default=lambda: Int(100))
@@ -422,7 +471,7 @@ class IterHarmonicApprox(WorkChain):
         spec.input("initial_nodes", valid_type=Dict, required=False)
         spec.outline(
             cls.initialize,
-            if_(cls.import_initial_nodes)(cls.set_initial_nodes,).else_(
+            if_(cls.import_initial_nodes)(cls.set_initial_nodes).else_(
                 cls.run_initial_phonon,
             ),
             while_(cls.is_loop_finished)(
@@ -439,21 +488,23 @@ class IterHarmonicApprox(WorkChain):
         )
 
     def remote_phonopy(self):
-        return self.inputs.remote_phonopy
+        """Return boolean if force constants calculation is run at remote or not."""
+        return True
 
     def import_initial_nodes(self):
+        """Return boolean."""
         return "initial_nodes" in self.inputs
 
     def initialize(self):
+        """Initialize."""
         self.report("initialize (%s)" % self.uuid)
         self.ctx.iteration = 0
         self.ctx.prev_nodes = []
         if self.remote_phonopy():
-            self.ctx.ph_settings = get_remote_fc_calculation_settings(
-                self.inputs.phonon_settings
-            )
+            self.ctx.ph_settings = self.inputs.settings
 
     def is_loop_finished(self):
+        """Check if iteration is over or not."""
         qb = QueryBuilder()
         qb.append(Group, filters={"label": {"==": self.uuid}})
         if qb.count() == 1:
@@ -466,13 +517,15 @@ class IterHarmonicApprox(WorkChain):
         return self.ctx.iteration <= self.inputs.max_iteration.value
 
     def set_initial_nodes(self):
+        """Set up initial phonon calculation."""
         self.report("set_initial_phonon")
         node_ids = self.inputs.initial_nodes["nodes"]
         self.ctx.prev_nodes = [load_node(node_id) for node_id in node_ids]
 
     def run_initial_phonon(self):
+        """Launch initial phonon calculation."""
         self.report("run_initial_phonon")
-        inputs = self._get_phonopy_inputs(None, None)
+        inputs = self._get_phonopy_inputs(None, run_nac=True)
         inputs["metadata"].label = "Initial phonon calculation"
         inputs["metadata"].description = "Initial phonon calculation"
         future = self.submit(PhonopyWorkChain, **inputs)
@@ -481,6 +534,7 @@ class IterHarmonicApprox(WorkChain):
         self.to_context(**{"phonon_0": future})
 
     def collect_displacements_and_forces(self):
+        """Collect and prepare sets of forces and displacements."""
         self.report("run_generate_displacements_%d" % self.ctx.iteration)
 
         num_batches = self.inputs.number_of_steps_for_fitting.value
@@ -500,17 +554,19 @@ class IterHarmonicApprox(WorkChain):
         data_for_fc = {}
         for i, node in enumerate(nodes):
             data_for_fc["forces_%d" % (i + 1)] = node.outputs.force_sets
-            ph_info = node.outputs.phonon_setting_info
-            data_for_fc["phonon_setting_info_%d" % (i + 1)] = ph_info
+            d = get_displacements_from_phonopy_wc(node)
+            data_for_fc["displacements_%d" % (i + 1)] = d
         ret_Dict = collect_dataset(
             self.inputs.number_of_steps_for_fitting,
             self.inputs.include_ratio,
             self.inputs.linear_decay,
-            **data_for_fc
+            **data_for_fc,
         )
-        self.ctx.dataset_for_fc = ret_Dict["dataset"]
+        self.ctx.displacements = ret_Dict["displacements"]
+        self.ctx.force_sets = ret_Dict["force_sets"]
 
     def generate_displacements_local(self):
+        """Generate displacements from previous phonon calculations."""
         if "random_seed" in self.inputs:
             data_rd = {"random_seed": self.inputs.random_seed}
         else:
@@ -519,24 +575,33 @@ class IterHarmonicApprox(WorkChain):
             self.inputs.structure,
             self.inputs.number_of_snapshots,
             self.inputs.temperature,
-            self.inputs.phonon_settings,
-            self.ctx.dataset_for_fc,
-            **data_rd
+            self.inputs.settings,
+            self.ctx.displacements,
+            self.ctx.force_sets,
+            **data_rd,
         )
-        self.ctx.dataset = dataset
+        self.ctx.random_displacements = ArrayData()
+        self.ctx.random_displacements.set_array(
+            "displacements", dataset["displacements"]
+        )
 
     def run_force_constants_calculation_remote(self):
         """Run force constants calculation by PhonopyCalculation."""
         self.report("remote force constants calculation %d" % self.ctx.iteration)
 
-        code_string = self.inputs.code_string.value
-        builder = Code.get_from_string(code_string).get_builder()
+        if "code" in self.inputs:
+            code = self.inputs.code
+        elif "code_string" in self.inputs:
+            code = Code.get_from_string(self.inputs.code_string.value)
+        else:
+            raise RuntimeError("code or code_string is needed.")
+        builder = code.get_builder()
         builder.structure = self.inputs.structure
         builder.settings = self.ctx.ph_settings
-        builder.metadata.options.update(self.inputs.phonon_settings["options"])
+        builder.metadata.options.update(self.inputs.phonopy.metadata.options)
         builder.metadata.label = "Force constants calculation %d" % self.ctx.iteration
-        builder.dataset = self.ctx.dataset_for_fc
-        builder.fc_only = Bool(True)
+        builder.displacements = self.ctx.displacements
+        builder.force_sets = self.ctx.force_sets
         future = self.submit(builder)
 
         self.report("Force constants remote calculation: {}".format(future.pk))
@@ -544,10 +609,11 @@ class IterHarmonicApprox(WorkChain):
         self.to_context(**{label: future})
 
     def generate_displacements(self):
+        """Generate random displacements using force constants."""
         label = "force_constants_%d" % self.ctx.iteration
         fc_array = self.ctx[label].outputs.force_constants
         fc = fc_array.get_array("force_constants")
-        phonon_setting_info = self.inputs.phonon_settings
+        phonon_setting_info = self.inputs.settings
         smat = phonon_setting_info["supercell_matrix"]
         ph = Phonopy(
             phonopy_atoms_from_structure(self.inputs.structure),
@@ -566,12 +632,16 @@ class IterHarmonicApprox(WorkChain):
             self.inputs.temperature.value,
             random_seed=random_seed,
         )
-        self.ctx.dataset = Dict(dict=dataset)
+        self.ctx.random_displacements = ArrayData()
+        self.ctx.random_displacements.set_array(
+            "displacements", dataset["displacements"]
+        )
 
     def run_phonon(self):
+        """Launch phonon calculation with random displacements."""
         self.report("run_phonon_%d" % self.ctx.iteration)
 
-        inputs = self._get_phonopy_inputs(self.ctx.dataset, False)
+        inputs = self._get_phonopy_inputs(self.ctx.random_displacements)
         label = "Phonon calculation %d" % self.ctx.iteration
         inputs["metadata"].label = label
         inputs["metadata"].description = label
@@ -582,15 +652,22 @@ class IterHarmonicApprox(WorkChain):
         self.to_context(**{label: future})
 
     def finalize(self):
+        """Finalize IterHarmonicApprox."""
         self.report("IterHarmonicApprox finished at %d" % (self.ctx.iteration - 1))
 
-    def _get_phonopy_inputs(self, dataset, is_nac):
-        inputs_in = self.exposed_inputs(PhonopyWorkChain)
-        inputs = inputs_in.copy()
-        phonon_settings = inputs_in["phonon_settings"].get_dict()
-        if is_nac is not None:
-            phonon_settings["is_nac"] = is_nac
-        inputs["phonon_settings"] = Dict(dict=phonon_settings)
-        if dataset is not None:
-            inputs["displacement_dataset"] = dataset
+    def _get_phonopy_inputs(self, displacements, run_nac=False):
+        inputs = {}
+        inputs_orig = self.exposed_inputs(PhonopyWorkChain)
+        for key in inputs_orig:
+            if key == "calculator_inputs":
+                inputs[key] = {"force": inputs_orig[key]["force"]}
+                keys = list(inputs_orig[key])
+                self.report(f"calculator_inputs: {keys}")
+                if run_nac and "nac" in inputs_orig[key]:
+                    self.report(f"calculator_inputs.{key} is included.")
+                    inputs[key].update({"nac": inputs_orig[key]["nac"]})
+            else:
+                inputs[key] = inputs_orig[key]
+        if displacements is not None:
+            inputs["displacements"] = displacements
         return inputs

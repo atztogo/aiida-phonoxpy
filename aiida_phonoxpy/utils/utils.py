@@ -18,26 +18,7 @@ from aiida.orm import (
 from phonopy import Phonopy
 from phonopy.interface.calculator import get_default_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
-
-
-@calcfunction
-def get_remote_fc_calculation_settings(phonon_settings: Dict):
-    """Create remote force constants phonopy calculation setting.
-
-    keys condidered:
-        supercell_matrix
-        fc_calculator
-
-    """
-    key = "supercell_matrix"
-    if key in phonon_settings.keys():
-        fc_settings = {key: phonon_settings[key]}
-    else:
-        return None
-    key = "fc_calculator"
-    if key in phonon_settings.dict:
-        fc_settings["postprocess_parameters"] = {key: phonon_settings[key]}
-    return Dict(dict=fc_settings)
+from phonopy.structure.dataset import get_displacements_and_forces
 
 
 @calcfunction
@@ -721,12 +702,13 @@ def get_phonopy_instance(
         primitive_matrix = phonon_settings_dict["primitive_matrix"]
     else:
         primitive_matrix = "auto"
-    phpy = Phonopy(
-        phonopy_atoms_from_structure(structure),
-        supercell_matrix=phonon_settings_dict["supercell_matrix"],
-        primitive_matrix=primitive_matrix,
-        symprec=phonon_settings_dict["symmetry_tolerance"],
-    )
+    kwargs = {
+        "supercell_matrix": phonon_settings_dict["supercell_matrix"],
+        "primitive_matrix": primitive_matrix,
+    }
+    if "symmetry_tolerance" in phonon_settings_dict:
+        kwargs["symprec"] = phonon_settings_dict["symmetry_tolerance"]
+    phpy = Phonopy(phonopy_atoms_from_structure(structure), **kwargs)
     if nac_params:
         _set_nac_params(phpy, nac_params)
     return phpy
@@ -1045,3 +1027,32 @@ def _generate_supercell_structures(
         structures_dict[label] = structure
 
     return structures_dict
+
+
+def get_displacements_from_phonopy_wc(node):
+    """Return displacements ArrayData from output node of PhonopyWorkChain."""
+    if "displacements" in node.outputs:
+        return node.outputs.displacements
+
+    if "displacement_dataset" in node.outputs:
+        dataset = node.outputs.displacement_dataset.get_dict()
+        d = ArrayData()
+        d.set_array(
+            "displacements",
+            np.array(get_displacements_and_forces(dataset)[0], dtype="double"),
+        )
+        return d
+
+    if "displacements" in node.inputs:
+        return node.inputs.displacements
+
+    if "displacement_dataset" in node.inputs:
+        dataset = node.inputs.displacement_dataset.get_dict()
+        d = ArrayData()
+        d.set_array(
+            "displacements",
+            np.array(get_displacements_and_forces(dataset)[0], dtype="double"),
+        )
+        return d
+
+    raise RuntimeError("displacements not found.")
