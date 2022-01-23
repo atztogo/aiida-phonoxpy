@@ -102,17 +102,21 @@ def mock_forces_run_calculation(monkeypatch):
         from aiida.common import AttributeDict
         from aiida.orm import ArrayData
 
+        force_sets = self.inputs.calculator_inputs["force_sets"]
         label = self.inputs.structure.label
-        forces_index = int(label.split("_")[-1]) - 1
+        if "_" in label:
+            forces_index = int(label.split("_")[-1]) - 1
+            _forces = force_sets[forces_index]
+        else:
+            _forces = self.inputs.calculator_inputs["supercell_force_set"]
         forces = ArrayData()
         self.ctx.calc = AttributeDict()
         self.ctx.calc.outputs = AttributeDict()
-        force_sets = self.inputs.calculator_inputs["force_sets"]
         if self.ctx.plugin_name == "vasp.vasp":
-            forces.set_array("final", np.array(force_sets[forces_index]))
+            forces.set_array("final", np.array(_forces))
             self.ctx.calc.outputs.forces = forces
         elif self.ctx.plugin_name == "quantumespresso.pw":
-            forces.set_array("forces", np.array([force_sets[forces_index]]))
+            forces.set_array("forces", np.array([_forces]))
             self.ctx.calc.outputs.output_trajectory = forces
 
     monkeypatch.setattr(ForcesWorkChain, "run_calculation", _mock)

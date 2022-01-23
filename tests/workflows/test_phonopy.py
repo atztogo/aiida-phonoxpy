@@ -337,6 +337,59 @@ def test_passing_through_ForcesWorkChain(
 
 
 @pytest.mark.parametrize("plugin_name", ["vasp.vasp", "quantumespresso.pw"])
+def test_passing_through_ForcesWorkChain_subtract_residual_forces(
+    fixture_code,
+    generate_structure,
+    generate_settings,
+    generate_workchain,
+    generate_force_sets,
+    mock_calculator_code,
+    plugin_name,
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool
+
+    force_sets = generate_force_sets().get_array("force_sets")
+    supercell_force_set = np.zeros(force_sets.shape[1:], dtype=force_sets.dtype)
+
+    inputs = {
+        "code": fixture_code("phonoxpy.phonopy"),
+        "structure": generate_structure(),
+        "settings": generate_settings(),
+        "metadata": {},
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code(plugin_name),
+                "force_sets": force_sets,
+                "supercell_force_set": supercell_force_set,
+            }
+        },
+        "run_phonopy": Bool(False),
+        "subtract_residual_forces": Bool(True),
+    }
+
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+
+    np.testing.assert_allclose(
+        result["force_sets"].get_array("force_sets"),
+        force_sets,
+        atol=1e-8,
+        rtol=0,
+    )
+    output_keys = (
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "displacement_dataset",
+        "force_sets",
+        "supercell_forces",
+    )
+    assert set(list(result)) == set(output_keys)
+
+
+@pytest.mark.parametrize("plugin_name", ["vasp.vasp", "quantumespresso.pw"])
 def test_passing_through_NacParamsWorkChain(
     fixture_code,
     generate_structure,

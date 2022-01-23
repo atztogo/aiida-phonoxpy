@@ -105,7 +105,7 @@ class BasePhonopyWorkChain(WorkChain):
         )
         spec.output(
             "supercell_energy",
-            valid_type=Float,
+            valid_type=(Float, ArrayData),
             required=False,
             help="Energy of perfect supercell.",
         )
@@ -212,11 +212,18 @@ class BasePhonopyWorkChain(WorkChain):
             self.ctx, supercells, calc_key_prefix=calc_key_prefix
         )
 
-        # keys can be [force_sets, supercell_forces, supercell_energies].
         for key, val in get_force_sets(**forces_dict).items():
             out_key = key_prefix + key
             self.ctx[out_key] = val
             self.out(out_key, self.ctx[out_key])
+
+        # when subtract_residual_forces = True
+        for key in forces_dict:
+            if int(key.split("_")[-1]) == 0:
+                if "forces" in key:
+                    self.out("supercell_forces", forces_dict[key])
+                if "energy" in key:
+                    self.out("supercell_energy", forces_dict[key])
 
     def attach_nac_params(self):
         """Attach nac_params ArrayData to outputs."""

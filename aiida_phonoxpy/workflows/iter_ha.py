@@ -15,10 +15,13 @@ from aiida.orm import (
 from phonopy import Phonopy
 
 from aiida_phonoxpy.utils.utils import (
-    phonopy_atoms_from_structure,
     get_displacements_from_phonopy_wc,
+    phonopy_atoms_from_structure,
 )
 from aiida_phonoxpy.workflows.phonopy import PhonopyWorkChain
+
+from phonopy.structure.cells import get_primitive, isclose
+from phonopy.harmonic.force_constants import distribute_force_constants_by_translations
 
 """
 
@@ -84,7 +87,7 @@ def get_random_displacements(
         primitive_matrix="auto",
     )
     d = displacements.get_array("displacements")
-    f = force_sets.get_array("forces")
+    f = force_sets.get_array("force_sets")
     ph.dataset = {"displacements": d, "forces": f}
     ph.produce_force_constants(fc_calculator="alm")
 
@@ -95,7 +98,7 @@ def get_random_displacements(
     dataset = _generate_random_displacements(
         ph, number_of_snapshots.value, temperature.value, random_seed=_random_seed
     )
-    return Dict(dict=dataset)
+    return dataset, ph.force_constants
 
 
 @calcfunction
@@ -119,19 +122,33 @@ def collect_dataset(number_of_steps_for_fitting, include_ratio, linear_decay, **
 
     force_sets_in_db = []
     displacements_in_db = []
+    probs_in_db = []
     for i in range(nitems):
-        force_sets = data["forces_%d" % (i + 1)]
-        displacements = data["displacements_%d" % (i + 1)]
-        force_sets_in_db.append(force_sets)
-        displacements_in_db.append(displacements)
+        force_sets_in_db.append(data[f"forces_{i + 1}"])
+        displacements_in_db.append(data[f"displacements_{i + 1}"])
+        if f"probability_distribution_{i + 1}" in data:
+            probs_in_db.append(data[f"probability_distribution_{i + 1}"])
+
+    kwargs = {
+        "max_items": number_of_steps_for_fitting.value,
+        "ratio": include_ratio.value,
+        "linear_decay": linear_decay.value,
+    }
+    if probs_in_db:
+        kwargs["probs_in_db"] = probs_in_db
+    if "force_constants" in data:
+        kwargs["force_constants"] = data["force_constants"].get_array("force_constants")
+    if "temperature" in data:
+        kwargs["temperature"] = data["temperature"].value
+    if "supercell" in data:
+        kwargs["supercell"] = phonopy_atoms_from_structure(data["supercell"])
+    if "primitive" in data:
+        kwargs["primitive"] = phonopy_atoms_from_structure(data["primitive"])
 
     my_displacements, my_force_sets, energies, included = create_dataset(
-        force_sets_in_db,
-        displacements_in_db,
-        max_items=number_of_steps_for_fitting.value,
-        ratio=include_ratio.value,
-        linear_decay=linear_decay.value,
+        force_sets_in_db, displacements_in_db, **kwargs
     )
+
     ret_force_sets = ArrayData()
     ret_force_sets.set_array("force_sets", my_force_sets)
     ret_displacements = ArrayData()
@@ -151,15 +168,35 @@ def create_dataset(
     max_items=None,
     ratio=None,
     linear_decay=False,
+    probs_in_db=None,
+    force_constants=None,
+    temperature=None,
+    supercell=None,
+    primitive=None,
 ):
     """Collect and select data for force constants calculation.
 
     Parameters
     ----------
     force_sets_in_db : List of ArrayData
-        Each ArrayData is the output of PhonopyWorkChain.
+        Each ArrayData is the output of PhonopyWorkChain, i.e.,
+            [(n_snapshots, n_satom, 3), (n_snapshots, n_satom, 3), ...]
     displacements_in_db : List of ArrayData
-        Each ArrayData is the output of PhonopyWorkChain.
+        Each ArrayData is the output of PhonopyWorkChain, i.e.,
+            [(n_snapshots, n_satom, 3), (n_snapshots, n_satom, 3), ...]
+    probs_in_db : List of ArrayData, optional
+        Probability distributions of corresponding displacements and force constants.
+            [(n_snapshots,), (n_snapshots,), ...]
+        If this is given, forces and displacements are reweighted. To reweight,
+        force_constants has to be given.
+    force_constants : ArrayData, optional
+        Force constants. Used for reweighting.
+    temperature : float, optional
+        Temperature. Used for reweighting.
+    supercell : PhonopyAtoms, optional
+        Supercell. Used for reweighting.
+    primitive : PhonopyAtoms, optional
+        Primitive cell. Used for reweighting.
 
     Returns
     -------
@@ -177,12 +214,27 @@ def create_dataset(
         This gives information that each supercell is included or not.
 
     """
-    displacements, forces, energies = _extract_dataset_from_db(
-        force_sets_in_db, displacements_in_db
+    displacements, force_sets, energies, probs = _extract_dataset_from_db(
+        force_sets_in_db, displacements_in_db, probs_in_db=probs_in_db
     )
 
+    if probs:
+        assert force_constants is not None
+        assert temperature is not None
+        assert supercell is not None
+        assert primitive is not None
+        assert len(probs) == len(displacements)
+        for disps, forces, prob_orig in zip(displacements, force_sets, probs):
+            prob = get_probability_distribution(
+                supercell, primitive, force_constants, disps, temperature
+            )
+            weights = prob / prob_orig
+            for i, w in enumerate(weights):
+                disps[i] *= w
+                forces[i] *= w
+
     included = _choose_snapshots_by_linear_decay(
-        displacements, forces, max_items=max_items, linear_decay=linear_decay
+        displacements, force_sets, max_items=max_items, linear_decay=linear_decay
     )
 
     # Remove snapshots that have high energies when include_ratio is given.
@@ -190,7 +242,7 @@ def create_dataset(
         if 0 < ratio and ratio < 1:
             included = _remove_high_energy_snapshots(energies, included, ratio)
 
-    _displacements, _forces = _include_snapshots(displacements, forces, included)
+    _displacements, _forces = _include_snapshots(displacements, force_sets, included)
 
     # Concatenate the data
     d = np.concatenate(_displacements, axis=0)
@@ -199,7 +251,7 @@ def create_dataset(
     return d, f, energies, included
 
 
-def _extract_dataset_from_db(force_sets_in_db, displacements_in_db):
+def _extract_dataset_from_db(force_sets_in_db, displacements_in_db, probs_in_db=None):
     """Collect force_sets, energies, and displacements to numpy arrays.
 
     Parameters
@@ -208,6 +260,8 @@ def _extract_dataset_from_db(force_sets_in_db, displacements_in_db):
         Each ArrayData is the output of PhonopyWorkChain.
     displacements_in_db : List of ArrayData
         Each ArrayData is the output of PhonopyWorkChain.
+    probs_in_db : List of ArrayData or None
+        Probability distributions of corresponding displacements and force constants.
 
     Returns
     -------
@@ -220,6 +274,7 @@ def _extract_dataset_from_db(force_sets_in_db, displacements_in_db):
     my_displacements = []
     my_force_sets = []
     my_energies = []
+    my_probs = []
 
     for i in range(nitems):
         force_sets = force_sets_in_db[i].get_array("force_sets")
@@ -231,7 +286,10 @@ def _extract_dataset_from_db(force_sets_in_db, displacements_in_db):
             my_energies.append(energy_sets)
         my_displacements.append(displacements)
 
-    return my_displacements, my_force_sets, my_energies
+        if probs_in_db:
+            my_probs.append(probs_in_db[i].get_array("probability_distributions"))
+
+    return my_displacements, my_force_sets, my_energies, my_probs
 
 
 def _choose_snapshots_by_linear_decay(
@@ -341,7 +399,7 @@ def _remove_high_energy_snapshots(energies, included, ratio):
     return ret_included
 
 
-def _modify_force_constants(ph):
+def _modify_force_constants(ph, freq_from=0.01, freq_to=0.5):
     """Apply treatment to imaginary modes.
 
     This method modifies force constants to make phonon frequencies
@@ -352,7 +410,7 @@ def _modify_force_constants(ph):
 
     1) All frequencies at commensurate points are converted to their
        absolute values. freqs -> |freqs|.
-    2) Phonon frequencies in the interval 0.01 < |freqs| < 0.5
+    2) Phonon frequencies in the interval freq_from < |freqs| < freq_to
        are shifted by |freqs| + 1.
 
     """
@@ -360,7 +418,7 @@ def _modify_force_constants(ph):
     ph.generate_displacements(number_of_snapshots=1, temperature=300)
     rd = ph.random_displacements
     freqs = np.abs(rd.frequencies)
-    condition = np.logical_and(freqs > 0.01, freqs < 0.5)
+    condition = np.logical_and(freqs > freq_from, freqs < freq_to)
     rd.frequencies = np.where(condition, freqs + 1, freqs)
     rd.run_d2f()
     ph.force_constants = rd.force_constants
@@ -379,6 +437,61 @@ def _generate_random_displacements(
     )
 
     return ph.dataset
+
+
+@calcfunction
+def get_probability_distribution_data(
+    supercell,
+    primitive,
+    force_constants,
+    random_displacements,
+    temperature,
+):
+    """Calculate probability distributions for sets of random displacements."""
+    _prob = get_probability_distribution(
+        phonopy_atoms_from_structure(supercell),
+        phonopy_atoms_from_structure(primitive),
+        force_constants.get_array("force_constants"),
+        random_displacements.get_array("displacements"),
+        temperature.value,
+    )
+    prob = ArrayData()
+    prob.set_array("probability_distributions", _prob)
+    return {"probability_distributions": prob}
+
+
+def get_probability_distribution(
+    supercell,
+    primitive,
+    force_constants,
+    random_displacements,
+    temperature,
+):
+    """Calculate probability distributions for sets of random displacements."""
+    from phono3py.sscha.sscha import get_sscha_matrices
+
+    if force_constants.shape[0] == force_constants.shape[1]:
+        fc = force_constants
+    else:
+        slat = supercell.cell.T
+        plat = primitive.cell.T
+        pmat = np.dot(np.linalg.inv(slat), plat)
+        _primitive = get_primitive(supercell, pmat)
+        assert isclose(primitive, _primitive)
+
+        fc = np.zeros(
+            (force_constants.shape[1], force_constants.shape[1], 3, 3),
+            dtype="double",
+            order="C",
+        )
+        fc[_primitive.p2s_map] = force_constants
+        distribute_force_constants_by_translations(fc, _primitive, supercell)
+
+    uu = get_sscha_matrices(supercell, fc)
+    uu.run(temperature)
+    dmat = random_displacements.reshape(-1, 3 * len(supercell))
+    vals = -(dmat * np.dot(dmat, uu.upsilon_matrix)).sum(axis=1) / 2
+    return uu.prefactor * np.exp(vals)
 
 
 class IterHarmonicApprox(WorkChain):
@@ -457,7 +570,7 @@ class IterHarmonicApprox(WorkChain):
         super().define(spec)
         spec.expose_inputs(
             PhonopyWorkChain,
-            exclude=["remote_workdirs", "run_phonopy", "remote_phonopy"],
+            exclude=["remote_workdirs", "run_phonopy"],
         )
         spec.input("max_iteration", valid_type=Int, default=lambda: Int(10))
         spec.input("number_of_snapshots", valid_type=Int, default=lambda: Int(100))
@@ -474,22 +587,25 @@ class IterHarmonicApprox(WorkChain):
             if_(cls.import_initial_nodes)(cls.set_initial_nodes).else_(
                 cls.run_initial_phonon,
             ),
+            cls.set_crystal_structures,
             while_(cls.is_loop_finished)(
-                cls.collect_displacements_and_forces,
-                if_(cls.remote_phonopy)(
+                cls.create_dataset,
+                cls.increment_iteration_number,
+                if_(cls.should_run_remote_phonopy)(
                     cls.run_force_constants_calculation_remote,
                     cls.generate_displacements,
                 ).else_(
                     cls.generate_displacements_local,
                 ),
-                cls.run_phonon,
+                cls.calculate_probability_distribution,
+                cls.run_forces_nac_calculations,
             ),
             cls.finalize,
         )
 
-    def remote_phonopy(self):
-        """Return boolean if force constants calculation is run at remote or not."""
-        return True
+    def should_run_remote_phonopy(self):
+        """Return boolean for outline."""
+        return self.inputs.remote_phonopy
 
     def import_initial_nodes(self):
         """Return boolean."""
@@ -499,22 +615,15 @@ class IterHarmonicApprox(WorkChain):
         """Initialize."""
         self.report("initialize (%s)" % self.uuid)
         self.ctx.iteration = 0
+        self.ctx.initial_node = None
         self.ctx.prev_nodes = []
-        if self.remote_phonopy():
-            self.ctx.ph_settings = self.inputs.settings
-
-    def is_loop_finished(self):
-        """Check if iteration is over or not."""
-        qb = QueryBuilder()
-        qb.append(Group, filters={"label": {"==": self.uuid}})
-        if qb.count() == 1:
-            self.report(
-                "Iteration loop is manually terminated at step %d." % self.ctx.iteration
-            )
-            return False
-
-        self.ctx.iteration += 1
-        return self.ctx.iteration <= self.inputs.max_iteration.value
+        self.ctx.prev_probs = []
+        self.ctx.displacements = None
+        self.ctx.force_sets = None
+        self.ctx.random_displacements = None
+        self.ctx.force_constants = None
+        self.ctx.supercell = None
+        self.ctx.primitive = None
 
     def set_initial_nodes(self):
         """Set up initial phonon calculation."""
@@ -525,7 +634,7 @@ class IterHarmonicApprox(WorkChain):
     def run_initial_phonon(self):
         """Launch initial phonon calculation."""
         self.report("run_initial_phonon")
-        inputs = self._get_phonopy_inputs(None, run_nac=True)
+        inputs = self._get_phonopy_inputs(run_nac=True)
         inputs["metadata"].label = "Initial phonon calculation"
         inputs["metadata"].description = "Initial phonon calculation"
         future = self.submit(PhonopyWorkChain, **inputs)
@@ -533,9 +642,60 @@ class IterHarmonicApprox(WorkChain):
         self.report("{} pk = {}".format(inputs["metadata"].label, future.pk))
         self.to_context(**{"phonon_0": future})
 
-    def collect_displacements_and_forces(self):
-        """Collect and prepare sets of forces and displacements."""
-        self.report("run_generate_displacements_%d" % self.ctx.iteration)
+    def set_crystal_structures(self):
+        """Set self.ctx.supercell."""
+        if "phonon_0" in self.ctx:
+            self.report("Found cells in initial phonon calculation.")
+            self.ctx.supercell = self.ctx.phonon_0.outputs.supercell
+            self.ctx.primitive = self.ctx.phonon_0.outputs.primitive
+        elif self.ctx.prev_nodes:
+            self.report("Found cells in imported phonon calculation.")
+            self.ctx.supercell = self.ctx.prev_nodes[0].outputs.supercell
+            self.ctx.primitive = self.ctx.prev_nodes[0].outputs.primitive
+        else:
+            raise RuntimeError("IterHA is broken.")
+
+    def is_loop_finished(self):
+        """Check if iteration is over or not.
+
+        ```
+        iteration = 0
+        force_constants = None
+        calculate_initial_forces() -> disps, forces
+        while (iteration < max_iteration):
+            iteration += 1
+            create_dataset(disps, forces, force_constants)
+            force_constants_calculation -> force_constants
+            generate_random_displacements(force_constants) -> disps
+            calculated_forces_with_random_displacements(disps) -> forces
+        ```
+
+        iteration=0 : Initial phonon calculation.
+        iteration>0 : Phonon calculations with random displacements at temperature
+
+        """
+        qb = QueryBuilder()
+        qb.append(Group, filters={"label": {"==": self.uuid}})
+        if qb.count() == 1:
+            self.report(
+                "Iteration loop is manually terminated at step %d." % self.ctx.iteration
+            )
+            return False
+
+        return self.ctx.iteration < self.inputs.max_iteration.value
+
+    def increment_iteration_number(self):
+        """Increment iteration."""
+        self.ctx.iteration += 1
+        self.report(f"IterHA iteration {self.ctx.iteration}")
+
+    def create_dataset(self):
+        """Collect and prepare sets of forces and displacements.
+
+        With probability distributions, reweighting is performed.
+
+        """
+        self.report("create_dataset_%d" % self.ctx.iteration)
 
         num_batches = self.inputs.number_of_steps_for_fitting.value
 
@@ -547,31 +707,51 @@ class IterHarmonicApprox(WorkChain):
             nodes = [
                 self.ctx.initial_node,
             ]
-        elif len(self.ctx.prev_nodes) < num_batches:
-            nodes = self.ctx.prev_nodes
+            probs = []
         else:
-            nodes = self.ctx.prev_nodes[-num_batches:]
-        data_for_fc = {}
+            if len(self.ctx.prev_nodes) < num_batches:
+                nodes = self.ctx.prev_nodes
+                probs = self.ctx.prev_probs
+            else:
+                nodes = self.ctx.prev_nodes[-num_batches:]
+                probs = self.ctx.prev_probs[-num_batches:]
+
+        kwargs = {}
         for i, node in enumerate(nodes):
-            data_for_fc["forces_%d" % (i + 1)] = node.outputs.force_sets
+            kwargs["forces_%d" % (i + 1)] = node.outputs.force_sets
             d = get_displacements_from_phonopy_wc(node)
-            data_for_fc["displacements_%d" % (i + 1)] = d
+            kwargs["displacements_%d" % (i + 1)] = d
+            if probs:
+                kwargs["probability_distribution_%d" % (i + 1)] = probs[i]
+
+        if probs:
+            kwargs.update(
+                {
+                    "supercell": self.ctx.supercell,
+                    "primitive": self.ctx.primitive,
+                    "temperature": self.inputs.temperature,
+                    "force_constants": self.ctx.force_constants,
+                }
+            )
+
         ret_Dict = collect_dataset(
             self.inputs.number_of_steps_for_fitting,
             self.inputs.include_ratio,
             self.inputs.linear_decay,
-            **data_for_fc,
+            **kwargs,
         )
         self.ctx.displacements = ret_Dict["displacements"]
         self.ctx.force_sets = ret_Dict["force_sets"]
 
     def generate_displacements_local(self):
         """Generate displacements from previous phonon calculations."""
+        self.report("generate displacements on process")
+
         if "random_seed" in self.inputs:
             data_rd = {"random_seed": self.inputs.random_seed}
         else:
             data_rd = {}
-        dataset = get_random_displacements(
+        dataset, force_constants = get_random_displacements(
             self.inputs.structure,
             self.inputs.number_of_snapshots,
             self.inputs.temperature,
@@ -584,6 +764,8 @@ class IterHarmonicApprox(WorkChain):
         self.ctx.random_displacements.set_array(
             "displacements", dataset["displacements"]
         )
+        self.ctx.force_constants = ArrayData()
+        self.ctx.force_constants.set_array("force_constants", force_constants)
 
     def run_force_constants_calculation_remote(self):
         """Run force constants calculation by PhonopyCalculation."""
@@ -597,7 +779,7 @@ class IterHarmonicApprox(WorkChain):
             raise RuntimeError("code or code_string is needed.")
         builder = code.get_builder()
         builder.structure = self.inputs.structure
-        builder.settings = self.ctx.ph_settings
+        builder.settings = self.inputs.settings
         builder.metadata.options.update(self.inputs.phonopy.metadata.options)
         builder.metadata.label = "Force constants calculation %d" % self.ctx.iteration
         builder.displacements = self.ctx.displacements
@@ -611,8 +793,7 @@ class IterHarmonicApprox(WorkChain):
     def generate_displacements(self):
         """Generate random displacements using force constants."""
         label = "force_constants_%d" % self.ctx.iteration
-        fc_array = self.ctx[label].outputs.force_constants
-        fc = fc_array.get_array("force_constants")
+        self.ctx.force_constants = self.ctx[label].outputs.force_constants
         phonon_setting_info = self.inputs.settings
         smat = phonon_setting_info["supercell_matrix"]
         ph = Phonopy(
@@ -620,7 +801,7 @@ class IterHarmonicApprox(WorkChain):
             supercell_matrix=smat,
             primitive_matrix="auto",
         )
-        ph.force_constants = fc
+        ph.force_constants = self.ctx.force_constants.get_array("force_constants")
 
         if "random_seed" in self.inputs:
             random_seed = self.inputs.random_seed.value
@@ -637,11 +818,24 @@ class IterHarmonicApprox(WorkChain):
             "displacements", dataset["displacements"]
         )
 
-    def run_phonon(self):
-        """Launch phonon calculation with random displacements."""
-        self.report("run_phonon_%d" % self.ctx.iteration)
+    def calculate_probability_distribution(self):
+        """Calculate probability distribution."""
+        self.report("Calculate probability distributions.")
+        result = get_probability_distribution_data(
+            self.ctx.supercell,
+            self.ctx.primitive,
+            self.ctx.force_constants,
+            self.ctx.random_displacements,
+            self.inputs.temperature,
+        )
+        self.ctx.prev_probs.append(result["probability_distributions"])
 
-        inputs = self._get_phonopy_inputs(self.ctx.random_displacements)
+    def run_forces_nac_calculations(self):
+        """Launch phonon calculation with random displacements."""
+        self.report(
+            f"run forces and nac calculations at iteration {self.ctx.iteration}"
+        )
+        inputs = self._get_phonopy_inputs(displacements=self.ctx.random_displacements)
         label = "Phonon calculation %d" % self.ctx.iteration
         inputs["metadata"].label = label
         inputs["metadata"].description = label
@@ -655,7 +849,8 @@ class IterHarmonicApprox(WorkChain):
         """Finalize IterHarmonicApprox."""
         self.report("IterHarmonicApprox finished at %d" % (self.ctx.iteration - 1))
 
-    def _get_phonopy_inputs(self, displacements, run_nac=False):
+    def _get_phonopy_inputs(self, displacements=None, run_nac=False):
+        """Return inputs for PhonopyWorkChain."""
         inputs = {}
         inputs_orig = self.exposed_inputs(PhonopyWorkChain)
         for key in inputs_orig:
