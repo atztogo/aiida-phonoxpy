@@ -106,11 +106,12 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         fc_opts = opts_dict["fc"]
         mesh_opts = opts_dict["mesh"]
         isotope_opts = opts_dict["isotope"]
+        temperature_opts = opts_dict["temperature"]
 
         # Assume LTC calculation
         if "fc2" in self.inputs and "fc3" in self.inputs:
             comm_opts = (
-                ["--fc2", "--fc3"] + mesh_opts + ["--br", "--ts", "300"] + isotope_opts
+                ["--fc2", "--fc3", "--br"] + mesh_opts + temperature_opts + isotope_opts
             )
             self._internal_retrieve_list.append(self._OUTPUT_LTC)
         else:  # Assume force constants calculation
@@ -149,6 +150,7 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     mesh_opts = []
     fc_opts = []
     isotope_opts = []
+    temperature_opts = ["--ts"]
 
     if "mesh" in settings.keys():
         mesh = settings["mesh"]
@@ -165,8 +167,18 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
         if settings["fc_calculator"].lower().strip() == "alm":
             fc_opts.append("--alm")
 
+    if "ts" in settings.keys():
+        temperature_opts += [str(t) for t in settings['ts']]
+    else:
+        temperature_opts += ["300"]
+
     if "isotope" in settings.keys():
         if settings["isotope"]:
             isotope_opts.append("--isotope")
 
-    return {"mesh": mesh_opts, "fc": fc_opts, "isotope": isotope_opts}
+    return {
+        "mesh": mesh_opts,
+        "fc": fc_opts,
+        "isotope": isotope_opts,
+        "temperature": temperature_opts,
+    }

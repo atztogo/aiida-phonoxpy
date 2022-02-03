@@ -1023,6 +1023,8 @@ def generate_settings():
         phonon_supercell_matrix=None,
         number_of_snapshots=None,
         mesh=None,
+        isotope=False,
+        ts=None,
     ):
         from aiida.orm import Dict
 
@@ -1040,6 +1042,12 @@ def generate_settings():
 
         if mesh is not None:
             settings["mesh"] = mesh
+
+        if ts is not None:
+            settings["ts"] = ts
+
+        if isotope:
+            settings["isotope"] = True
 
         return Dict(dict=settings)
 

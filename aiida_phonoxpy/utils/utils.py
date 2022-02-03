@@ -749,10 +749,11 @@ def get_phono3py_instance(
     """Create Phono3py instance."""
     from phono3py import Phono3py
 
-    kwargs = {
-        "supercell_matrix": phonon_settings_dict["supercell_matrix"],
-        "symprec": phonon_settings_dict["symmetry_tolerance"],
-    }
+    kwargs = {"supercell_matrix": phonon_settings_dict["supercell_matrix"]}
+    if "symmetry_tolerance" in phonon_settings_dict:
+        kwargs["symprec"] = phonon_settings_dict["symmetry_tolerance"]
+    else:
+        kwargs["symprec"] = 1e-5
     if "primitive_matrix" in phonon_settings_dict:
         kwargs["primitive_matrix"] = phonon_settings_dict["primitive_matrix"]
     else:
