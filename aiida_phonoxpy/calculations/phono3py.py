@@ -168,7 +168,7 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
             fc_opts.append("--alm")
 
     if "ts" in settings.keys():
-        temperature_opts += [str(t) for t in settings['ts']]
+        temperature_opts += [str(t) for t in settings["ts"]]
     else:
         temperature_opts += ["300"]
 
