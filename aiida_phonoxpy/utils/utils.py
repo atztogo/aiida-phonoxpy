@@ -392,7 +392,7 @@ def _setup_phono3py_calculation_keyset4(
                 ph_settings[key] = phonon_settings[key]
 
     if run_ltc:
-        for key in ("mesh", "isotope"):
+        for key in ("mesh", "isotope", "lbte", "br", "ts"):
             if key in phonon_settings.keys():
                 ph_settings[key] = phonon_settings[key]
 
