@@ -1024,6 +1024,7 @@ def generate_settings():
         number_of_snapshots=None,
         mesh=None,
         isotope=False,
+        lbte=False,
         ts=None,
     ):
         from aiida.orm import Dict
@@ -1045,6 +1046,9 @@ def generate_settings():
 
         if ts is not None:
             settings["ts"] = ts
+
+        if lbte:
+            settings["lbte"] = True
 
         if isotope:
             settings["isotope"] = True
