@@ -107,11 +107,16 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         mesh_opts = opts_dict["mesh"]
         isotope_opts = opts_dict["isotope"]
         temperature_opts = opts_dict["temperature"]
+        conductivity_opts = opts_dict["conductivity"]
 
         # Assume LTC calculation
         if "fc2" in self.inputs and "fc3" in self.inputs:
             comm_opts = (
-                ["--fc2", "--fc3", "--br"] + mesh_opts + temperature_opts + isotope_opts
+                ["--fc2", "--fc3"]
+                + conductivity_opts
+                + mesh_opts
+                + temperature_opts
+                + isotope_opts
             )
             self._internal_retrieve_list.append(self._OUTPUT_LTC)
         else:  # Assume force constants calculation
@@ -151,6 +156,7 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     fc_opts = []
     isotope_opts = []
     temperature_opts = ["--ts"]
+    conductivity_opts = []
 
     if "mesh" in settings.keys():
         mesh = settings["mesh"]
@@ -172,6 +178,13 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     else:
         temperature_opts += ["300"]
 
+    if "br" in settings.keys() and settings["br"]:
+        conductivity_opts += ["--br"]
+    elif "lbte" in settings.keys() and settings["lbte"]:
+        conductivity_opts += ["--lbte"]
+    else:
+        conductivity_opts += ["--br"]
+
     if "isotope" in settings.keys():
         if settings["isotope"]:
             isotope_opts.append("--isotope")
@@ -181,4 +194,5 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
         "fc": fc_opts,
         "isotope": isotope_opts,
         "temperature": temperature_opts,
+        "conductivity": conductivity_opts,
     }

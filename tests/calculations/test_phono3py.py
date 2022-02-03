@@ -79,6 +79,54 @@ def test_phono3py_fc(
     )
 
 
+def test_phono3py_ltc_lbte(
+    fixture_sandbox,
+    fixture_code,
+    generate_calc_job,
+    generate_inputs,
+    generate_settings,
+    generate_fc3_filedata,
+    generate_fc2_filedata,
+):
+    """Test a phonopy calculation."""
+    entry_point_calc_job = "phonoxpy.phono3py"
+
+    inputs = generate_inputs(
+        metadata={"options": {"resources": {"tot_num_mpiprocs": 1}}}
+    )
+    inputs.update(
+        {
+            "settings": generate_settings(
+                mesh=50,
+                phonon_supercell_matrix=[2, 2, 2],
+                ts=[300, 400, 500],
+                lbte=True,
+            ),
+            "code": fixture_code(entry_point_calc_job),
+            "fc2": generate_fc2_filedata(),
+            "fc3": generate_fc3_filedata(),
+        }
+    )
+
+    calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
+    assert set(calc_info.retrieve_list) == set(("phono3py.yaml", "kappa-*.hdf5"))
+    assert set(calc_info.codes_info[0].cmdline_params) == set(
+        (
+            "-c",
+            "phono3py_params.yaml.xz",
+            "--fc2",
+            "--fc3",
+            "--mesh",
+            "50.0",
+            "--lbte",
+            "--ts",
+            "300",
+            "400",
+            "500",
+        )
+    )
+
+
 def test_phono3py_ltc(
     fixture_sandbox,
     fixture_code,
