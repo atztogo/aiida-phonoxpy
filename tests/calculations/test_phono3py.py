@@ -1,7 +1,5 @@
 """Test phono3py parser."""
-from numpy import fix
 import pytest
-from aiida import orm
 from aiida.common import AttributeDict
 
 
