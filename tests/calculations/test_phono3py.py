@@ -1,6 +1,7 @@
 """Test phono3py parser."""
 import pytest
 from aiida.common import AttributeDict
+from aiida_phonoxpy.utils.utils import _setup_phono3py_calculation_keyset4
 
 
 @pytest.fixture
@@ -41,6 +42,12 @@ def test_phono3py_with_nac(
         }
     )
 
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset4(
+        ph_settings, inputs["settings"], run_ltc=True, run_fc=True
+    )
+    assert set(ph_settings) == set(("mesh", "isotope"))
+
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
     assert set(calc_info.retrieve_list) == set(
         ("phono3py.yaml", "fc2.hdf5", "fc3.hdf5")
@@ -69,6 +76,10 @@ def test_phono3py_fc(
             "code": fixture_code(entry_point_calc_job),
         }
     )
+
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_fc=True)
+    assert not ph_settings
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
     assert set(calc_info.retrieve_list) == set(
@@ -107,6 +118,10 @@ def test_phono3py_ltc_lbte(
             "fc3": generate_fc3_filedata(),
         }
     )
+
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    assert set(ph_settings) == set(("mesh", "lbte", "ts"))
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
     assert set(calc_info.retrieve_list) == set(("phono3py.yaml", "kappa-*.hdf5"))
@@ -153,6 +168,10 @@ def test_phono3py_ltc(
         }
     )
 
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    assert set(ph_settings) == set(("mesh", "ts"))
+
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
     assert set(calc_info.retrieve_list) == set(("phono3py.yaml", "kappa-*.hdf5"))
     assert set(calc_info.codes_info[0].cmdline_params) == set(
@@ -196,6 +215,10 @@ def test_phono3py_ltc_with_isotope(
             "fc3": generate_fc3_filedata(),
         }
     )
+
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    assert set(ph_settings) == set(("mesh", "isotope"))
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
     assert set(calc_info.retrieve_list) == set(("phono3py.yaml", "kappa-*.hdf5"))
