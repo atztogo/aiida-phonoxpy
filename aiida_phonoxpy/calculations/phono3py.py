@@ -1,6 +1,6 @@
 """CalcJob to run phonopy at a remote host."""
 import lzma
-
+import logging
 from aiida.orm import ArrayData, Dict, SinglefileData, Str
 
 from aiida_phonoxpy.calculations.base import BasePhonopyCalculation
@@ -102,11 +102,19 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             self.inputs.metadata.options.output_filename,
         ]
 
-        mesh_opts, fc_opts = _get_phono3py_options(self.inputs.settings, self.logger)
+        opts_dict = _get_phono3py_options(self.inputs.settings, self.logger)
+        fc_opts = opts_dict["fc"]
+        mesh_opts = opts_dict["mesh"]
+        isotope_opts = opts_dict["isotope"]
+        temperature_opts = opts_dict["temperature"]
+
+        # Assume LTC calculation
         if "fc2" in self.inputs and "fc3" in self.inputs:
-            comm_opts = ["--fc2", "--fc3"] + mesh_opts + ["--br", "--ts", "300"]
+            comm_opts = (
+                ["--fc2", "--fc3", "--br"] + mesh_opts + temperature_opts + isotope_opts
+            )
             self._internal_retrieve_list.append(self._OUTPUT_LTC)
-        else:
+        else:  # Assume force constants calculation
             if "displacements" in self.inputs:
                 if "--alm" not in fc_opts:
                     fc_opts.append("--alm")
@@ -120,8 +128,8 @@ class Phono3pyCalculation(BasePhonopyCalculation):
                     self._internal_retrieve_list.append(self._INOUT_FC2)
                 elif key == "fc3":
                     self._internal_retrieve_list.append(self._INOUT_FC3)
-
             comm_opts = fc_opts
+
         self._additional_cmd_params = [comm_opts]
         self._calculation_cmd = [["-c", self._INPUT_PARAMS]]
 
@@ -137,21 +145,40 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         return ph3
 
 
-def _get_phono3py_options(settings: Dict, logger):
+def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     """Return phonopy command options as strings."""
+    mesh_opts = []
+    fc_opts = []
+    isotope_opts = []
+    temperature_opts = ["--ts"]
+
     if "mesh" in settings.keys():
         mesh = settings["mesh"]
         try:
             length = float(mesh)
-            mesh_opts = ["--mesh", f"{length}"]
+            mesh_opts += ["--mesh", f"{length}"]
         except TypeError:
-            mesh_opts = ["--mesh", f"{mesh[0]}", f"{mesh[1]}", f"{mesh[2]}"]
+            mesh_opts += ["--mesh", f"{mesh[0]}", f"{mesh[1]}", f"{mesh[2]}"]
     else:
         logger.info("mesh setting not found. Set mesh=30.")
-        mesh_opts = ["--mesh", "30"]
+        mesh_opts += ["--mesh", "30"]
 
-    fc_opts = []
     if "fc_calculator" in settings.keys():
         if settings["fc_calculator"].lower().strip() == "alm":
             fc_opts.append("--alm")
-    return mesh_opts, fc_opts
+
+    if "ts" in settings.keys():
+        temperature_opts += [str(t) for t in settings["ts"]]
+    else:
+        temperature_opts += ["300"]
+
+    if "isotope" in settings.keys():
+        if settings["isotope"]:
+            isotope_opts.append("--isotope")
+
+    return {
+        "mesh": mesh_opts,
+        "fc": fc_opts,
+        "isotope": isotope_opts,
+        "temperature": temperature_opts,
+    }

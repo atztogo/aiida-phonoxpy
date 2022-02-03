@@ -193,9 +193,9 @@ def setup_phono3py_calculation(
          'is_plusminus',
          'is_diagonal')
     ```
-    (4) Force constants (`run_fc=True`) and LTC calculation (`run_ltc=True`).
+    (4) Force constants (`run_fc=True`), LTC calculation (`run_ltc=True`).
     ```
-        ('fc_calculator', 'mesh')
+        ('fc_calculator', 'mesh', 'isotope')
     ```
 
     `primitive_matrix` is always `auto` and the determined `primitive_matrix` by
@@ -339,10 +339,9 @@ def setup_phono3py_calculation(
                 )
 
     # Key-set 4
-    if run_fc and "fc_calculator" in phonon_settings.keys():
-        ph_settings["fc_calculator"] = phonon_settings["fc_calculator"]
-    if run_ltc and "mesh" in phonon_settings.keys():
-        ph_settings["mesh"] = phonon_settings["mesh"]
+    _setup_phono3py_calculation_keyset4(
+        ph_settings, phonon_settings, run_fc=run_fc, run_ltc=run_ltc
+    )
 
     if structures_dict:
         return_vals.update(structures_dict)
@@ -368,6 +367,36 @@ def _setup_phono3py_calculation_keyset1(
     ph_settings["version"] = phono3py.__version__
 
 
+def _setup_phono3py_calculation_keyset4(
+    ph_settings: dict,
+    phonon_settings: Dict,
+    run_fc: bool = False,
+    run_ltc: bool = False,
+):
+    """Set calculation options.
+
+    Force constants calculation
+    ---------------------------
+    fc_calculator : str
+        External force constants calculator.
+
+    LTC calculation
+    ---------------
+    mesh : float, list
+        Uniform sampling mesh.
+
+    """
+    if run_fc:
+        for key in ("fc_calculator",):
+            if key in phonon_settings.keys():
+                ph_settings[key] = phonon_settings[key]
+
+    if run_ltc:
+        for key in ("mesh", "isotope"):
+            if key in phonon_settings.keys():
+                ph_settings[key] = phonon_settings[key]
+
+
 @calcfunction
 def setup_phono3py_fc_calculation(
     phonon_settings: Dict,
@@ -390,8 +419,7 @@ def setup_phono3py_fc_calculation(
     )
 
     # Key-set 4
-    if "fc_calculator" in phonon_settings.keys():
-        ph_settings["fc_calculator"] = phonon_settings["fc_calculator"]
+    _setup_phono3py_calculation_keyset4(ph_settings, phonon_settings, run_fc=True)
 
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
     return return_vals
@@ -402,7 +430,7 @@ def setup_phono3py_ltc_calculation(
     phonon_settings: Dict,
     structure: StructureData,
     symmetry_tolerance: Float,
-):
+) -> dict:
     """Set up phono3py lattice thermal conductivity calculation.
 
     Returns
@@ -423,8 +451,7 @@ def setup_phono3py_ltc_calculation(
     _set_symmetry_info(ph_settings, ph)
 
     # Key-set 4
-    if "mesh" in phonon_settings.keys():
-        ph_settings["mesh"] = phonon_settings["mesh"]
+    _setup_phono3py_calculation_keyset4(ph_settings, phonon_settings, run_ltc=True)
 
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
     return return_vals
@@ -722,10 +749,11 @@ def get_phono3py_instance(
     """Create Phono3py instance."""
     from phono3py import Phono3py
 
-    kwargs = {
-        "supercell_matrix": phonon_settings_dict["supercell_matrix"],
-        "symprec": phonon_settings_dict["symmetry_tolerance"],
-    }
+    kwargs = {"supercell_matrix": phonon_settings_dict["supercell_matrix"]}
+    if "symmetry_tolerance" in phonon_settings_dict:
+        kwargs["symprec"] = phonon_settings_dict["symmetry_tolerance"]
+    else:
+        kwargs["symprec"] = 1e-5
     if "primitive_matrix" in phonon_settings_dict:
         kwargs["primitive_matrix"] = phonon_settings_dict["primitive_matrix"]
     else:

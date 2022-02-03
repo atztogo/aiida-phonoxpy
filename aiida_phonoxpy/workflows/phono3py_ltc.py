@@ -44,7 +44,11 @@ class Phono3pyLTCWorkChain(WorkChain, RunPhono3pyMixIn):
         spec.output("ltc", valid_type=SinglefileData, required=False)
 
     def initialize(self):
-        """Set default settings and create supercells and primitive cell."""
+        """Set default settings and create supercells and primitive cell.
+
+        return_vals['phonon_setting_info'] : Dict
+
+        """
         self.report("initialize")
 
         for key in ("fc2", "fc3", "nac_params"):
