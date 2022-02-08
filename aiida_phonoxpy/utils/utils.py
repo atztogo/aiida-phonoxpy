@@ -823,7 +823,7 @@ def collect_forces_and_energies(ctx, ctx_supercells, calc_key_prefix="force_calc
         # key: e.g. "supercell_001", "phonon_supercell_001"
         num = key.split("_")[-1]  # e.g. "001"
         calc = ctx[f"{calc_key_prefix}_{num}"]
-        if type(calc) is dict:
+        if isinstance(calc, dict):
             calc_dict = calc
         else:
             calc_dict = calc.outputs
@@ -850,7 +850,7 @@ def get_force_sets(**forces_dict):
         number of supercell calculations.
 
     """
-    (force_sets, energies, forces_0_key, energy_0_key) = _get_force_set(**forces_dict)
+    force_sets, energies = _get_force_set(**forces_dict)
 
     force_sets_data = ArrayData()
     force_sets_data.set_array("force_sets", force_sets)
@@ -858,10 +858,6 @@ def get_force_sets(**forces_dict):
         force_sets_data.set_array("energies", energies)
     force_sets_data.label = "force_sets"
     ret_dict = {"force_sets": force_sets_data}
-    if forces_0_key is not None:
-        ret_dict["supercell_forces"] = forces_dict[forces_0_key]
-    if energy_0_key is not None:
-        ret_dict["supercell_energy"] = forces_dict[energy_0_key]
 
     return ret_dict
 
@@ -870,7 +866,6 @@ def _get_force_set(**forces_dict):
     num_forces = 0
     num_energies = 0
     forces_0_key = None
-    energy_0_key = None
     shape = None
     for key in forces_dict:
         value = forces_dict[key]
@@ -884,14 +879,13 @@ def _get_force_set(**forces_dict):
         else:
             if "forces" in key:
                 forces_0_key = key
-            elif "energy" in key:
-                energy_0_key = key
 
     force_sets = np.zeros((num_forces,) + shape, dtype=float)
     if num_energies > 0:
         energies = np.zeros(num_energies, dtype=float)
     else:
         energies = None
+
     if forces_0_key is None:
         forces_0 = None
     else:
@@ -900,6 +894,9 @@ def _get_force_set(**forces_dict):
     for key in forces_dict:
         value = forces_dict[key]
         num = int(key.split("_")[-1])  # e.g. "001" --> 1
+        if num == 0:
+            continue
+
         if "forces" in key:
             forces = value.get_array("forces")
             if forces_0 is None:
@@ -912,7 +909,7 @@ def _get_force_set(**forces_dict):
             else:
                 energies[num - 1] = value.get_array("energy")[-1]
 
-    return force_sets, energies, forces_0_key, energy_0_key
+    return force_sets, energies
 
 
 def _get_default_displacement_distance(code_name: str) -> float:
