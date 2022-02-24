@@ -169,6 +169,10 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
         logger.info("mesh setting not found. Set mesh=30.")
         mesh_opts += ["--mesh", "30"]
 
+    if "grg" in settings.keys():
+        if settings["grg"]:
+            mesh_opts.append("--grg")
+
     if "fc_calculator" in settings.keys():
         if settings["fc_calculator"].lower().strip() == "alm":
             fc_opts.append("--alm")

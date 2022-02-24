@@ -89,6 +89,9 @@ jobs:
           cd ..
           git clone https://github.com/phonopy/phono3py.git
           cd phono3py
+          echo "[phono3py]" > site.cfg
+          echo "extra_compile_args = -fopenmp" >> site.cfg
+          echo "extra_link_args = -lgomp" >> site.cfg
           python setup.py build
           pip install -e .
           cd ..
