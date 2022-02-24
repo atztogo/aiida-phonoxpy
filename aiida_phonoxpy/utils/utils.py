@@ -195,7 +195,7 @@ def setup_phono3py_calculation(
     ```
     (4) Force constants (`run_fc=True`), LTC calculation (`run_ltc=True`).
     ```
-        ('fc_calculator', 'mesh', 'isotope')
+        ('fc_calculator', 'mesh', 'isotope', 'br', 'lbte', 'ts', 'grg')
     ```
 
     `primitive_matrix` is always `auto` and the determined `primitive_matrix` by
@@ -384,6 +384,16 @@ def _setup_phono3py_calculation_keyset4(
     ---------------
     mesh : float, list
         Uniform sampling mesh.
+    isotope : bool
+        With / without isotope scattering
+    br : bool
+        Use RTA or not. This is the default behaviour.
+    lbte : bool
+        Use direct solution or not.
+    ts : list
+        Temperatures. The default value is [300].
+    grg : bool
+        Use generalized-regular grid or not.
 
     """
     if run_fc:
@@ -392,7 +402,7 @@ def _setup_phono3py_calculation_keyset4(
                 ph_settings[key] = phonon_settings[key]
 
     if run_ltc:
-        for key in ("mesh", "isotope", "lbte", "br", "ts"):
+        for key in ("mesh", "isotope", "lbte", "br", "ts", "grg"):
             if key in phonon_settings.keys():
                 ph_settings[key] = phonon_settings[key]
 

@@ -1026,6 +1026,7 @@ def generate_settings():
         isotope=False,
         lbte=False,
         ts=None,
+        grg=False,
     ):
         from aiida.orm import Dict
 
@@ -1052,6 +1053,9 @@ def generate_settings():
 
         if isotope:
             settings["isotope"] = True
+
+        if grg:
+            settings["grg"] = True
 
         return Dict(dict=settings)
 
