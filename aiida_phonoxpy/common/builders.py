@@ -94,6 +94,9 @@ def _get_vasp_import_workchain_inputs(calculator_inputs, code, label):
     else:
         raise TypeError("potential_mapping has to have dict or Dict type.")
 
+    if "restart_folder" in calculator_inputs:
+        inputs["restart_folder"] = calculator_inputs["restart_folder"]
+
     if label:
         inputs["metadata"] = {"label": label}
     return inputs
