@@ -56,51 +56,6 @@ can be used.
 """
 
 
-def get_random_displacements(
-    structure,
-    number_of_snapshots,
-    temperature,
-    phonon_setting_info,
-    displacements,
-    force_sets,
-    random_seed=None,
-):
-    """Generate supercells with random displacemens.
-
-    The random displacements are generated from phonons and harmonic
-    oscillator distribution function of canonical ensemble. The input
-    phonons are calculated from force constants calculated from
-    forces and displacemens of the supercell snapshots in previous
-    phonon calculation steps.
-
-    Returns
-    -------
-    dataset : Dict
-        Displacement datasets to run force calculations.
-
-    """
-    # Calculate force constants by fitting using ALM
-    smat = phonon_setting_info["supercell_matrix"]
-    ph = Phonopy(
-        phonopy_atoms_from_structure(structure),
-        supercell_matrix=smat,
-        primitive_matrix="auto",
-    )
-    d = displacements.get_array("displacements")
-    f = force_sets.get_array("force_sets")
-    ph.dataset = {"displacements": d, "forces": f}
-    ph.produce_force_constants(fc_calculator="alm")
-
-    if random_seed is not None:
-        _random_seed = random_seed.value
-    else:
-        _random_seed = None
-    dataset = _generate_random_displacements(
-        ph, number_of_snapshots.value, temperature.value, random_seed=_random_seed
-    )
-    return dataset, ph.force_constants
-
-
 @calcfunction
 def collect_dataset(number_of_steps_for_fitting, include_ratio, linear_decay, **data):
     """Collect supercell displacements, forces, and energies.
@@ -588,17 +543,27 @@ class IterHarmonicApprox(WorkChain):
                 cls.run_initial_phonon,
             ),
             cls.set_crystal_structures,
+            cls.create_dataset,
+            if_(cls.should_run_remote_phonopy)(
+                cls.run_force_constants_calculation_remote,
+                cls.set_force_constants,
+            ).else_(
+                cls.run_force_constants_calculation_local,
+            ),
+            cls.generate_displacements,
+            cls.calculate_probability_distribution,
             while_(cls.is_loop_finished)(
-                cls.create_dataset,
                 cls.increment_iteration_number,
+                cls.run_forces_nac_calculations,
+                cls.create_dataset,
                 if_(cls.should_run_remote_phonopy)(
                     cls.run_force_constants_calculation_remote,
-                    cls.generate_displacements,
+                    cls.set_force_constants,
                 ).else_(
-                    cls.generate_displacements_local,
+                    cls.run_force_constants_calculation_local,
                 ),
+                cls.generate_displacements,
                 cls.calculate_probability_distribution,
-                cls.run_forces_nac_calculations,
             ),
             cls.finalize,
         )
@@ -689,10 +654,56 @@ class IterHarmonicApprox(WorkChain):
         self.ctx.iteration += 1
         self.report(f"IterHA iteration {self.ctx.iteration}")
 
+    def run_forces_nac_calculations(self):
+        """Launch phonon calculation with random displacements.
+
+        This method relies on the last iteration:
+        - Depends on `self.ctx.random_displacements` made in the last iteration.
+
+        Append `PhonopyWorkChain` node to `self.ctx.prev_nodes`.
+
+        """
+        self.report(
+            f"run forces and nac calculations at iteration {self.ctx.iteration}"
+        )
+        inputs = self._get_phonopy_inputs(displacements=self.ctx.random_displacements)
+        label = "Phonon calculation %d" % self.ctx.iteration
+        inputs["metadata"].label = label
+        inputs["metadata"].description = label
+        future = self.submit(PhonopyWorkChain, **inputs)
+        self.ctx.prev_nodes.append(future)
+        self.report("{} pk = {}".format(label, future.pk))
+        label = "phonon_%d" % self.ctx.iteration
+        self.to_context(**{label: future})
+
     def create_dataset(self):
         """Collect and prepare sets of forces and displacements.
 
         With probability distributions, reweighting is performed.
+
+        This method relies on the last iteration:
+        - `self.ctx.prev_nodes` is set at `run_forces_nac_calculations`.
+        - `self.ctx.prev_probs` is set at `calculate_probability_distribution`.
+
+        Reweighting factor w_N at step N is defined as
+
+            w_N = P(Phi_curr, u_N) / P(Phi_N, u_N)
+
+        Phi_N: Force constants at step N.
+        u_N: Displacements generated at step N.
+        f_N: Forces calculated for u_N.
+        P: Probability distribution for Phi_N and u_M.
+        N_curr = self.ctx.iteration - 1.
+
+        P(Phi_N, u_N) is stored in `self.ctx.prev_probs`.
+        P(Phi_curr, u_N) is calculated in `collect_dataset`.
+        The obtained w_N^2 is multiplied to u_N and f_N in the least squares fitting,
+        i.e., the following values become the return values of this method:
+
+        - displacements(..., N, ...) = u_N * w_N^2 in previous steps N
+        - force_sets(...,N, ...) = f_N * w_N^2 in previous steps N
+
+        Set `self.ctx.displacements` and `self.ctx.force_sets`.
 
         """
         self.report("create_dataset_%d" % self.ctx.iteration)
@@ -743,32 +754,39 @@ class IterHarmonicApprox(WorkChain):
         self.ctx.displacements = ret_Dict["displacements"]
         self.ctx.force_sets = ret_Dict["force_sets"]
 
-    def generate_displacements_local(self):
-        """Generate displacements from previous phonon calculations."""
+    def run_force_constants_calculation_local(self):
+        """Generate displacements from previous phonon calculations.
+
+        Set `self.ctx.force_constants`.
+
+        This method has to come after
+
+        - `create_dataset`
+
+        """
         self.report("generate displacements on process")
 
-        if "random_seed" in self.inputs:
-            data_rd = {"random_seed": self.inputs.random_seed}
-        else:
-            data_rd = {}
-        dataset, force_constants = get_random_displacements(
-            self.inputs.structure,
-            self.inputs.number_of_snapshots,
-            self.inputs.temperature,
-            self.inputs.settings,
-            self.ctx.displacements,
-            self.ctx.force_sets,
-            **data_rd,
+        smat = self.inputs.settings["supercell_matrix"]
+        ph = Phonopy(
+            phonopy_atoms_from_structure(self.inputs.structure),
+            supercell_matrix=smat,
+            primitive_matrix="auto",
         )
-        self.ctx.random_displacements = ArrayData()
-        self.ctx.random_displacements.set_array(
-            "displacements", dataset["displacements"]
-        )
+        d = self.ctx.displacements.get_array("displacements")
+        f = self.ctx.force_sets.get_array("force_sets")
+        ph.dataset = {"displacements": d, "forces": f}
+        ph.produce_force_constants(fc_calculator="alm")
         self.ctx.force_constants = ArrayData()
-        self.ctx.force_constants.set_array("force_constants", force_constants)
+        self.ctx.force_constants.set_array("force_constants", ph.force_constants)
 
     def run_force_constants_calculation_remote(self):
-        """Run force constants calculation by PhonopyCalculation."""
+        """Run force constants calculation by PhonopyCalculation.
+
+        This method has to come after
+
+        - `create_dataset`
+
+        """
         self.report("remote force constants calculation %d" % self.ctx.iteration)
 
         if "code" in self.inputs:
@@ -790,10 +808,35 @@ class IterHarmonicApprox(WorkChain):
         label = "force_constants_%d" % self.ctx.iteration
         self.to_context(**{label: future})
 
-    def generate_displacements(self):
-        """Generate random displacements using force constants."""
+    def set_force_constants(self):
+        """Set force_constants to context for the remote fc calculation.
+
+        Set `self.ctx.force_constants`.
+
+        This method has to come after
+
+        - `run_force_constants_calculation_remote`
+
+        """
         label = "force_constants_%d" % self.ctx.iteration
         self.ctx.force_constants = self.ctx[label].outputs.force_constants
+
+    def generate_displacements(self):
+        """Generate random displacements using force constants.
+
+        The random displacements are generated from phonons and harmonic
+        oscillator distribution function of canonical ensemble. The input
+        phonons are calculated from force constants calculated from
+        forces and displacemens of the supercell snapshots in previous
+        phonon calculation steps.
+
+        Set `self.ctx.random_displacements`.
+
+        This method has to come after
+
+        - `run_force_constants_calculation_*`
+
+        """
         phonon_setting_info = self.inputs.settings
         smat = phonon_setting_info["supercell_matrix"]
         ph = Phonopy(
@@ -819,7 +862,16 @@ class IterHarmonicApprox(WorkChain):
         )
 
     def calculate_probability_distribution(self):
-        """Calculate probability distribution."""
+        """Calculate probability distribution.
+
+        Append to `self.ctx.prev_probs`.
+
+        This method has to come after
+
+        - `run_force_constants_calculation_*`
+        - `generate_displacements`
+
+        """
         self.report("Calculate probability distributions.")
         result = get_probability_distribution_data(
             self.ctx.supercell,
@@ -829,21 +881,6 @@ class IterHarmonicApprox(WorkChain):
             self.inputs.temperature,
         )
         self.ctx.prev_probs.append(result["probability_distributions"])
-
-    def run_forces_nac_calculations(self):
-        """Launch phonon calculation with random displacements."""
-        self.report(
-            f"run forces and nac calculations at iteration {self.ctx.iteration}"
-        )
-        inputs = self._get_phonopy_inputs(displacements=self.ctx.random_displacements)
-        label = "Phonon calculation %d" % self.ctx.iteration
-        inputs["metadata"].label = label
-        inputs["metadata"].description = label
-        future = self.submit(PhonopyWorkChain, **inputs)
-        self.ctx.prev_nodes.append(future)
-        self.report("{} pk = {}".format(label, future.pk))
-        label = "phonon_%d" % self.ctx.iteration
-        self.to_context(**{label: future})
 
     def finalize(self):
         """Finalize IterHarmonicApprox."""
