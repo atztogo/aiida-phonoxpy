@@ -687,7 +687,7 @@ class IterHarmonicApprox(WorkChain):
 
         Reweighting factor w_N at step N is defined as
 
-            w_N = P(Phi_curr, u_N) / P(Phi_N, u_N)
+            w_N = sqrt(P(Phi_curr, u_N) / P(Phi_N, u_N))
 
         Phi_N: Force constants at step N.
         u_N: Displacements generated at step N.
