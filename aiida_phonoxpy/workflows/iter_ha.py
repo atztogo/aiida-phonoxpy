@@ -516,8 +516,21 @@ class IterHarmonicApprox(WorkChain):
         return inputs
 
 
-def get_sscha_free_energy(ph: Phonopy, e, temperature):
+def get_sscha_free_energy(ph: Phonopy, e, temperature, prev_fc):
     """Return energies for SSCHA free energy.
+
+    SSCHA free energy is calculated from
+    - Force constants (`prev_fc`)
+    - Displacements (`ph.displacements`)
+    - Supercell electronic total energy (`e`)
+
+    The displacements (`ph.displacements`) are generated from this force constants
+    (`prev_fc`). Forces (`ph.forces`) and the energies (`e`) are the results of
+    some calculator (e.g. first-principels calculation) with respect to the
+    displacements (`ph.displacements`).
+
+    New force constants are calcualted from the displacements (`ph.displacements`)
+    and forces (`ph.forces`) and returned.
 
     Returns
     -------
@@ -525,7 +538,8 @@ def get_sscha_free_energy(ph: Phonopy, e, temperature):
         (harmonic free energy,
          average energy from electric structure,
          SCHA potential calculated from statistical expression,
-         SCHA potential calculated from displacements in supercell)
+         SCHA potential calculated from displacements in supercell,
+         force constants calcualted from input dataset)
 
     Average energy from electric structure is calcualted by A16 in Bianco
     et al., PhysRevB.96.014111.
@@ -539,37 +553,55 @@ def get_sscha_free_energy(ph: Phonopy, e, temperature):
 
     cutoff_frequency = 0.01
     mesh_numbers = [30, 30, 30]
-    d = ph.dataset["displacements"]
+
+    # Latest force constants are just returend.
     ph.produce_force_constants(fc_calculator="alm")
+
+    # <V_ha> with correlation of displacements analytically calcualted from density
+    # matrix.
+    d = ph.dataset["displacements"]
     sc_ph = SupercellPhonon(ph.supercell, ph.force_constants)
     uu = DispCorrMatrix(sc_ph, cutoff_frequency=cutoff_frequency)
     uu.run(temperature)
     v_harm_rho = (sc_ph.force_constants * uu.psi_matrix).sum() / 2
 
+    # <V_ha> from correlation of generated finite displacements.
     u = d.reshape(d.shape[0], -1)
     uu_ave = np.dot(u.T, u) / u.shape[0]
     v_harm_dd = (sc_ph.force_constants * uu_ave).sum() / 2
 
-    if ph.primitive_matrix is None:
-        det_pmat = 1
-    else:
-        det_pmat = np.linalg.det(ph.primitive_matrix)
-    # fe_corr in eV/primitive cell
-    coef_per_prim = det_pmat / np.linalg.det(ph.supercell_matrix)
-    v_ave = np.sum(e) / len(e) * coef_per_prim
-    v_harm_rho *= coef_per_prim
-    v_harm_dd *= coef_per_prim
-    ph.run_mesh(mesh=mesh_numbers, is_gamma_center=True)
-    ph.run_thermal_properties(
+    # <V_el>
+    v_ave = np.sum(e) / len(e)
+
+    # F_ha
+    prev_ph = Phonopy(
+        ph.unitcell,
+        supercell_matrix=ph.supercell_matrix,
+        primitive_matrix=ph.primitive_matrix,
+    )
+    prev_ph.nac_params = ph.nac_params
+    prev_ph.force_constants = prev_fc
+    prev_ph.run_mesh(mesh=mesh_numbers, is_gamma_center=True)
+    prev_ph.run_thermal_properties(
         temperatures=[
             temperature,
         ],
         cutoff_frequency=cutoff_frequency,
     )
-    free_energy = ph.get_thermal_properties_dict()["free_energy"][0]
+    free_energy = prev_ph.get_thermal_properties_dict()["free_energy"][0]
     free_energy /= EvTokJmol  # in eV/primitive cell
 
-    return free_energy, v_ave, v_harm_rho, v_harm_dd
+    # fe_corr in eV/primitive cell
+    if ph.primitive_matrix is None:
+        det_pmat = 1
+    else:
+        det_pmat = np.linalg.det(ph.primitive_matrix)
+    coef_per_prim = det_pmat / np.linalg.det(ph.supercell_matrix)
+    v_ave *= coef_per_prim
+    v_harm_rho *= coef_per_prim
+    v_harm_dd *= coef_per_prim
+
+    return free_energy, v_ave, v_harm_rho, v_harm_dd, ph.force_constants
 
 
 @calcfunction
