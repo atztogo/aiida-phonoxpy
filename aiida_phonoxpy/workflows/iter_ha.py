@@ -21,7 +21,11 @@ from aiida_phonoxpy.utils.utils import (
 from aiida_phonoxpy.workflows.phonopy import PhonopyWorkChain
 
 from phonopy.units import EvTokJmol
-from phonopy.structure.cells import get_primitive, isclose
+from phonopy.structure.atoms import PhonopyAtoms
+from phonopy.structure.cells import (
+    Primitive,
+    convert_to_phonopy_primitive,
+)
 from phonopy.harmonic.force_constants import distribute_force_constants_by_translations
 
 """
@@ -261,6 +265,67 @@ class IterHarmonicApprox(WorkChain):
         self.ctx.iteration += 1
         self.report(f"IterHA iteration {self.ctx.iteration}")
 
+    def generate_displacements(self):
+        """Generate random displacements using force constants.
+
+        The random displacements are generated from phonons and harmonic
+        oscillator distribution function of canonical ensemble. The input
+        phonons are calculated from force constants calculated from
+        forces and displacemens of the supercell snapshots in previous
+        phonon calculation steps.
+
+        Set `self.ctx.random_displacements`.
+
+        This method has to come after
+
+        - `run_force_constants_calculation_*`
+
+        """
+        phonon_setting_info = self.inputs.settings
+        smat = phonon_setting_info["supercell_matrix"]
+        ph = Phonopy(
+            phonopy_atoms_from_structure(self.inputs.structure),
+            supercell_matrix=smat,
+            primitive_matrix="auto",
+        )
+        ph.force_constants = self.ctx.force_constants.get_array("force_constants")
+
+        if "random_seed" in self.inputs:
+            random_seed = self.inputs.random_seed.value
+        else:
+            random_seed = None
+        dataset = _generate_random_displacements(
+            ph,
+            self.inputs.number_of_snapshots.value,
+            self.inputs.temperature.value,
+            random_seed=random_seed,
+        )
+        self.ctx.random_displacements = ArrayData()
+        self.ctx.random_displacements.set_array(
+            "displacements", dataset["displacements"]
+        )
+
+    def calculate_probability_distribution(self):
+        """Calculate probability distribution.
+
+        Append to `self.ctx.prev_probs`.
+
+        This method has to come after
+
+        - `run_force_constants_calculation_*`
+        - `generate_displacements`
+
+        """
+        self.report("Calculate probability distributions.")
+        result = get_probability_distribution_data(
+            self.ctx.supercell,
+            self.ctx.primitive,
+            self.ctx.force_constants,
+            self.ctx.random_displacements,
+            self.inputs.temperature,
+        )
+        self.ctx.prev_probs.append(result["probability_distributions"])
+
     def run_forces_nac_calculations(self):
         """Launch phonon calculation with random displacements.
 
@@ -427,67 +492,6 @@ class IterHarmonicApprox(WorkChain):
         """
         label = "force_constants_%d" % self.ctx.iteration
         self.ctx.force_constants = self.ctx[label].outputs.force_constants
-
-    def generate_displacements(self):
-        """Generate random displacements using force constants.
-
-        The random displacements are generated from phonons and harmonic
-        oscillator distribution function of canonical ensemble. The input
-        phonons are calculated from force constants calculated from
-        forces and displacemens of the supercell snapshots in previous
-        phonon calculation steps.
-
-        Set `self.ctx.random_displacements`.
-
-        This method has to come after
-
-        - `run_force_constants_calculation_*`
-
-        """
-        phonon_setting_info = self.inputs.settings
-        smat = phonon_setting_info["supercell_matrix"]
-        ph = Phonopy(
-            phonopy_atoms_from_structure(self.inputs.structure),
-            supercell_matrix=smat,
-            primitive_matrix="auto",
-        )
-        ph.force_constants = self.ctx.force_constants.get_array("force_constants")
-
-        if "random_seed" in self.inputs:
-            random_seed = self.inputs.random_seed.value
-        else:
-            random_seed = None
-        dataset = _generate_random_displacements(
-            ph,
-            self.inputs.number_of_snapshots.value,
-            self.inputs.temperature.value,
-            random_seed=random_seed,
-        )
-        self.ctx.random_displacements = ArrayData()
-        self.ctx.random_displacements.set_array(
-            "displacements", dataset["displacements"]
-        )
-
-    def calculate_probability_distribution(self):
-        """Calculate probability distribution.
-
-        Append to `self.ctx.prev_probs`.
-
-        This method has to come after
-
-        - `run_force_constants_calculation_*`
-        - `generate_displacements`
-
-        """
-        self.report("Calculate probability distributions.")
-        result = get_probability_distribution_data(
-            self.ctx.supercell,
-            self.ctx.primitive,
-            self.ctx.force_constants,
-            self.ctx.random_displacements,
-            self.inputs.temperature,
-        )
-        self.ctx.prev_probs.append(result["probability_distributions"])
 
     def finalize(self):
         """Finalize IterHarmonicApprox."""
@@ -691,33 +695,56 @@ def create_dataset(
         force_sets_in_db, displacements_in_db, probs_in_db=probs_in_db
     )
 
-    if probs:
-        assert force_constants is not None
-        assert temperature is not None
-        assert supercell is not None
-        assert primitive is not None
-        assert len(probs) == len(displacements)
-        weights = []
-        for disps, prob_orig in zip(displacements, probs):
-            prob = get_probability_distribution(
-                supercell, primitive, force_constants, disps, temperature
-            )
-            weights.append(prob / prob_orig)
-    else:
-        weights = [np.ones(len(disps), dtype="double") for disps in displacements]
-
-    _reweight_dataset(displacements, force_sets, weights)
-
-    d, f, included = _select_snapshots(
-        displacements,
-        force_sets,
+    num_elems = [len(d_batch) for d_batch in displacements]
+    included = _select_snapshots(
+        num_elems,
         energies,
         max_items=max_items,
         ratio=ratio,
         linear_decay=linear_decay,
     )
+    if probs:
+        weights = _get_reweights(
+            probs, force_constants, displacements, temperature, supercell, primitive
+        )
+    else:
+        weights = [np.ones(len(disps), dtype="double") for disps in displacements]
+
+    _reweight_dataset(displacements, force_sets, weights)
+
+    _f = [force_sets[i][included_batch] for i, included_batch in enumerate(included)]
+    _d = [displacements[i][included_batch] for i, included_batch in enumerate(included)]
+    d = np.concatenate(_d, axis=0)
+    f = np.concatenate(_f, axis=0)
 
     return d, f, energies, included, weights
+
+
+def _get_reweights(
+    probs,
+    force_constants,
+    displacements,
+    temperature: float,
+    supercell: PhonopyAtoms,
+    primitive: PhonopyAtoms,
+):
+    assert force_constants is not None
+    assert temperature is not None
+    assert supercell is not None
+    assert primitive is not None
+    assert len(probs) == len(displacements)
+    _primitive = convert_to_phonopy_primitive(supercell, primitive)
+    if force_constants.shape[0] == force_constants.shape[1]:
+        fc = force_constants
+    else:
+        fc = _compact_fc_to_full_fc(supercell, _primitive, force_constants)
+    weights = []
+    for disps, prob_orig in zip(displacements, probs):
+        prob = get_probability_distribution(
+            supercell, _primitive, fc, disps, temperature
+        )
+        weights.append(prob / prob_orig)
+    return weights
 
 
 def _reweight_dataset(displacements, force_sets, weights):
@@ -735,8 +762,7 @@ def _reweight_dataset(displacements, force_sets, weights):
 
 
 def _select_snapshots(
-    displacements,
-    force_sets,
+    num_elems,
     energies,
     max_items=None,
     ratio=None,
@@ -746,19 +772,12 @@ def _select_snapshots(
 
     Returns
     -------
-    d : ndarray
-        Sets of supercell displacements included.
-        shape=(num_included, natom_supercell, 3), dtype='double'
-    f : ndarray
-        Sets of supercell forces included.
-        shape=(num_included, natom_supercell, 3), dtype='double'
     included : list of list of bool
         This gives information that each supercell is included or not.
         Maybe `len(d) != len(np.concatenate(included)) , but
         `len(d) == np.concatenate(included).sum()`.
 
     """
-    num_elems = [len(d_batch) for d_batch in displacements]
     included = _choose_snapshots_by_linear_decay(
         num_elems, max_items=max_items, linear_decay=linear_decay
     )
@@ -768,12 +787,7 @@ def _select_snapshots(
         if 0 < ratio and ratio < 1:
             included = _remove_high_energy_snapshots(energies, included, ratio)
 
-    _f = [force_sets[i][included_batch] for i, included_batch in enumerate(included)]
-    _d = [displacements[i][included_batch] for i, included_batch in enumerate(included)]
-    d = np.concatenate(_d, axis=0)
-    f = np.concatenate(_f, axis=0)
-
-    return d, f, included
+    return included
 
 
 def _extract_dataset_from_db(force_sets_in_db, displacements_in_db, probs_in_db=None):
@@ -956,10 +970,17 @@ def get_probability_distribution_data(
     temperature,
 ):
     """Calculate probability distributions for sets of random displacements."""
+    phonopy_atoms_supercell = phonopy_atoms_from_structure(supercell)
+    phonopy_atoms_primitive = phonopy_atoms_from_structure(primitive)
+    phonopy_primitive = convert_to_phonopy_primitive(
+        phonopy_atoms_supercell,
+        phonopy_atoms_primitive,
+    )
+    _force_constants = force_constants.get_array("force_constants")
     _prob = get_probability_distribution(
-        phonopy_atoms_from_structure(supercell),
-        phonopy_atoms_from_structure(primitive),
-        force_constants.get_array("force_constants"),
+        phonopy_atoms_supercell,
+        phonopy_primitive,
+        _force_constants,
         random_displacements.get_array("displacements"),
         temperature.value,
     )
@@ -969,8 +990,8 @@ def get_probability_distribution_data(
 
 
 def get_probability_distribution(
-    supercell,
-    primitive,
+    supercell: PhonopyAtoms,
+    primitive: Primitive,
     force_constants,
     random_displacements,
     temperature,
@@ -981,22 +1002,22 @@ def get_probability_distribution(
     if force_constants.shape[0] == force_constants.shape[1]:
         fc = force_constants
     else:
-        slat = supercell.cell.T
-        plat = primitive.cell.T
-        pmat = np.dot(np.linalg.inv(slat), plat)
-        _primitive = get_primitive(supercell, pmat)
-        assert isclose(primitive, _primitive)
-
-        fc = np.zeros(
-            (force_constants.shape[1], force_constants.shape[1], 3, 3),
-            dtype="double",
-            order="C",
-        )
-        fc[_primitive.p2s_map] = force_constants
-        distribute_force_constants_by_translations(fc, _primitive, supercell)
-
+        fc = _compact_fc_to_full_fc(supercell, primitive, force_constants)
     uu = get_sscha_matrices(supercell, fc)
     uu.run(temperature)
     dmat = random_displacements.reshape(-1, 3 * len(supercell))
     vals = -(dmat * np.dot(dmat, uu.upsilon_matrix)).sum(axis=1) / 2
     return uu.prefactor * np.exp(vals)
+
+
+def _compact_fc_to_full_fc(
+    supercell: PhonopyAtoms, primitive: Primitive, force_constants
+):
+    fc = np.zeros(
+        (force_constants.shape[1], force_constants.shape[1], 3, 3),
+        dtype="double",
+        order="C",
+    )
+    fc[primitive.p2s_map] = force_constants
+    distribute_force_constants_by_translations(fc, primitive, supercell)
+    return fc
