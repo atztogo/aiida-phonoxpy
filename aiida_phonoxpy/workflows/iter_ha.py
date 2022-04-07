@@ -417,14 +417,34 @@ class IterHarmonicApprox(WorkChain):
                 }
             )
 
-        ret_Dict = collect_dataset(
+        (displacements, force_sets, energies, included, weights) = collect_dataset(
             self.inputs.number_of_steps_for_fitting,
             self.inputs.include_ratio,
             self.inputs.linear_decay,
             **kwargs,
         )
-        self.ctx.displacements = ret_Dict["displacements"]
-        self.ctx.force_sets = ret_Dict["force_sets"]
+
+        d, f = create_phonopy_dataset(displacements, force_sets, weights, included)
+        force_sets_data = ArrayData()
+        force_sets_data.set_array("force_sets", f)
+        displacements_data = ArrayData()
+        displacements_data.set_array("displacements", d)
+
+        self.ctx.displacements = displacements_data
+        self.ctx.force_sets = force_sets_data
+
+        sscha_fe_data = {
+            "supercell": self.ctx.supercell,
+            "primitive": self.ctx.primitive,
+            "temperature": self.inputs.temperature,
+            "force_constants": self.ctx.force_constants,
+        }
+        for i, _ in enumerate(nodes):
+            sscha_fe_data[f"displacements_{i + 1}"] = kwargs[f"displacements_{i + 1}"]
+        sscha_fe_data["energies"] = Dict(dict={"energies": energies})
+        sscha_fe_data["included"] = Dict(dict={"included": included})
+        sscha_fe_data["weights"] = Dict(dict={"weights": weights})
+        calculate_sscha_free_energy(**sscha_fe_data)
 
     def run_force_constants_calculation_local(self):
         """Generate displacements from previous phonon calculations.
@@ -604,21 +624,12 @@ def get_sscha_free_energy(ph: Phonopy, e, temperature, prev_fc):
     return free_energy, v_ave, v_harm_rho, v_harm_dd, ph.force_constants
 
 
-@calcfunction
 def collect_dataset(number_of_steps_for_fitting, include_ratio, linear_decay, **data):
     """Collect supercell displacements, forces, and energies.
 
     Returns
     -------
-    dataset : ArrayData
-        Displacements and forces used for calculating force constants
-        to generate random displacements.
-    supercell_energies : Dict
-        'supercell_energies' : List of list
-            Total energies of snapshots before step (3) above.
-        'included' : List of list
-            Finally included snapshots after step (4). The snapshots are
-            indexed by concatenating list of list in step (3).
+    See docstring of `get_sshca_free_energy_dataset`.
 
     """
     nitems = max([int(key.split("_")[-1]) for key in data.keys() if "forces" in key])
@@ -648,38 +659,78 @@ def collect_dataset(number_of_steps_for_fitting, include_ratio, linear_decay, **
     if "primitive" in data:
         kwargs["primitive"] = phonopy_atoms_from_structure(data["primitive"])
 
-    my_displacements, my_force_sets, energies, included, weights = create_dataset(
-        force_sets_in_db, displacements_in_db, **kwargs
-    )
+    (
+        displacements,
+        force_sets,
+        energies,
+        included,
+        weights,
+    ) = get_sshca_free_energy_dataset(displacements_in_db, force_sets_in_db, **kwargs)
 
-    ret_force_sets = ArrayData()
-    ret_force_sets.set_array("force_sets", my_force_sets)
-    ret_displacements = ArrayData()
-    ret_displacements.set_array("displacements", my_displacements)
-    supercell_energies = Dict(
-        dict={"energies": energies, "included": included, "weights": weights}
-    )
-
-    return {
-        "displacements": ret_displacements,
-        "force_sets": ret_force_sets,
-        "supercell_energies": supercell_energies,
-    }
+    return displacements, force_sets, energies, included, weights
 
 
-def create_dataset(
-    force_sets_in_db,
+@calcfunction
+def calculate_sscha_free_energy(**data):
+    """Calculate SSCHA free energy.
+
+    To be implemented. Currently this function is used for storing data in DB.
+
+    """
+    pass
+
+
+def create_phonopy_dataset(displacements, force_sets, weights, included):
+    """Create dataset for phonopy force constants calculation.
+
+    This function does two jobs:
+    - Reweights forces and displacements.
+    - Concatenate data of selected supercells.
+
+    Parameters
+    ----------
+    displacements : list
+        List of sets of supercell displacements included.
+        shape=(num_steps, num_supercell, natom_supercell, 3), dtype='double'
+    force_sets : list
+        List of sets of supercell forces included.
+        shape=(num_steps, num_supercell, natom_supercell, 3), dtype='double'
+    weights : list of ndarray of double
+        Weights multiplied to forces and displacements.
+        Same shape as `included`.
+    included : list of list of bool
+        This gives information that each supercell is included or not.
+        Maybe `len(d) != len(np.concatenate(included)) , but
+        `len(d) == np.concatenate(included).sum()`.
+
+    Returns
+    -------
+    d : ndarray
+        Sets of supercell displacements included.
+        shape=(num_included, natom_supercell, 3), dtype='double'
+    f : ndarray
+        Sets of supercell forces included.
+        shape=(num_included, natom_supercell, 3), dtype='double'
+
+    """
+    _reweight_dataset(displacements, force_sets, weights)
+    d, f = _concatenate_dataset(displacements, force_sets, included)
+    return d, f
+
+
+def get_sshca_free_energy_dataset(
     displacements_in_db,
+    force_sets_in_db,
+    probs_in_db=None,
     max_items=None,
     ratio=None,
     linear_decay=False,
-    probs_in_db=None,
     force_constants=None,
     temperature=None,
     supercell=None,
     primitive=None,
 ):
-    """Collect and select data for force constants calculation.
+    """Return data needed to calculated SSHCA free energy.
 
     Parameters
     ----------
@@ -705,12 +756,12 @@ def create_dataset(
 
     Returns
     -------
-    d : ndarray
-        Sets of supercell displacements included.
-        shape=(num_included, natom_supercell, 3), dtype='double'
-    f : ndarray
-        Sets of supercell forces included.
-        shape=(num_included, natom_supercell, 3), dtype='double'
+    displacements : list
+        List of sets of supercell displacements included.
+        shape=(num_steps, num_supercell, natom_supercell, 3), dtype='double'
+    force_sets : list
+        List of sets of supercell forces included.
+        shape=(num_steps, num_supercell, natom_supercell, 3), dtype='double'
     included : list of list of bool
         This gives information that each supercell is included or not.
         Maybe `len(d) != len(np.concatenate(included)) , but
@@ -726,7 +777,6 @@ def create_dataset(
     displacements, force_sets, energies, probs = _extract_dataset_from_db(
         force_sets_in_db, displacements_in_db, probs_in_db=probs_in_db
     )
-
     num_elems = [len(d_batch) for d_batch in displacements]
     included = _select_snapshots(
         num_elems,
@@ -742,14 +792,77 @@ def create_dataset(
     else:
         weights = [np.ones(len(disps), dtype="double") for disps in displacements]
 
-    _reweight_dataset(displacements, force_sets, weights)
+    return displacements, force_sets, energies, included, weights
 
-    _f = [force_sets[i][included_batch] for i, included_batch in enumerate(included)]
-    _d = [displacements[i][included_batch] for i, included_batch in enumerate(included)]
-    d = np.concatenate(_d, axis=0)
-    f = np.concatenate(_f, axis=0)
 
-    return d, f, energies, included, weights
+def _extract_dataset_from_db(force_sets_in_db, displacements_in_db, probs_in_db=None):
+    """Collect force_sets, energies, and displacements to numpy arrays.
+
+    Parameters
+    ----------
+    force_sets_in_db : List of ArrayData
+        Each ArrayData is the output of PhonopyWorkChain.
+    displacements_in_db : List of ArrayData
+        Each ArrayData is the output of PhonopyWorkChain.
+    probs_in_db : List of ArrayData or None
+        Probability distributions of corresponding displacements and force constants.
+
+    Returns
+    -------
+    my_force_sets : List of ndarray
+    my_energies : List of ndarray
+    my_displacements : List of ndarray
+
+    """
+    nitems = len(force_sets_in_db)
+    my_displacements = []
+    my_force_sets = []
+    my_energies = []
+    my_probs = []
+
+    for i in range(nitems):
+        force_sets = force_sets_in_db[i].get_array("force_sets")
+        displacements = displacements_in_db[i].get_array("displacements")
+
+        my_force_sets.append(force_sets)
+        if "energies" in force_sets_in_db[i].get_arraynames():
+            energy_sets = force_sets_in_db[i].get_array("energies")
+            my_energies.append(energy_sets)
+        my_displacements.append(displacements)
+
+        if probs_in_db:
+            my_probs.append(probs_in_db[i].get_array("probability_distributions"))
+
+    return my_displacements, my_force_sets, my_energies, my_probs
+
+
+def _select_snapshots(
+    num_elems,
+    energies,
+    max_items=None,
+    ratio=None,
+    linear_decay=False,
+):
+    """Select snapshots.
+
+    Returns
+    -------
+    included : list of list of bool
+        This gives information that each supercell is included or not.
+        Maybe `len(d) != len(np.concatenate(included)) , but
+        `len(d) == np.concatenate(included).sum()`.
+
+    """
+    included = _choose_snapshots_by_linear_decay(
+        num_elems, max_items=max_items, linear_decay=linear_decay
+    )
+
+    # Remove snapshots that have high energies when include_ratio is given.
+    if energies is not None and ratio is not None:
+        if 0 < ratio and ratio < 1:
+            included = _remove_high_energy_snapshots(energies, included, ratio)
+
+    return included
 
 
 def _get_reweights(
@@ -793,74 +906,10 @@ def _reweight_dataset(displacements, force_sets, weights):
             forces[i] *= w
 
 
-def _select_snapshots(
-    num_elems,
-    energies,
-    max_items=None,
-    ratio=None,
-    linear_decay=False,
-):
-    """Select snapshots.
-
-    Returns
-    -------
-    included : list of list of bool
-        This gives information that each supercell is included or not.
-        Maybe `len(d) != len(np.concatenate(included)) , but
-        `len(d) == np.concatenate(included).sum()`.
-
-    """
-    included = _choose_snapshots_by_linear_decay(
-        num_elems, max_items=max_items, linear_decay=linear_decay
-    )
-
-    # Remove snapshots that have high energies when include_ratio is given.
-    if energies is not None and ratio is not None:
-        if 0 < ratio and ratio < 1:
-            included = _remove_high_energy_snapshots(energies, included, ratio)
-
-    return included
-
-
-def _extract_dataset_from_db(force_sets_in_db, displacements_in_db, probs_in_db=None):
-    """Collect force_sets, energies, and displacements to numpy arrays.
-
-    Parameters
-    ----------
-    force_sets_in_db : List of ArrayData
-        Each ArrayData is the output of PhonopyWorkChain.
-    displacements_in_db : List of ArrayData
-        Each ArrayData is the output of PhonopyWorkChain.
-    probs_in_db : List of ArrayData or None
-        Probability distributions of corresponding displacements and force constants.
-
-    Returns
-    -------
-    my_force_sets : List of ndarray
-    my_energies : List of ndarray
-    my_displacements : List of ndarray
-
-    """
-    nitems = len(force_sets_in_db)
-    my_displacements = []
-    my_force_sets = []
-    my_energies = []
-    my_probs = []
-
-    for i in range(nitems):
-        force_sets = force_sets_in_db[i].get_array("force_sets")
-        displacements = displacements_in_db[i].get_array("displacements")
-
-        my_force_sets.append(force_sets)
-        if "energies" in force_sets_in_db[i].get_arraynames():
-            energy_sets = force_sets_in_db[i].get_array("energies")
-            my_energies.append(energy_sets)
-        my_displacements.append(displacements)
-
-        if probs_in_db:
-            my_probs.append(probs_in_db[i].get_array("probability_distributions"))
-
-    return my_displacements, my_force_sets, my_energies, my_probs
+def _concatenate_dataset(displacements, force_sets, included):
+    _f = [force_sets[i][included_batch] for i, included_batch in enumerate(included)]
+    _d = [displacements[i][included_batch] for i, included_batch in enumerate(included)]
+    return np.concatenate(_d, axis=0), np.concatenate(_f, axis=0)
 
 
 def _choose_snapshots_by_linear_decay(num_elems, max_items=None, linear_decay=False):
