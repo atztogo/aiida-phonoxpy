@@ -434,9 +434,6 @@ class IterHarmonicApprox(WorkChain):
         self.ctx.force_sets = force_sets_data
 
         sscha_fe_data = {
-            "supercell": self.ctx.supercell,
-            "primitive": self.ctx.primitive,
-            "temperature": self.inputs.temperature,
             "force_constants": self.ctx.force_constants,
         }
         for i, _ in enumerate(nodes):
@@ -536,7 +533,15 @@ class IterHarmonicApprox(WorkChain):
         return inputs
 
 
-def get_sscha_free_energy(ph: Phonopy, e, temperature, prev_fc):
+def get_sscha_free_energy(
+    ph: Phonopy,
+    displacements,
+    energies,
+    weights,
+    temperature,
+    reference_energy=None,
+    cutoff_frequency=None,
+):
     """Return energies for SSCHA free energy.
 
     SSCHA free energy is calculated from
@@ -571,44 +576,35 @@ def get_sscha_free_energy(ph: Phonopy, e, temperature, prev_fc):
     """
     from phono3py.sscha.sscha import SupercellPhonon, DispCorrMatrix
 
-    cutoff_frequency = 0.01
-    mesh_numbers = [30, 30, 30]
-
-    # Latest force constants are just returend.
-    ph.produce_force_constants(fc_calculator="alm")
+    if reference_energy is None:
+        ref_e = 0
+    else:
+        ref_e = reference_energy
 
     # <V_ha> with correlation of displacements analytically calcualted from density
     # matrix.
-    d = ph.dataset["displacements"]
     sc_ph = SupercellPhonon(ph.supercell, ph.force_constants)
     uu = DispCorrMatrix(sc_ph, cutoff_frequency=cutoff_frequency)
     uu.run(temperature)
     v_harm_rho = (sc_ph.force_constants * uu.psi_matrix).sum() / 2
 
-    # <V_ha> from correlation of generated finite displacements.
-    u = d.reshape(d.shape[0], -1)
-    uu_ave = np.dot(u.T, u) / u.shape[0]
-    v_harm_dd = (sc_ph.force_constants * uu_ave).sum() / 2
+    v_harm_dd = 0.0
+    v_ave = 0.0
+    for d, e, w in zip(displacements, energies, weights):
+        # <V_ha> from correlation of generated finite displacements.
+        u = d.reshape(d.shape[0], -1)
+        uu_ave = np.dot(u.T * w, u)
+        v_harm_dd += (sc_ph.force_constants * uu_ave).sum() / 2
 
-    # <V_el>
-    v_ave = np.sum(e) / len(e)
+        # <V_el>
+        v_ave += np.sum((e - ref_e) * w)
+
+    n_div = len(np.concatenate(energies))
+    v_harm_dd /= n_div
+    v_ave /= n_div
 
     # F_ha
-    prev_ph = Phonopy(
-        ph.unitcell,
-        supercell_matrix=ph.supercell_matrix,
-        primitive_matrix=ph.primitive_matrix,
-    )
-    prev_ph.nac_params = ph.nac_params
-    prev_ph.force_constants = prev_fc
-    prev_ph.run_mesh(mesh=mesh_numbers, is_gamma_center=True)
-    prev_ph.run_thermal_properties(
-        temperatures=[
-            temperature,
-        ],
-        cutoff_frequency=cutoff_frequency,
-    )
-    free_energy = prev_ph.get_thermal_properties_dict()["free_energy"][0]
+    free_energy = ph.get_thermal_properties_dict()["free_energy"][0]
     free_energy /= EvTokJmol  # in eV/primitive cell
 
     # fe_corr in eV/primitive cell
@@ -621,7 +617,7 @@ def get_sscha_free_energy(ph: Phonopy, e, temperature, prev_fc):
     v_harm_rho *= coef_per_prim
     v_harm_dd *= coef_per_prim
 
-    return free_energy, v_ave, v_harm_rho, v_harm_dd, ph.force_constants
+    return free_energy, v_ave, v_harm_rho, v_harm_dd
 
 
 def collect_dataset(number_of_steps_for_fitting, include_ratio, linear_decay, **data):
