@@ -20,7 +20,7 @@ from aiida_phonoxpy.utils.utils import (
 )
 from aiida_phonoxpy.workflows.phonopy import PhonopyWorkChain
 
-from phonopy.units import EvTokJmol
+from phonopy.units import EvTokJmol, THzToEv
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.structure.cells import (
     Primitive,
@@ -538,40 +538,63 @@ def get_sscha_free_energy(
     displacements,
     energies,
     weights,
+    included,
     temperature,
     reference_energy=None,
-    cutoff_frequency=None,
 ):
     """Return energies for SSCHA free energy.
 
     SSCHA free energy is calculated from
-    - Force constants (`prev_fc`)
-    - Displacements (`ph.displacements`)
-    - Supercell electronic total energy (`e`)
+    - Force constants (`ph.force_constants`) in eV/A^2.
+    - Displacements (`displacements`) in Angstrom.
+    - Supercell electronic total energy (`energies`) in eV/supercell.
+    - Reference energy (`reference_energy`) in eV/supercell.
+    - Reweighting values (`weights`).
+    - Temperature (`temperature) in K.
 
-    The displacements (`ph.displacements`) are generated from this force constants
-    (`prev_fc`). Forces (`ph.forces`) and the energies (`e`) are the results of
+    The displacements (`displacements`) are generated from this force constants
+    (`ph.force_constants`). The energies (`energies`) are the results of
     some calculator (e.g. first-principels calculation) with respect to the
-    displacements (`ph.displacements`).
+    displacements (`displacements`).
 
-    New force constants are calcualted from the displacements (`ph.displacements`)
-    and forces (`ph.forces`) and returned.
+    Parameters
+    ----------
+    ph : Phonopy
+        Phonopy instance ready for phonon calculation with force constants.
+    displacements : list of ndarray
+        Displacements of supercells.
+        [(num_supercells_1, num_atoms, 3), (num_supercells_2, num_atoms, 3), ...].
+    energies : list of ndarray of double
+        Supercell energies.
+        [(num_supercells_1,), (num_supercells_2,), ...].
+    weights : list of ndarray of double
+        Reweighting values calcuated by rho(Phi,disp)/rho(Phi_prev,disp).
+        [(num_supercells_1,), (num_supercells_2,), ...].
+    included : list of ndarray of bool
+        This tells whether each supercell was included in the force constants
+        calculation or not.
+        [(num_supercells_1,), (num_supercells_2,), ...].
+    temperature : float
+        Temperature.
+    reference_energy : float, optional
+        Supercell energies for reference. This value is subtracted from `energies`.
 
     Returns
     -------
     tuple
-        (harmonic free energy,
-         average energy from electric structure,
-         SCHA potential calculated from statistical expression,
-         SCHA potential calculated from displacements in supercell,
-         force constants calcualted from input dataset)
+        (harmonic free energy (F_ha)
+         average energy from electric structure (<V_ave>),
+         SCHA potential calculated from statistical expression (<V_ha^rho>),
+         SCHA potential calculated from displacements in supercell (<V_ha^dd>))
+        The energy unit is in eV/primitive-cell. In <V_ave>, `reference_energy` is
+        subtracted.
 
     Average energy from electric structure is calcualted by A16 in Bianco
     et al., PhysRevB.96.014111.
 
     SSCHA free energy is given as
 
-        F = F_ha - <V_ha> + <V_el>.
+        F = F_ha - <V_ha> + <V_ave>.
 
     """
     from phono3py.sscha.sscha import SupercellPhonon, DispCorrMatrix
@@ -584,22 +607,25 @@ def get_sscha_free_energy(
     # <V_ha> with correlation of displacements analytically calcualted from density
     # matrix.
     sc_ph = SupercellPhonon(ph.supercell, ph.force_constants)
+    cutoff_frequency = ph.thermal_properties.cutoff_frequency / THzToEv
     uu = DispCorrMatrix(sc_ph, cutoff_frequency=cutoff_frequency)
     uu.run(temperature)
     v_harm_rho = (sc_ph.force_constants * uu.psi_matrix).sum() / 2
 
     v_harm_dd = 0.0
     v_ave = 0.0
-    for d, e, w in zip(displacements, energies, weights):
+    for d, e, w, inc in zip(displacements, energies, weights, included):
         # <V_ha> from correlation of generated finite displacements.
-        u = d.reshape(d.shape[0], -1)
-        uu_ave = np.dot(u.T * w, u)
+        _w = np.extract(inc, w)
+        _e = np.extract(inc, e)
+        u = d[inc].reshape(d[inc].shape[0], -1)
+        uu_ave = np.dot(u.T * _w, u)
         v_harm_dd += (sc_ph.force_constants * uu_ave).sum() / 2
 
         # <V_el>
-        v_ave += np.sum((e - ref_e) * w)
+        v_ave += np.sum((_e - ref_e) * _w)
 
-    n_div = len(np.concatenate(energies))
+    n_div = np.concatenate(included).sum()
     v_harm_dd /= n_div
     v_ave /= n_div
 
