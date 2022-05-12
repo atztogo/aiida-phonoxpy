@@ -60,18 +60,14 @@ def test_phono3py_default(
     ]:
         assert key in results
 
-    with results["fc2"].open() as f:
-        path_fc2 = f.name
-    with results["fc3"].open() as f:
-        path_fc3 = f.name
-
-    with h5py.File(path_fc2, "r") as f_fc2, h5py.File(path_fc3, "r") as f_fc3:
-        num_regression.check(
-            {
-                "force_constants": f_fc2["force_constants"][:].ravel(),
-                "fc3": f_fc3["fc3"][:].ravel(),
-            }
-        )
+    with results["fc2"].open(mode="rb") as f2, results["fc3"].open(mode="rb") as f3:
+        with h5py.File(f2) as f_fc2, h5py.File(f3) as f_fc3:
+            num_regression.check(
+                {
+                    "force_constants": f_fc2["force_constants"][:].ravel(),
+                    "fc3": f_fc3["fc3"][:].ravel(),
+                }
+            )
 
 
 def test_phono3py_ltc_default(
@@ -120,12 +116,10 @@ def test_phono3py_ltc_default(
     ]:
         assert key in results
 
-    with results["ltc"].open() as f:
-        path_ltc = f.name
-
-    with h5py.File(path_ltc, "r") as f_ltc:
-        num_regression.check(
-            {
-                "ltc": f_ltc["kappa"][:].ravel(),
-            }
-        )
+    with results["ltc"].open(mode="rb") as f:
+        with h5py.File(f) as f_ltc:
+            num_regression.check(
+                {
+                    "ltc": f_ltc["kappa"][:].ravel(),
+                }
+            )

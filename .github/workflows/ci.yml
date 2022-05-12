@@ -78,7 +78,6 @@ jobs:
         run: |
           pip install --upgrade setuptools wheel
           pip install -e .[tests]
-          reentry scan
 
       - name: Install phono3py
         run: |
