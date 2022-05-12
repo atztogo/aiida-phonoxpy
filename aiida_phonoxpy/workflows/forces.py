@@ -58,16 +58,18 @@ def _get_energy(outputs, plugin_name):
     if plugin_name == "vasp.vasp":
         ekey = "energy_extrapolated"
         if "energies" in outputs and ekey in outputs.energies.get_arraynames():
-            energy_data = get_vasp_energy(outputs.energies)
+            return get_vasp_energy(outputs.energies)
         else:
             return None
-    elif plugin_name == "quantumespresso.pw":
+
+    if plugin_name == "quantumespresso.pw":
         if (
             "output_parameters" in outputs
             and "energy" in outputs.output_parameters.keys()
         ):
-            energy_data = get_qe_energy(outputs.output_parameters)
-    return energy_data
+            return get_qe_energy(outputs.output_parameters)
+        else:
+            return None
 
 
 @calcfunction
