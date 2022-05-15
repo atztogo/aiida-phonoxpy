@@ -464,3 +464,70 @@ def test_passing_through_NacParamsWorkChain(
         "nac_params",
     )
     assert set(list(result)) == set(output_keys)
+
+
+@pytest.mark.parametrize("plugin_name", ["vasp.vasp"])
+def test_passing_through_NacParamsWorkChain_nac_structure(
+    fixture_code,
+    generate_structure,
+    generate_settings,
+    generate_workchain,
+    generate_force_sets,
+    generate_nac_params,
+    mock_calculator_code,
+    plugin_name,
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool
+
+    nac_params_data = generate_nac_params(structure_id="NaCl-unitcell")
+    born_charges = nac_params_data.get_array("born_charges")
+    epsilon = nac_params_data.get_array("epsilon")
+    force_sets = generate_force_sets().get_array("force_sets")
+
+    if plugin_name == "vasp.vasp":
+        nac_inputs = {
+            "code": mock_calculator_code(plugin_name),
+            "born_charges": born_charges,
+            "epsilon": epsilon,
+        }
+    else:
+        raise RuntimeError("plugin_name doesn't exist.")
+
+    inputs = {
+        "code": fixture_code("phonoxpy.phonopy"),
+        "structure": generate_structure(),
+        "nac_structure": generate_structure(),
+        "settings": generate_settings(),
+        "metadata": {},
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code(plugin_name),
+                "force_sets": force_sets,
+            },
+            "nac": nac_inputs,
+        },
+        "run_phonopy": Bool(False),
+    }
+
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+
+    for key in ("born_charges", "epsilon"):
+        np.testing.assert_allclose(
+            result["nac_params"].get_array(key),
+            generate_nac_params().get_array(key),
+            atol=1e-8,
+            rtol=0,
+        )
+
+    output_keys = (
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "displacement_dataset",
+        "force_sets",
+        "nac_params",
+    )
+    assert set(list(result)) == set(output_keys)

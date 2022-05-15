@@ -923,6 +923,25 @@ def generate_nac_params():
                 "born_charges", np.array([1.10268732 * _I, -1.10268732 * _I])
             )
             nac_params.set_array("epsilon", np.array(2.48006321 * _I))
+        elif structure_id == "NaCl-unitcell":
+            nac_params = ArrayData()
+            _I = np.eye(3)
+            nac_params.set_array(
+                "born_charges",
+                np.array(
+                    [
+                        1.10268732 * _I,
+                        1.10268732 * _I,
+                        1.10268732 * _I,
+                        1.10268732 * _I,
+                        -1.10268732 * _I,
+                        -1.10268732 * _I,
+                        -1.10268732 * _I,
+                        -1.10268732 * _I,
+                    ]
+                ),
+            )
+            nac_params.set_array("epsilon", np.array(2.48006321 * _I))
         else:
             raise KeyError(f'Unknown structure_id="{structure_id}"')
         return nac_params
