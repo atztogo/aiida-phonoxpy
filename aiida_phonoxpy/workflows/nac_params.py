@@ -18,98 +18,32 @@ from aiida_phonoxpy.utils.utils import (
 from aiida_phonoxpy.workflows.mixin import DoNothingMixIn
 
 
-def _get_nac_params(ctx, symmetry_tolerance):
-    """Obtain Born effective charges and dielectric constants in primitive cell.
+class NacParamsWorkChain(WorkChain, DoNothingMixIn):
+    """Wrapper to compute non-analytical term correction parameters.
 
-    When Born effective charges and dielectric constants are calculated within
-    phonopy workchain, those values are calculated in the primitive cell.
-    However using immigrant, the cell may not be primitive cell and can be
-    unit cell. In this case, conversion of data is necessary. This conversion
-    needs information of the structure where those values were calcualted and
-    the target primitive cell structure.
+    inputs
+    ------
+    structure : StructureData
+        Structure on which NAC params are calculated.
+    calculator_inputs : dict, optional
+        This is used for Born effective charges and dielectric constant calculation
+        in primitive cell. The primitive cell is chosen by phonopy
+        automatically.
+    primitive_structure : StructureData, optional
+        Primitive cell structure. This is optionally used to extract NAC params
+        in primitive cell.
+    donothing_inputs : dict, optional
+        This is used when donothing plugin to control submission of calculations.
+    symmetry_tolerance : Float, optional
+        Symmetry tolerance. Default is 1e-5.
 
-    When using immigrant, structure is in the immigrant calculation but not
-    the workchain. 'structure' should be accessible in the vasp immigrant
-    workchain level, and this should be fixed in aiida-vasp.
+    outputs
+    -------
+    nac_params : ArrayData
+        NAC params. When `primitive_structure` is specified, NAC params for primitive
+        cell are extracted.
 
     """
-    if ctx.plugin_names[0] == "vasp.vasp":
-        calc = ctx.nac_params_calcs[0]
-        if "structure" in calc.inputs:
-            structure = calc.inputs.structure
-        else:
-            structure = get_structure_from_vasp_immigrant(calc)
-        nac_params = get_vasp_nac_params(
-            calc.outputs.born_charges,
-            calc.outputs.dielectrics,
-            structure,
-            symmetry_tolerance,
-        )
-    elif ctx.plugin_names[0] == "quantumespresso.pw":
-        pw_calc = ctx.nac_params_calcs[0]
-        ph_calc = ctx.nac_params_calcs[1]
-        nac_params = get_qe_nac_params(
-            ph_calc.outputs.output_parameters,
-            pw_calc.inputs.pw.structure,
-            symmetry_tolerance,
-        )
-    else:
-        nac_params = None
-    return nac_params
-
-
-@calcfunction
-def get_qe_nac_params(output_parameters, structure, symmetry_tolerance, primitive=None):
-    """Return NAC params ArrayData created from QE results."""
-    nac_params = _get_nac_params_array(
-        output_parameters["effective_charges_eu"],
-        output_parameters["dielectric_constant"],
-        structure,
-        symmetry_tolerance.value,
-        primitive=primitive,
-    )
-    return nac_params
-
-
-@calcfunction
-def get_vasp_nac_params(
-    born_charges, epsilon, structure, symmetry_tolerance, primitive=None
-):
-    """Return NAC params ArrayData created from VASP results."""
-    nac_params = _get_nac_params_array(
-        born_charges.get_array("born_charges"),
-        epsilon.get_array("epsilon"),
-        structure,
-        symmetry_tolerance.value,
-        primitive=primitive,
-    )
-    return nac_params
-
-
-def _get_nac_params_array(
-    born_charges, epsilon, structure, symmetry_tolerance, primitive=None
-):
-    phonopy_cell = phonopy_atoms_from_structure(structure)
-    if primitive is not None:
-        phonopy_primitive = phonopy_atoms_from_structure(primitive)
-    else:
-        phonopy_primitive = None
-    borns_, epsilon_ = symmetrize_borns_and_epsilon(
-        born_charges,
-        epsilon,
-        phonopy_cell,
-        symprec=symmetry_tolerance,
-        primitive=phonopy_primitive,
-    )
-    nac_params = ArrayData()
-    nac_params.set_array("born_charges", borns_)
-    nac_params.set_array("epsilon", epsilon_)
-    nac_params.label = "born_charges & epsilon"
-    return nac_params
-
-
-class NacParamsWorkChain(WorkChain, DoNothingMixIn):
-    """Wrapper to compute non-analytical term correction parameters."""
 
     @classmethod
     def define(cls, spec):
@@ -117,6 +51,7 @@ class NacParamsWorkChain(WorkChain, DoNothingMixIn):
         super().define(spec)
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("calculator_inputs", valid_type=dict, required=True, non_db=True)
+        spec.input("primitive_structure", valid_type=StructureData, required=False)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
         spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
 
@@ -179,6 +114,9 @@ class NacParamsWorkChain(WorkChain, DoNothingMixIn):
             self.ctx.max_iteration = 1
 
         self.ctx.plugin_names = get_plugin_names(self.inputs.calculator_inputs)
+
+        if "primitive_structure" in self.inputs:
+            self.ctx.primitive_structure = self.inputs.primitive_structure
 
     def run_calculation(self):
         """Run NAC params calculation."""
@@ -247,3 +185,100 @@ class NacParamsWorkChain(WorkChain, DoNothingMixIn):
             return self.exit_codes.ERROR_NO_NAC_PARAMS
 
         self.out("nac_params", nac_params)
+
+
+def _get_nac_params(ctx, symmetry_tolerance):
+    """Obtain Born effective charges and dielectric constants in primitive cell.
+
+    When Born effective charges and dielectric constants are calculated within
+    phonopy workchain, those values are calculated in the primitive cell.
+    However using immigrant, the cell may not be primitive cell and can be
+    unit cell. In this case, conversion of data is necessary. This conversion
+    needs information of the structure where those values were calcualted and
+    the target primitive cell structure.
+
+    When using immigrant, structure is in the immigrant calculation but not
+    the workchain. 'structure' should be accessible in the vasp immigrant
+    workchain level, and this should be fixed in aiida-vasp.
+
+    """
+    if ctx.plugin_names[0] == "vasp.vasp":
+        calc = ctx.nac_params_calcs[0]
+        if "structure" in calc.inputs:
+            structure = calc.inputs.structure
+        else:
+            structure = get_structure_from_vasp_immigrant(calc)
+
+        kwargs = {}
+        if "primitive_structure" in ctx:
+            kwargs["primitive_structure"] = ctx.primitive_structure
+        nac_params = get_vasp_nac_params(
+            calc.outputs.born_charges,
+            calc.outputs.dielectrics,
+            structure,
+            symmetry_tolerance,
+            **kwargs
+        )
+    elif ctx.plugin_names[0] == "quantumespresso.pw":
+        pw_calc = ctx.nac_params_calcs[0]
+        ph_calc = ctx.nac_params_calcs[1]
+        nac_params = get_qe_nac_params(
+            ph_calc.outputs.output_parameters,
+            pw_calc.inputs.pw.structure,
+            symmetry_tolerance,
+        )
+    else:
+        nac_params = None
+    return nac_params
+
+
+@calcfunction
+def get_qe_nac_params(
+    output_parameters, structure, symmetry_tolerance, primitive_structure=None
+):
+    """Return NAC params ArrayData created from QE results."""
+    nac_params = _get_nac_params_array(
+        output_parameters["effective_charges_eu"],
+        output_parameters["dielectric_constant"],
+        structure,
+        symmetry_tolerance.value,
+        primitive=primitive_structure,
+    )
+    return nac_params
+
+
+@calcfunction
+def get_vasp_nac_params(
+    born_charges, epsilon, structure, symmetry_tolerance, primitive_structure=None
+):
+    """Return NAC params ArrayData created from VASP results."""
+    nac_params = _get_nac_params_array(
+        born_charges.get_array("born_charges"),
+        epsilon.get_array("epsilon"),
+        structure,
+        symmetry_tolerance.value,
+        primitive_structure=primitive_structure,
+    )
+    return nac_params
+
+
+def _get_nac_params_array(
+    born_charges, epsilon, structure, symmetry_tolerance, primitive_structure=None
+):
+    phonopy_cell = phonopy_atoms_from_structure(structure)
+    if primitive_structure is None:
+        phonopy_primitive = None
+    else:
+        phonopy_primitive = phonopy_atoms_from_structure(primitive_structure)
+    borns_, epsilon_ = symmetrize_borns_and_epsilon(
+        born_charges,
+        epsilon,
+        phonopy_cell,
+        symprec=symmetry_tolerance,
+        primitive=phonopy_primitive,
+    )
+    nac_params = ArrayData()
+    nac_params.set_array("born_charges", borns_)
+    nac_params.set_array("epsilon", epsilon_)
+    nac_params.label = "born_charges & epsilon"
+    return nac_params
