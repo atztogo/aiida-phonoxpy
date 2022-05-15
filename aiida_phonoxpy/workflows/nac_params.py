@@ -242,7 +242,7 @@ def get_qe_nac_params(
         output_parameters["dielectric_constant"],
         structure,
         symmetry_tolerance.value,
-        primitive=primitive_structure,
+        primitive_structure=primitive_structure,
     )
     return nac_params
 
