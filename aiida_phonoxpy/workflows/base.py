@@ -52,6 +52,8 @@ class BasePhonopyWorkChain(WorkChain):
         This is used for Born effective charges and dielectric constant calculation
         in primitive cell. The primitive cell is chosen by phonopy
         automatically.
+    donothing_inputs : dict, optional
+        This is used when donothing plugin to control submission of calculations.
     subtract_residual_forces : Bool, optional
         Run a perfect supercell force calculation and subtract the residual
         forces from forces in supercells with displacements. Default is False.
@@ -83,6 +85,7 @@ class BasePhonopyWorkChain(WorkChain):
         spec.input(
             "subtract_residual_forces", valid_type=Bool, default=lambda: Bool(False)
         )
+        spec.input("nac_structure", valid_type=StructureData, required=False)
         spec.input("displacement_dataset", valid_type=Dict, required=False)
         spec.input("displacements", valid_type=ArrayData, required=False)
         spec.input("force_sets", valid_type=ArrayData, required=False)
@@ -179,7 +182,11 @@ class BasePhonopyWorkChain(WorkChain):
 
         builder = NacParamsWorkChain.get_builder()
         builder.metadata.label = "nac_params_calc"
-        builder.structure = self.ctx.primitive
+        if "nac_structure" in self.inputs:
+            builder.structure = self.inputs.nac_structure
+            builder.primitive_structure = self.ctx.primitive
+        else:
+            builder.structure = self.ctx.primitive
         if "nac" in self.inputs.calculator_inputs:
             calculator_inputs = self.inputs.calculator_inputs.nac
         else:
