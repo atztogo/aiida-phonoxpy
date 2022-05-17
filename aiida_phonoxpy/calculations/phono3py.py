@@ -82,7 +82,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
                 fc_file = self.inputs[key]
                 if isinstance(fc_file, SinglefileData):
                     calcinfo.local_copy_list.append(
-                        (fc_file.uuid, fc_file.filename, fc_file.filename)
+                        (fc_file.uuid, fc_file.filename, f"{key}.hdf5")
                     )
         return calcinfo
 
