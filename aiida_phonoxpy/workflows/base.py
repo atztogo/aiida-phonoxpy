@@ -149,7 +149,7 @@ class BasePhonopyWorkChain(WorkChain):
 
     def force_sets_exists(self):
         """Return boolean for outline."""
-        return "force_sets" in self.inputs
+        return "force_sets" in self.inputs or "force_sets" in self.ctx
 
     def nac_params_exists(self):
         """Return boolean for outline."""

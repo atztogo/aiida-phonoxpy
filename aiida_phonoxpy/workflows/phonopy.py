@@ -83,7 +83,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                 if_(cls.is_nac)(cls.attach_nac_params),
             ),
             if_(cls.should_run_phonopy)(
-                if_(cls.is_force)(
+                if_(cls.force_sets_exists)(
                     if_(cls.should_run_remote_phonopy)(
                         cls.run_phonopy_remote,
                         cls.collect_remote_data,

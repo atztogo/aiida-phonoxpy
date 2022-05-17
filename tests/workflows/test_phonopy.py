@@ -466,6 +466,74 @@ def test_passing_through_NacParamsWorkChain(
     assert set(list(result)) == set(output_keys)
 
 
+@pytest.mark.parametrize("plugin_name", ["vasp.vasp", "quantumespresso.pw"])
+def test_passing_through_NacParamsWorkChain_without_force(
+    fixture_code,
+    generate_structure,
+    generate_settings,
+    generate_workchain,
+    generate_nac_params,
+    mock_calculator_code,
+    plugin_name,
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool
+
+    nac_params_data = generate_nac_params()
+    born_charges = nac_params_data.get_array("born_charges")
+    epsilon = nac_params_data.get_array("epsilon")
+
+    if plugin_name == "vasp.vasp":
+        nac_inputs = {
+            "code": mock_calculator_code(plugin_name),
+            "born_charges": born_charges,
+            "epsilon": epsilon,
+        }
+    elif plugin_name == "quantumespresso.pw":
+        nac_inputs = {
+            "steps": [
+                {"code": mock_calculator_code("quantumespresso.pw")},
+                {
+                    "code": mock_calculator_code("quantumespresso.ph"),
+                },
+            ],
+            "born_charges": born_charges,
+            "epsilon": epsilon,
+        }
+    else:
+        raise RuntimeError("plugin_name doesn't exist.")
+
+    inputs = {
+        "code": fixture_code("phonoxpy.phonopy"),
+        "structure": generate_structure(),
+        "settings": generate_settings(),
+        "metadata": {},
+        "calculator_inputs": {"nac": nac_inputs},
+        "run_phonopy": Bool(False),
+    }
+
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+
+    for key in ("born_charges", "epsilon"):
+        np.testing.assert_allclose(
+            result["nac_params"].get_array(key),
+            generate_nac_params().get_array(key),
+            atol=1e-8,
+            rtol=0,
+        )
+
+    output_keys = (
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "displacement_dataset",
+        "nac_params",
+    )
+    assert set(list(result)) == set(output_keys)
+
+
 @pytest.mark.parametrize("plugin_name", ["vasp.vasp"])
 def test_passing_through_NacParamsWorkChain_nac_structure(
     fixture_code,
