@@ -63,8 +63,10 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             cls.initialize,
             if_(cls.import_calculations_from_files)(
                 cls.initialize_immigrant,
-                while_(cls.continue_import)(
-                    cls.import_force_calculations_from_files,
+                if_(cls.is_force)(
+                    while_(cls.continue_import)(
+                        cls.import_force_calculations_from_files,
+                    ),
                 ),
                 if_(cls.is_nac)(
                     cls.import_nac_calculations_from_files,
@@ -73,18 +75,22 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                 cls.run_force_and_nac_calculations,
             ),
             if_(cls.force_sets_exists)(cls.do_pass).else_(
-                cls.create_force_sets,
+                if_(cls.is_force)(
+                    cls.create_force_sets,
+                ),
             ),
             if_(cls.nac_params_exists)(cls.do_pass).else_(
                 if_(cls.is_nac)(cls.attach_nac_params),
             ),
             if_(cls.should_run_phonopy)(
-                if_(cls.should_run_remote_phonopy)(
-                    cls.run_phonopy_remote,
-                    cls.collect_remote_data,
-                ).else_(
-                    cls.create_force_constants,
-                    cls.run_phonopy_locally,
+                if_(cls.force_sets_exists)(
+                    if_(cls.should_run_remote_phonopy)(
+                        cls.run_phonopy_remote,
+                        cls.collect_remote_data,
+                    ).else_(
+                        cls.create_force_constants,
+                        cls.run_phonopy_locally,
+                    ),
                 ),
             ),
             cls.finalize,
@@ -184,7 +190,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         if "force_sets" in self.inputs:
             self.report("skip force calculation.")
             self.ctx.force_sets = self.inputs.force_sets
-        else:
+        elif self.is_force():
             self._run_force_calculations(self.ctx.supercells)
 
         if "nac_params" in self.inputs:
