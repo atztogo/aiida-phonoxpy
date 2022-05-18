@@ -48,12 +48,12 @@ class Phono3pyParser(Parser):
         for filename in ("fc2.hdf5", "fc3.hdf5"):
             if filename in filename in filenames_parsed:
                 with output_folder.open(filename, "rb") as handle:
-                    output_node = SinglefileData(file=handle)
+                    output_node = SinglefileData(file=handle, filename=filename)
                     self.out(filename.replace(".hdf5", ""), output_node)
 
         if kappa_filename:
             with output_folder.open(kappa_filename, "rb") as handle:
-                output_node = SinglefileData(file=handle)
+                output_node = SinglefileData(file=handle, filename=kappa_filename)
                 self.out("ltc", output_node)
 
         self.logger.info("Parsing done.")
