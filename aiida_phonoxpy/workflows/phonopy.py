@@ -136,8 +136,9 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             if "code" not in self.inputs and "code_string" not in self.inputs:
                 return self.exit_codes.ERROR_NO_PHONOPY_CODE
 
-        if "supercell_matrix" not in self.inputs.settings.keys():
-            return self.exit_codes.ERROR_NO_SUPERCELL_MATRIX
+        if self.is_force():
+            if "supercell_matrix" not in self.inputs.settings.keys():
+                return self.exit_codes.ERROR_NO_SUPERCELL_MATRIX
 
         kwargs = {}
         for key in ("displacement_dataset", "displacements"):

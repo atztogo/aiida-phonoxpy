@@ -74,7 +74,7 @@ class BasePhonopyWorkChain(WorkChain):
         """Define inputs, outputs, and outline."""
         super().define(spec)
         spec.input("structure", valid_type=StructureData, required=True)
-        spec.input("settings", valid_type=Dict, required=True)
+        spec.input("settings", valid_type=Dict, default=lambda: Dict(dict={}))
         spec.input(
             "calculator_inputs.force", valid_type=dict, required=False, non_db=True
         )
@@ -142,10 +142,11 @@ class BasePhonopyWorkChain(WorkChain):
 
     def is_force(self):
         """Return boolean for outline."""
+        if "supercell_matrix" not in self.inputs.settings:
+            return False
         if "force" in self.inputs.calculator_inputs:
             return True
-        else:
-            return False
+        return False
 
     def force_sets_exists(self):
         """Return boolean for outline."""

@@ -107,13 +107,21 @@ def setup_phonopy_calculation(
 
     """
     # Key-set 1
-    ph_settings = {"symmetry_tolerance": symmetry_tolerance.value}
-    ph_settings["supercell_matrix"] = _get_supercell_matrix(
-        phonon_settings["supercell_matrix"]
-    )
-    ph = get_phonopy_instance(structure, ph_settings)
-    ph_settings["primitive_matrix"] = ph.primitive_matrix
-    ph_settings["version"] = ph.version
+    phonopy_settings = {"symmetry_tolerance": symmetry_tolerance.value}
+    if "supercell_matrix" in phonon_settings:
+        smat = phonon_settings["supercell_matrix"]
+        phonopy_settings["supercell_matrix"] = _get_supercell_matrix(smat)
+    else:
+        phonopy_settings["supercell_matrix"] = None
+    ph = get_phonopy_instance(structure, phonopy_settings)
+    ph_settings = {
+        "primitive_matrix": ph.primitive_matrix,
+        "symmetry_tolerance": ph.symmetry.tolerance,
+        "version": ph.version,
+    }
+    if "supercell_matrix" in phonon_settings:
+        ph_settings["supercell_matrix"] = ph.supercell_matrix
+
     _set_symmetry_info(ph_settings, ph)
 
     # Key-set 2
@@ -125,38 +133,42 @@ def setup_phonopy_calculation(
         if "mesh" not in ph_settings:
             ph_settings["mesh"] = 100.0
 
-    if displacement_dataset is not None:
-        ph.dataset = displacement_dataset.get_dict()
-    elif displacements is not None:
-        ph.dataset = {"displacements": displacements.get_array("displacements")}
-    else:
-        # Key-set 3
-        ph_settings["distance"] = _get_default_displacement_distance("phonopy")
-        supported_keys = (
-            "distance",
-            "is_plusminus",
-            "is_diagonal",
-            "number_of_snapshots",
-            "random_seed",
-        )
-        kwargs = {
-            key: phonon_settings[key]
-            for key in phonon_settings.keys()
-            if key in supported_keys
-        }
-        ph_settings.update(kwargs)
-        ph.generate_displacements(**kwargs)
-
-    structures_dict = _generate_phonopy_structures(ph)
-    return_vals = {"phonon_setting_info": Dict(dict=ph_settings)}
-    return_vals.update(structures_dict)
-    if displacement_dataset is None and displacements is None:
-        if "displacements" in ph.dataset:
-            disp_array = ArrayData()
-            disp_array.set_array("displacements", ph.dataset["displacements"])
-            return_vals["displacements"] = disp_array
+    return_vals = {}
+    if "supercell_matrix" in phonon_settings:
+        if displacement_dataset is not None:
+            ph.dataset = displacement_dataset.get_dict()
+        elif displacements is not None:
+            ph.dataset = {"displacements": displacements.get_array("displacements")}
         else:
-            return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
+            # Key-set 3
+            ph_settings["distance"] = _get_default_displacement_distance("phonopy")
+            supported_keys = (
+                "distance",
+                "is_plusminus",
+                "is_diagonal",
+                "number_of_snapshots",
+                "random_seed",
+            )
+            kwargs = {
+                key: phonon_settings[key]
+                for key in phonon_settings.keys()
+                if key in supported_keys
+            }
+            ph_settings.update(kwargs)
+            ph.generate_displacements(**kwargs)
+        structures_dict = _generate_phonopy_structures(ph)
+        if displacement_dataset is None and displacements is None:
+            if "displacements" in ph.dataset:
+                disp_array = ArrayData()
+                disp_array.set_array("displacements", ph.dataset["displacements"])
+                return_vals["displacements"] = disp_array
+            else:
+                return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
+    else:
+        structures_dict = {"primitive": _generate_phonopy_primitive_structures(ph)}
+
+    return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
+    return_vals.update(structures_dict)
 
     return return_vals
 
@@ -996,11 +1008,15 @@ def _generate_phonopy_structures(ph) -> dict:
     structures_dict = _generate_supercell_structures(
         ph.supercell, ph.supercells_with_displacements
     )
+    structures_dict["primitive"] = _generate_phonopy_primitive_structures(ph)
+    return structures_dict
+
+
+def _generate_phonopy_primitive_structures(ph) -> StructureData:
     primitive_structure = phonopy_atoms_to_structure(ph.primitive)
     formula = primitive_structure.get_formula(mode="hill_compact")
     primitive_structure.label = f"{formula} primitive cell"
-    structures_dict["primitive"] = primitive_structure
-    return structures_dict
+    return primitive_structure
 
 
 def _generate_phono3py_phonon_structures(ph):
