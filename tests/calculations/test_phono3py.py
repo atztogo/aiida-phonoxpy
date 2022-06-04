@@ -55,6 +55,83 @@ def test_phono3py_fc(
     )
 
 
+def test_phono3py_fc_fc_calculator(
+    fixture_sandbox,
+    fixture_code,
+    generate_calc_job,
+    generate_inputs,
+    generate_settings,
+):
+    """Test a phonopy calculation."""
+    entry_point_calc_job = "phonoxpy.phono3py"
+
+    inputs = generate_inputs(
+        metadata={"options": {"resources": {"tot_num_mpiprocs": 1}}}
+    )
+    inputs.update(
+        {
+            "settings": generate_settings(fc_calculator="alm"),
+            "code": fixture_code(entry_point_calc_job),
+        }
+    )
+
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_fc=True)
+    assert "fc_calculator" in ph_settings
+
+    calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
+    assert set(calc_info.retrieve_list) == set(
+        ("phono3py.yaml", "fc2.hdf5", "fc3.hdf5")
+    )
+    assert set(calc_info.codes_info[0].cmdline_params) == set(
+        ("-v", "--alm", "-c", "phono3py_params.yaml.xz", "--compact-fc")
+    )
+
+
+def test_phono3py_fc_fc_calculator_options(
+    fixture_sandbox,
+    fixture_code,
+    generate_calc_job,
+    generate_inputs,
+    generate_settings,
+):
+    """Test a phonopy calculation."""
+    entry_point_calc_job = "phonoxpy.phono3py"
+
+    inputs = generate_inputs(
+        metadata={"options": {"resources": {"tot_num_mpiprocs": 1}}}
+    )
+    inputs.update(
+        {
+            "settings": generate_settings(
+                fc_calculator="alm", fc_calculator_options="cutoff = 5"
+            ),
+            "code": fixture_code(entry_point_calc_job),
+        }
+    )
+
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_fc=True)
+    assert "fc_calculator" in ph_settings
+    assert "fc_calculator_options" in ph_settings
+
+    calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
+    assert set(calc_info.retrieve_list) == set(
+        ("phono3py.yaml", "fc2.hdf5", "fc3.hdf5")
+    )
+    assert set(calc_info.codes_info[0].cmdline_params) == set(
+        (
+            "-v",
+            "--alm",
+            "--fc-calculator-options",
+            "cutoff = 5",
+            "-c",
+            "phono3py_params.yaml.xz",
+            "--compact-fc",
+        )
+    )
+
+
 def test_phono3py_with_ltc_nac(
     fixture_sandbox,
     fixture_code,

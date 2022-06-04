@@ -175,7 +175,11 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
 
     if "fc_calculator" in settings.keys():
         if settings["fc_calculator"].lower().strip() == "alm":
+            fc_opts.append("-v")
             fc_opts.append("--alm")
+            if "fc_calculator_options" in settings.keys():
+                fc_calc_opts = settings["fc_calculator_options"]
+                fc_opts += ["--fc-calculator-options", f"{fc_calc_opts}"]
 
     if "ts" in settings.keys():
         temperature_opts += [str(t) for t in settings["ts"]]
