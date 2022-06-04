@@ -11,6 +11,8 @@ def test_initialize_with_dataset(
     generate_structure,
     generate_displacement_dataset,
     generate_settings,
+    generate_force_sets,
+    mock_calculator_code,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -20,7 +22,18 @@ def test_initialize_with_dataset(
     structure = generate_structure()
     settings = generate_settings()
     dataset = generate_displacement_dataset()
-    inputs = {"structure": structure, "settings": settings}
+    force_sets = generate_force_sets().get_array("force_sets")
+    inputs = {
+        "structure": structure,
+        "settings": settings,
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code("vasp.vasp"),
+                "force_sets": force_sets,
+            }
+        },
+    }
+
     wc = generate_workchain("phonoxpy.phonopy", inputs)
     wc.initialize()
 
@@ -42,6 +55,8 @@ def test_initialize_with_dataset_input(
     generate_structure,
     generate_displacement_dataset,
     generate_settings,
+    generate_force_sets,
+    mock_calculator_code,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -51,10 +66,17 @@ def test_initialize_with_dataset_input(
     structure = generate_structure()
     settings = generate_settings()
     dataset = generate_displacement_dataset()
+    force_sets = generate_force_sets().get_array("force_sets")
     inputs = {
         "structure": structure,
         "settings": settings,
         "displacement_dataset": dataset,
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code("vasp.vasp"),
+                "force_sets": force_sets,
+            }
+        },
     }
     wc = generate_workchain("phonoxpy.phonopy", inputs)
     wc.initialize()
@@ -117,6 +139,8 @@ def test_initialize_with_displacements(
     generate_workchain,
     generate_structure,
     generate_settings,
+    generate_force_sets,
+    mock_calculator_code,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -125,7 +149,17 @@ def test_initialize_with_displacements(
     """
     structure = generate_structure()
     settings = generate_settings(number_of_snapshots=4)
-    inputs = {"structure": structure, "settings": settings}
+    force_sets = generate_force_sets().get_array("force_sets")
+    inputs = {
+        "structure": structure,
+        "settings": settings,
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code("vasp.vasp"),
+                "force_sets": force_sets,
+            }
+        },
+    }
     wc = generate_workchain("phonoxpy.phonopy", inputs)
     wc.initialize()
     assert "displacements" not in wc.inputs
@@ -147,6 +181,8 @@ def test_initialize_with_displacements_input(
     generate_structure,
     generate_displacements,
     generate_settings,
+    generate_force_sets,
+    mock_calculator_code,
 ):
     """Test of PhonopyWorkChain.initialize() using NaCl data.
 
@@ -156,10 +192,17 @@ def test_initialize_with_displacements_input(
     structure = generate_structure()
     settings = generate_settings()
     displacements = generate_displacements()
+    force_sets = generate_force_sets().get_array("force_sets")
     inputs = {
         "structure": structure,
         "settings": settings,
         "displacements": displacements,
+        "calculator_inputs": {
+            "force": {
+                "code": mock_calculator_code("vasp.vasp"),
+                "force_sets": force_sets,
+            }
+        },
     }
     wc = generate_workchain("phonoxpy.phonopy", inputs)
     wc.initialize()
@@ -222,6 +265,64 @@ def _assert_cells(wc):
     )
 
 
+def test_initialize_with_displacements_and_force_sets_input(
+    generate_workchain,
+    generate_structure,
+    generate_displacements,
+    generate_settings,
+    generate_force_sets,
+):
+    """Test of PhonopyWorkChain.initialize() using NaCl data.
+
+    `displacements` (random displacements) is given as an input.
+
+    """
+    from aiida.orm import ArrayData, Dict, StructureData
+
+    structure = generate_structure()
+    settings = generate_settings()
+    displacements = generate_displacements()
+    force_sets = generate_force_sets()
+    inputs = {
+        "structure": structure,
+        "settings": settings,
+        "displacements": displacements,
+        "force_sets": force_sets,
+    }
+    wc = generate_workchain("phonoxpy.phonopy", inputs)
+    wc.initialize()
+    assert "displacements" in wc.inputs
+    np.testing.assert_almost_equal(
+        wc.inputs.displacements.get_array("displacements"),
+        wc.ctx.displacements.get_array("displacements"),
+    )
+    np.testing.assert_almost_equal(
+        displacements.get_array("displacements"),
+        wc.ctx.displacements.get_array("displacements"),
+    )
+    phonon_setting_info_keys = [
+        "version",
+        "symmetry",
+        "symmetry_tolerance",
+        "primitive_matrix",
+        "supercell_matrix",
+    ]
+    assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
+    ctx = {
+        "phonon_setting_info": Dict,
+        "primitive": StructureData,
+        "supercell": StructureData,
+        "displacements": ArrayData,
+        "supercells": dict,
+    }
+    for key in wc.ctx:
+        assert key in ctx
+        assert isinstance(wc.ctx[key], ctx[key])
+        assert "supercell_" not in key
+
+    _assert_cells(wc)
+
+
 def test_launch_process_with_dataset_inputs_and_run_phonopy(
     generate_inputs_phonopy_wc, generate_workchain
 ):
@@ -232,6 +333,33 @@ def test_launch_process_with_dataset_inputs_and_run_phonopy(
     inputs = generate_inputs_phonopy_wc()
     inputs["run_phonopy"] = Bool(True)
     inputs["remote_phonopy"] = Bool(False)
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+    output_keys = [
+        "band_structure",
+        "total_dos",
+        "force_constants",
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "thermal_properties",
+    ]
+    assert set(list(result)) == set(output_keys)
+
+
+def test_launch_process_with_dataset_inputs_and_run_phonopy_with_fc_calculator(
+    generate_inputs_phonopy_wc, generate_workchain, generate_settings
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool
+
+    inputs = generate_inputs_phonopy_wc()
+    inputs["run_phonopy"] = Bool(True)
+    inputs["remote_phonopy"] = Bool(False)
+    inputs["settings"] = generate_settings(
+        fc_calculator="alm", fc_calculator_options="cutoff = 5"
+    )
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
     output_keys = [

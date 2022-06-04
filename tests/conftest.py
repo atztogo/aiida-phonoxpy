@@ -1046,6 +1046,8 @@ def generate_settings():
         lbte=False,
         ts=None,
         grg=False,
+        fc_calculator=None,
+        fc_calculator_options=None,
     ):
         from aiida.orm import Dict
 
@@ -1075,6 +1077,12 @@ def generate_settings():
 
         if grg:
             settings["grg"] = True
+
+        if fc_calculator is not None:
+            settings["fc_calculator"] = fc_calculator
+
+        if fc_calculator_options is not None:
+            settings["fc_calculator_options"] = fc_calculator_options
 
         return Dict(dict=settings)
 

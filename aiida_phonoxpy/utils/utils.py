@@ -42,7 +42,7 @@ def setup_phonopy_calculation(
     ```
     and, when `run_phonopy=True`, (2)
     ```
-        ('mesh', 'fc_calculator')
+        ('mesh', 'fc_calculator', 'fc_calculator_options')
     ```
     and, when displacements are generated, (3)
     ```
@@ -104,6 +104,8 @@ def setup_phonopy_calculation(
             Mesh numbers or distance measure of q-point sampling mesh.
         'fc_calculator' : str, optional
             External force constants calculator.
+        'fc_calculator_options' : str, optional
+            Options of external force constants calculator.
 
     """
     # Key-set 1
@@ -126,7 +128,7 @@ def setup_phonopy_calculation(
 
     # Key-set 2
     if run_phonopy:
-        valid_keys = ("mesh", "fc_calculator")
+        valid_keys = ("mesh", "fc_calculator", "fc_calculator_options")
         for key in valid_keys:
             if key in phonon_settings.keys():
                 ph_settings[key] = phonon_settings[key]
@@ -207,7 +209,14 @@ def setup_phono3py_calculation(
     ```
     (4) Force constants (`run_fc=True`), LTC calculation (`run_ltc=True`).
     ```
-        ('fc_calculator', 'mesh', 'isotope', 'br', 'lbte', 'ts', 'grg')
+        ('fc_calculator',
+         'fc_calculator_options',
+         'mesh',
+         'isotope',
+         'br',
+         'lbte',
+         'ts',
+         'grg')
     ```
 
     `primitive_matrix` is always `auto` and the determined `primitive_matrix` by
@@ -352,7 +361,7 @@ def setup_phono3py_calculation(
 
     # Key-set 4
     _setup_phono3py_calculation_keyset4(
-        ph_settings, phonon_settings, run_fc=run_fc, run_ltc=run_ltc
+        ph_settings, phonon_settings, run_fc=run_fc.value, run_ltc=run_ltc.value
     )
 
     if structures_dict:
@@ -391,6 +400,8 @@ def _setup_phono3py_calculation_keyset4(
     ---------------------------
     fc_calculator : str
         External force constants calculator.
+    fc_calculator_options : str
+        Options of external force constants calculator.
 
     LTC calculation
     ---------------
@@ -409,7 +420,7 @@ def _setup_phono3py_calculation_keyset4(
 
     """
     if run_fc:
-        for key in ("fc_calculator",):
+        for key in ("fc_calculator", "fc_calculator_options"):
             if key in phonon_settings.keys():
                 ph_settings[key] = phonon_settings[key]
 
@@ -484,7 +495,6 @@ def get_force_constants(
     structure: StructureData,
     phonon_setting_info: Dict,
     force_sets: ArrayData,
-    symmetry_tolerance: Float,
     displacement_dataset: Optional[Dict] = None,
     displacements: Optional[ArrayData] = None,
 ):
@@ -499,15 +509,20 @@ def get_force_constants(
     phonon.dataset = dataset
     phonon.forces = force_sets.get_array("force_sets")
 
+    kwargs = {}
     if "fc_calculator" in phonon_setting_info.keys():
         if phonon_setting_info["fc_calculator"].lower().strip() == "alm":
-            phonon.produce_force_constants(fc_calculator="alm")
-    else:
-        phonon.produce_force_constants()
+            kwargs["fc_calculator"] = "alm"
+            if "fc_calculator_options" in phonon_setting_info:
+                kwargs["fc_calculator_options"] = phonon_setting_info[
+                    "fc_calculator_options"
+                ]
+    phonon.produce_force_constants(**kwargs)
     force_constants = ArrayData()
     force_constants.set_array("force_constants", phonon.force_constants)
     force_constants.set_array("p2s_map", phonon.primitive.p2s_map)
     force_constants.label = "force_constants"
+    force_constants.description = f"{kwargs}"
 
     return force_constants
 

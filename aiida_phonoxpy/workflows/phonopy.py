@@ -136,15 +136,18 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             if "code" not in self.inputs and "code_string" not in self.inputs:
                 return self.exit_codes.ERROR_NO_PHONOPY_CODE
 
-        if self.is_force():
+        if self.is_force() or self.force_sets_exists():
             if "supercell_matrix" not in self.inputs.settings.keys():
                 return self.exit_codes.ERROR_NO_SUPERCELL_MATRIX
 
         kwargs = {}
-        for key in ("displacement_dataset", "displacements"):
-            if key in self.inputs:
-                kwargs[key] = self.inputs[key]
-                self.ctx[key] = self.inputs[key]
+
+        if self.is_force() or self.force_sets_exists():
+            for key in ("displacement_dataset", "displacements"):
+                if key in self.inputs:
+                    kwargs[key] = self.inputs[key]
+                    self.ctx[key] = self.inputs[key]
+
         return_vals = setup_phonopy_calculation(
             self.inputs.settings,
             self.inputs.structure,
@@ -163,14 +166,16 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             if key in return_vals:
                 self.ctx[key] = return_vals[key]
                 self.out(key, self.ctx[key])
-        self.ctx.supercells = {}
-        if self.inputs.subtract_residual_forces:
-            digits = len(str(len(self.ctx.supercells)))
-            key = "supercell_%s" % "0".zfill(digits)
-            self.ctx.supercells[key] = return_vals["supercell"]
-        for key in return_vals:
-            if "supercell_" in key:
-                self.ctx.supercells[key] = return_vals[key]
+
+        if self.is_force():
+            self.ctx.supercells = {}
+            if self.inputs.subtract_residual_forces:
+                digits = len(str(len(self.ctx.supercells)))
+                key = "supercell_%s" % "0".zfill(digits)
+                self.ctx.supercells[key] = return_vals["supercell"]
+            for key in return_vals:
+                if "supercell_" in key:
+                    self.ctx.supercells[key] = return_vals[key]
 
     def initialize_immigrant(self):
         """Initialize immigrant numbers."""
@@ -259,7 +264,6 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             self.inputs.structure,
             self.ctx.phonon_setting_info,
             self.ctx.force_sets,
-            self.inputs.symmetry_tolerance,
             **kwargs,
         )
         self.out("force_constants", self.ctx.force_constants)
