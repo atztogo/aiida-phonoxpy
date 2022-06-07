@@ -122,6 +122,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         else:  # Assume force constants calculation
             if "displacements" in self.inputs:
                 if "--alm" not in fc_opts:
+                    fc_opts.append("-v")
                     fc_opts.append("--alm")
             if "--alm" not in fc_opts:
                 fc_opts.append("--sym-fc")

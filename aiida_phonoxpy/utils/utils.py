@@ -106,6 +106,8 @@ def setup_phonopy_calculation(
             External force constants calculator.
         'fc_calculator_options' : str, optional
             Options of external force constants calculator.
+        'cutoff_pair_distance' : float, optional
+            See http://phonopy.github.io/phono3py/cutoff-pair.html.
 
     """
     # Key-set 1
@@ -128,7 +130,12 @@ def setup_phonopy_calculation(
 
     # Key-set 2
     if run_phonopy:
-        valid_keys = ("mesh", "fc_calculator", "fc_calculator_options")
+        valid_keys = (
+            "mesh",
+            "fc_calculator",
+            "fc_calculator_options",
+            "cutoff_pair_distance",
+        )
         for key in valid_keys:
             if key in phonon_settings.keys():
                 ph_settings[key] = phonon_settings[key]
@@ -205,13 +212,19 @@ def setup_phono3py_calculation(
          'phonon_number_of_snapshots',
          'random_seed',
          'is_plusminus',
-         'is_diagonal')
+         'is_diagonal',
+         'cutoff_pair_distance')
     ```
-    (4) Force constants (`run_fc=True`), LTC calculation (`run_ltc=True`).
+    (4) Force constants (`run_fc=True`)
     ```
         ('fc_calculator',
          'fc_calculator_options',
-         'mesh',
+         'cutoff_pair_distance')
+    ```
+
+    (5) LTC calculation (`run_ltc=True`).
+    ```
+        ('mesh',
          'isotope',
          'br',
          'lbte',
@@ -276,6 +289,16 @@ def setup_phono3py_calculation(
         'random_seed' : int, optional
         'is_plusminus' : str or bool, optional
         'is_diagonal' : bool, optional
+        'fc_calculator' : bool, optional
+        'fc_calculator_options' : str, optional
+        'cutoff_pair_distance' : float, optional
+        'mesh' : list of int or float, optional
+        'isotope' :  bool, optional
+        'br' : bool, optional
+        'lbte' : bool, optional
+        'ts' : list of float, optional
+        'grg' : bool, optional
+
 
     """
     ph_settings: dict = {}
@@ -302,6 +325,7 @@ def setup_phono3py_calculation(
             "distance",
             "is_plusminus",
             "is_diagonal",
+            "cutoff_pair_distance",
         )
         kwargs = {
             key: phonon_settings[key]
@@ -360,9 +384,12 @@ def setup_phono3py_calculation(
                 )
 
     # Key-set 4
-    _setup_phono3py_calculation_keyset4(
-        ph_settings, phonon_settings, run_fc=run_fc.value, run_ltc=run_ltc.value
-    )
+    if run_fc:
+        _setup_phono3py_calculation_keyset4(ph_settings, phonon_settings)
+
+    # Key-set 5
+    if run_ltc:
+        _setup_phono3py_calculation_keyset5(ph_settings, phonon_settings)
 
     if structures_dict:
         return_vals.update(structures_dict)
@@ -391,8 +418,6 @@ def _setup_phono3py_calculation_keyset1(
 def _setup_phono3py_calculation_keyset4(
     ph_settings: dict,
     phonon_settings: Dict,
-    run_fc: bool = False,
-    run_ltc: bool = False,
 ):
     """Set calculation options.
 
@@ -402,6 +427,20 @@ def _setup_phono3py_calculation_keyset4(
         External force constants calculator.
     fc_calculator_options : str
         Options of external force constants calculator.
+    cutoff_pair_distance : float
+        See http://phonopy.github.io/phono3py/cutoff-pair.html.
+
+    """
+    for key in ("fc_calculator", "fc_calculator_options", "cutoff_pair_distance"):
+        if key in phonon_settings.keys():
+            ph_settings[key] = phonon_settings[key]
+
+
+def _setup_phono3py_calculation_keyset5(
+    ph_settings: dict,
+    phonon_settings: Dict,
+):
+    """Set calculation options.
 
     LTC calculation
     ---------------
@@ -419,15 +458,9 @@ def _setup_phono3py_calculation_keyset4(
         Use generalized-regular grid or not.
 
     """
-    if run_fc:
-        for key in ("fc_calculator", "fc_calculator_options"):
-            if key in phonon_settings.keys():
-                ph_settings[key] = phonon_settings[key]
-
-    if run_ltc:
-        for key in ("mesh", "isotope", "lbte", "br", "ts", "grg"):
-            if key in phonon_settings.keys():
-                ph_settings[key] = phonon_settings[key]
+    for key in ("mesh", "isotope", "lbte", "br", "ts", "grg"):
+        if key in phonon_settings.keys():
+            ph_settings[key] = phonon_settings[key]
 
 
 @calcfunction
@@ -452,7 +485,7 @@ def setup_phono3py_fc_calculation(
     )
 
     # Key-set 4
-    _setup_phono3py_calculation_keyset4(ph_settings, phonon_settings, run_fc=True)
+    _setup_phono3py_calculation_keyset4(ph_settings, phonon_settings)
 
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
     return return_vals
@@ -483,8 +516,8 @@ def setup_phono3py_ltc_calculation(
     ph = get_phono3py_instance(structure, ph_settings)
     _set_symmetry_info(ph_settings, ph)
 
-    # Key-set 4
-    _setup_phono3py_calculation_keyset4(ph_settings, phonon_settings, run_ltc=True)
+    # Key-set 5
+    _setup_phono3py_calculation_keyset5(ph_settings, phonon_settings)
 
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
     return return_vals
@@ -1001,7 +1034,6 @@ def _generate_phonopy_structures(ph) -> dict:
 
     Note
     ----
-    Designed to be shared by phonopy and phono3py.
     ph is either an instance of Phonopy or Phono3py.
 
     Returns
@@ -1086,11 +1118,12 @@ def _generate_supercell_structures(
 
     digits = len(str(len(supercells_with_displacements)))
     for i, scell in enumerate(supercells_with_displacements):
-        structure = phonopy_atoms_to_structure(scell)
-        num = str(i + 1).zfill(digits)
-        label = f"{label_prefix}_{num}"
-        structure.label = f"{formula} {label}"
-        structures_dict[label] = structure
+        if scell is not None:
+            structure = phonopy_atoms_to_structure(scell)
+            num = str(i + 1).zfill(digits)
+            label = f"{label_prefix}_{num}"
+            structure.label = f"{formula} {label}"
+            structures_dict[label] = structure
 
     return structures_dict
 
