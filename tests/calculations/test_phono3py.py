@@ -1,7 +1,10 @@
 """Test phono3py parser."""
 import pytest
 from aiida.common import AttributeDict
-from aiida_phonoxpy.utils.utils import _setup_phono3py_calculation_keyset4
+from aiida_phonoxpy.utils.utils import (
+    _setup_phono3py_calculation_keyset4,
+    _setup_phono3py_calculation_keyset5,
+)
 
 
 @pytest.fixture
@@ -43,7 +46,7 @@ def test_phono3py_fc(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_fc=True)
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"])
     assert not ph_settings
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
@@ -76,7 +79,7 @@ def test_phono3py_fc_fc_calculator(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_fc=True)
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"])
     assert "fc_calculator" in ph_settings
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
@@ -111,7 +114,7 @@ def test_phono3py_fc_fc_calculator_options(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_fc=True)
+    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"])
     assert "fc_calculator" in ph_settings
     assert "fc_calculator_options" in ph_settings
 
@@ -160,7 +163,7 @@ def test_phono3py_with_ltc_nac(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    _setup_phono3py_calculation_keyset5(ph_settings, inputs["settings"])
     assert set(ph_settings) == set(("mesh",))
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
@@ -211,7 +214,7 @@ def test_phono3py_ltc_lbte(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    _setup_phono3py_calculation_keyset5(ph_settings, inputs["settings"])
     assert set(ph_settings) == set(("mesh", "lbte", "ts"))
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
@@ -260,7 +263,7 @@ def test_phono3py_ltc(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    _setup_phono3py_calculation_keyset5(ph_settings, inputs["settings"])
     assert set(ph_settings) == set(("mesh", "ts"))
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
@@ -308,7 +311,7 @@ def test_phono3py_ltc_with_isotope(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    _setup_phono3py_calculation_keyset5(ph_settings, inputs["settings"])
     assert set(ph_settings) == set(("mesh", "isotope"))
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
@@ -358,7 +361,7 @@ def test_phono3py_ltc_with_grg(
     )
 
     ph_settings = {}
-    _setup_phono3py_calculation_keyset4(ph_settings, inputs["settings"], run_ltc=True)
+    _setup_phono3py_calculation_keyset5(ph_settings, inputs["settings"])
     assert set(ph_settings) == set(("mesh", "grg"))
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
