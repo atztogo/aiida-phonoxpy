@@ -181,22 +181,38 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
             if "fc_calculator_options" in settings.keys():
                 fc_calc_opts = settings["fc_calculator_options"]
                 fc_opts += ["--fc-calculator-options", f"{fc_calc_opts}"]
+    if "cutoff_pair_distance" in settings.keys():
+        cutoff_pair = settings["cutoff_pair_distance"]
+        fc_opts += ["--cutoff-pair-distance", f"{cutoff_pair}"]
 
     if "ts" in settings.keys():
         temperature_opts += [str(t) for t in settings["ts"]]
     else:
         temperature_opts += ["300"]
-
     if "br" in settings.keys() and settings["br"]:
         conductivity_opts += ["--br"]
     elif "lbte" in settings.keys() and settings["lbte"]:
         conductivity_opts += ["--lbte"]
     else:
         conductivity_opts += ["--br"]
+    if "cutoff_fc3" in settings.keys():
+        cutoff_fc3 = settings["cutoff_fc3"]
+        conductivity_opts += ["--cutoff-fc3", f"{cutoff_fc3}"]
+    if "pinv_cutoff" in settings.keys():
+        pinv_cutoff = settings["pinv_cutoff"]
+        conductivity_opts += ["--pinv-cutoff", f"{pinv_cutoff}"]
+    if "pinv_solver" in settings.keys():
+        pinv_solver = settings["pinv_solver"]
+        conductivity_opts += ["--pinv-solver", f"{pinv_solver}"]
+    if "reducible_colmat" in settings.keys() and settings["reducible_colmat"]:
+        conductivity_opts += ["--reducible-colmat"]
 
     if "isotope" in settings.keys():
         if settings["isotope"]:
             isotope_opts.append("--isotope")
+    if "mass_variances" in settings.keys():
+        isotope_opts.append("--mass-variances")
+        isotope_opts += [str(mv) for mv in settings["mass_variances"]]
 
     return {
         "mesh": mesh_opts,

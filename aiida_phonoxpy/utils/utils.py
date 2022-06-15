@@ -82,7 +82,7 @@ def setup_phonopy_calculation(
             When 'number_of_snapshots' is given, random displacements are
             generated and phonopy's type-II displacements array is returned.
 
-    phonon_setting_info contains the following entries:
+    `phonon_setting_info` contains the following entries:
         'version' : str
             Phonopy version number.
         'supercell_matrix' : array_like
@@ -106,8 +106,6 @@ def setup_phonopy_calculation(
             External force constants calculator.
         'fc_calculator_options' : str, optional
             Options of external force constants calculator.
-        'cutoff_pair_distance' : float, optional
-            See http://phonopy.github.io/phono3py/cutoff-pair.html.
 
     """
     # Key-set 1
@@ -229,7 +227,10 @@ def setup_phono3py_calculation(
          'br',
          'lbte',
          'ts',
-         'grg')
+         'grg',
+         'cutoff_fc3',
+         'pinv_cutoff',
+         'pinv_solver')
     ```
 
     `primitive_matrix` is always `auto` and the determined `primitive_matrix` by
@@ -297,8 +298,21 @@ def setup_phono3py_calculation(
         'br' : bool, optional
         'lbte' : bool, optional
         'ts' : list of float, optional
+        'mass_variances' : list
+            Mass variances used for ph-isotope scattering calculation.
         'grg' : bool, optional
-
+        'cutoff_fc3' : float, optional
+            Set zero in fc3 where any pair of atoms whose distance is larger
+            than specified by this setting.
+        'cutoff_pair_distance' : float, optional
+            See http://phonopy.github.io/phono3py/cutoff-pair.html.
+        'reducible_colmat' : bool, optional
+            When True, non-symmetrically-reduced collision matrix is solved.
+            The default is False.
+        'pinv_cutoff' : float, optional
+            Cutoff value to run pseudo-inversion in direct-solution.
+        'pinv_solver' : int, optional
+            Diagonalization solver choice in direct-solution.
 
     """
     ph_settings: dict = {}
@@ -454,11 +468,36 @@ def _setup_phono3py_calculation_keyset5(
         Use direct solution or not.
     ts : list
         Temperatures. The default value is [300].
+    mass_variances : list
+        Mass variances used for ph-isotope scattering calculation.
     grg : bool
         Use generalized-regular grid or not.
+    cutoff_fc3 : float, optional
+        Set zero in fc3 where any pair of atoms whose distance is larger
+        than specified by this setting.
+    reducible_colmat : bool, optional
+        When True, non-symmetrically-reduced collision matrix is solved.
+        The default is False.
+    pinv_cutoff : float, optional
+        Cutoff value to run pseudo-inversion in direct-solution.
+    pinv_solver : int, optional
+        Diagonalization solver choice in direct-solution.
+
 
     """
-    for key in ("mesh", "isotope", "lbte", "br", "ts", "grg"):
+    for key in (
+        "mesh",
+        "isotope",
+        "lbte",
+        "br",
+        "ts",
+        "mass_variances",
+        "grg",
+        "cutoff_fc3",
+        "reducible_colmat",
+        "pinv_cutoff",
+        "pinv_solver",
+    ):
         if key in phonon_settings.keys():
             ph_settings[key] = phonon_settings[key]
 
