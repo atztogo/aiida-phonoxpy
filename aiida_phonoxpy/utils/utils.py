@@ -223,6 +223,7 @@ def setup_phono3py_calculation(
     (5) LTC calculation (`run_ltc=True`).
     ```
         ('mesh',
+         'sigma',
          'isotope',
          'br',
          'lbte',
@@ -230,7 +231,8 @@ def setup_phono3py_calculation(
          'grg',
          'cutoff_fc3',
          'pinv_cutoff',
-         'pinv_solver')
+         'pinv_solver',
+         'pinv_method')
     ```
 
     `primitive_matrix` is always `auto` and the determined `primitive_matrix` by
@@ -294,7 +296,9 @@ def setup_phono3py_calculation(
         'fc_calculator_options' : str, optional
         'cutoff_pair_distance' : float, optional
         'mesh' : list of int or float, optional
-        'isotope' :  bool, optional
+        'sigma' : float, list
+            Parameter for Brillouin zone integration.
+        'isotope' : bool, optional
         'br' : bool, optional
         'lbte' : bool, optional
         'ts' : list of float, optional
@@ -313,6 +317,11 @@ def setup_phono3py_calculation(
             Cutoff value to run pseudo-inversion in direct-solution.
         'pinv_solver' : int, optional
             Diagonalization solver choice in direct-solution.
+        'pinv_method' : int, optional
+            Either pinv of collision matrix is performed by
+                0. abs(eig) < pinv_cutoff
+                1. eig < pinv_cutoff
+            Default is 0.
 
     """
     ph_settings: dict = {}
@@ -460,6 +469,8 @@ def _setup_phono3py_calculation_keyset5(
     ---------------
     mesh : float, list
         Uniform sampling mesh.
+    sigma : float, list
+        Parameter for Brillouin zone integration.
     isotope : bool
         With / without isotope scattering
     br : bool
@@ -482,11 +493,16 @@ def _setup_phono3py_calculation_keyset5(
         Cutoff value to run pseudo-inversion in direct-solution.
     pinv_solver : int, optional
         Diagonalization solver choice in direct-solution.
-
+    pinv_method : int, optional
+        Either pinv of collision matrix is performed by
+            0. abs(eig) < pinv_cutoff
+            1. eig < pinv_cutoff
+        Default is 0.
 
     """
     for key in (
         "mesh",
+        "sigma",
         "isotope",
         "lbte",
         "br",
@@ -497,6 +513,7 @@ def _setup_phono3py_calculation_keyset5(
         "reducible_colmat",
         "pinv_cutoff",
         "pinv_solver",
+        "pinv_method",
     ):
         if key in phonon_settings.keys():
             ph_settings[key] = phonon_settings[key]

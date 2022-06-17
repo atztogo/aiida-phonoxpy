@@ -105,6 +105,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         opts_dict = _get_phono3py_options(self.inputs.settings, self.logger)
         fc_opts = opts_dict["fc"]
         mesh_opts = opts_dict["mesh"]
+        sigma_opts = opts_dict["sigma"]
         isotope_opts = opts_dict["isotope"]
         temperature_opts = opts_dict["temperature"]
         conductivity_opts = opts_dict["conductivity"]
@@ -113,6 +114,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         if "fc2" in self.inputs and "fc3" in self.inputs:
             comm_opts = (
                 ["--fc2", "--fc3"]
+                + sigma_opts
                 + conductivity_opts
                 + mesh_opts
                 + temperature_opts
@@ -158,6 +160,7 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     isotope_opts = []
     temperature_opts = ["--ts"]
     conductivity_opts = []
+    sigma_opts = []
 
     if "mesh" in settings.keys():
         mesh = settings["mesh"]
@@ -169,6 +172,14 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     else:
         logger.info("mesh setting not found. Set mesh=30.")
         mesh_opts += ["--mesh", "30"]
+
+    if "sigma" in settings.keys():
+        sigma = settings["sigma"]
+        try:
+            float(sigma)
+            sigma_opts += ["--sigma", f"{sigma}"]
+        except TypeError:
+            sigma_opts += ["--sigma"] + [f"{val}" for val in sigma]
 
     if "grg" in settings.keys():
         if settings["grg"]:
@@ -204,6 +215,9 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     if "pinv_solver" in settings.keys():
         pinv_solver = settings["pinv_solver"]
         conductivity_opts += ["--pinv-solver", f"{pinv_solver}"]
+    if "pinv_method" in settings.keys():
+        pinv_method = settings["pinv_method"]
+        conductivity_opts += ["--pinv-method", f"{pinv_method}"]
     if "reducible_colmat" in settings.keys() and settings["reducible_colmat"]:
         conductivity_opts += ["--reducible-colmat"]
 
@@ -216,6 +230,7 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
 
     return {
         "mesh": mesh_opts,
+        "sigma": sigma_opts,
         "fc": fc_opts,
         "isotope": isotope_opts,
         "temperature": temperature_opts,
