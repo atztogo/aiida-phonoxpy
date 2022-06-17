@@ -1038,51 +1038,79 @@ def generate_settings():
     """Return a `Dict` of phonopy settings."""
 
     def _generate_settings(
-        supercell_matrix=None,
-        phonon_supercell_matrix=None,
-        number_of_snapshots=None,
-        mesh=None,
-        isotope=False,
-        lbte=False,
-        ts=None,
-        grg=False,
+        cutoff_fc3=None,
         fc_calculator=None,
         fc_calculator_options=None,
+        grg=False,
+        isotope=False,
+        lbte=False,
+        mass_variances=None,
+        mesh=None,
+        number_of_snapshots=None,
+        pinv_cutoff=None,
+        pinv_method=None,
+        pinv_solver=None,
+        phonon_supercell_matrix=None,
+        supercell_matrix=None,
+        reducible_colmat=False,
+        sigma=None,
+        ts=None,
     ):
         from aiida.orm import Dict
 
         settings = {"distance": 0.03}
-        if supercell_matrix is None:
-            settings["supercell_matrix"] = [1, 1, 1]
-        else:
-            settings["supercell_matrix"] = supercell_matrix
-
-        if number_of_snapshots is not None:
-            settings["number_of_snapshots"] = number_of_snapshots
-
-        if phonon_supercell_matrix is not None:
-            settings["phonon_supercell_matrix"] = phonon_supercell_matrix
-
-        if mesh is not None:
-            settings["mesh"] = mesh
-
-        if ts is not None:
-            settings["ts"] = ts
-
-        if lbte:
-            settings["lbte"] = True
-
-        if isotope:
-            settings["isotope"] = True
-
-        if grg:
-            settings["grg"] = True
+        if cutoff_fc3 is not None:
+            settings["cutoff_fc3"] = cutoff_fc3
 
         if fc_calculator is not None:
             settings["fc_calculator"] = fc_calculator
 
         if fc_calculator_options is not None:
             settings["fc_calculator_options"] = fc_calculator_options
+
+        if grg:
+            settings["grg"] = True
+
+        if isotope:
+            settings["isotope"] = True
+
+        if lbte:
+            settings["lbte"] = True
+
+        if mass_variances is not None:
+            settings["mass_variances"] = mass_variances
+
+        if mesh is not None:
+            settings["mesh"] = mesh
+
+        if number_of_snapshots is not None:
+            settings["number_of_snapshots"] = number_of_snapshots
+
+        if pinv_cutoff is not None:
+            settings["pinv_cutoff"] = pinv_cutoff
+
+        if pinv_method is not None:
+            settings["pinv_method"] = pinv_method
+
+        if pinv_solver is not None:
+            settings["pinv_solver"] = pinv_solver
+
+        if phonon_supercell_matrix is not None:
+            settings["phonon_supercell_matrix"] = phonon_supercell_matrix
+
+        if reducible_colmat:
+            settings["reducible_colmat"] = True
+
+        if sigma is not None:
+            settings["sigma"] = sigma
+
+        if supercell_matrix is None:
+            settings["supercell_matrix"] = [1, 1, 1]
+        else:
+            settings["supercell_matrix"] = supercell_matrix
+
+        if ts is not None:
+            settings["ts"] = ts
 
         return Dict(dict=settings)
 
