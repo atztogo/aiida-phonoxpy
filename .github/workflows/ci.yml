@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.8'
+          python-version: '3.10'
 
       - name: Install python dependencies
         run: pip install -e .[pre-commit,tests]
@@ -32,6 +32,9 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
 
     strategy:
       matrix:
@@ -53,6 +56,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          channels: conda-forge
+          channel-priority: strict
+          python-version: ${{ matrix.python-version }}
 
       - name: Cache python dependencies
         id: cache-pip
@@ -64,46 +73,33 @@ jobs:
             hashFiles('**/setup.json') }}
           restore-keys: pip-${{ matrix.python-version }}-tests
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install postgresql-12 liblapack-dev liblapacke-dev
-
-      - name: Add conda to system path
-        run: |
-          # $CONDA is an environment variable pointing to the root of the miniconda directory
-          echo $CONDA/bin >> $GITHUB_PATH
-
       - name: Install dependencies
         run: |
+          conda activate test
           conda install --yes -c conda-forge python=${{ matrix.python-version }}
-          conda install --yes -c conda-forge matplotlib-base pyyaml openblas gcc_linux-64 h5py scipy pytest codecov pytest-cov spglib alm
+          conda install --yes -c conda-forge matplotlib-base pyyaml openblas c-compiler h5py scipy spglib alm cmake pytest-regressions pytest codecov pytest-cov pandas
 
-      - name: Install python dependencies
+      - name: Install phonopy and phono3py
         run: |
-          pip install --upgrade setuptools wheel
-          pip install -e .[tests]
-
-      - name: Install phono3py
-        run: |
+          conda activate test
+          mkdir install_phonopy && cd install_phonopy  # to avoid phonopy directory as recognized as module path by pytest
           git clone https://github.com/phonopy/phonopy.git
           cd phonopy
-          python setup.py build
-          pip install -e .
+          pip install -e . -vvv
           cd ..
           git clone https://github.com/phonopy/phono3py.git
           cd phono3py
-          echo "[phono3py]" > site.cfg
-          echo "extra_compile_args = -fopenmp" >> site.cfg
-          echo "extra_link_args = -lgomp" >> site.cfg
-          python setup.py build
-          pip install -e .
+          pip install -e . -vvv
+          cd ..
           cd ..
 
+      - name: Install python dependencies
+        run: |
+          conda activate test
+          pip install -e . -vvv
+          pip install pgtest
+
       - name: Run pytest
-        run: pytest -sv tests
+        run: |
+          conda activate test
+          pytest -sv tests
