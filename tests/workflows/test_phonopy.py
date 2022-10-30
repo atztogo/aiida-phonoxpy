@@ -324,6 +324,31 @@ def test_initialize_with_displacements_and_force_sets_input(
 
 
 def test_launch_process_with_dataset_inputs_and_run_phonopy(
+    generate_inputs_phonopy_wc, generate_workchain, generate_settings
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool
+
+    inputs = generate_inputs_phonopy_wc()
+    inputs["run_phonopy"] = Bool(True)
+    inputs["remote_phonopy"] = Bool(False)
+    inputs["settings"] = generate_settings(mesh=100)
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+    output_keys = [
+        "band_structure",
+        "total_dos",
+        "force_constants",
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "thermal_properties",
+    ]
+    assert set(list(result)) == set(output_keys)
+
+
+def test_launch_process_with_dataset_inputs_and_run_phonopy_without_mesh(
     generate_inputs_phonopy_wc, generate_workchain
 ):
     """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
@@ -336,13 +361,10 @@ def test_launch_process_with_dataset_inputs_and_run_phonopy(
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
     output_keys = [
-        "band_structure",
-        "total_dos",
         "force_constants",
         "phonon_setting_info",
         "primitive",
         "supercell",
-        "thermal_properties",
     ]
     assert set(list(result)) == set(output_keys)
 
@@ -358,7 +380,7 @@ def test_launch_process_with_dataset_inputs_and_run_phonopy_with_fc_calculator(
     inputs["run_phonopy"] = Bool(True)
     inputs["remote_phonopy"] = Bool(False)
     inputs["settings"] = generate_settings(
-        fc_calculator="alm", fc_calculator_options="cutoff = 5"
+        mesh=100, fc_calculator="alm", fc_calculator_options="cutoff = 5"
     )
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)
