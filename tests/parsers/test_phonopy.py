@@ -30,6 +30,8 @@ def test_phonopy_default(
     num_regression,
 ):
     """Test a phonopy calculation."""
+    import h5py
+
     name = "default"
     entry_point_calc_job = "phonoxpy.phonopy"
     entry_point_parser = "phonoxpy.phonopy"
@@ -66,10 +68,19 @@ def test_phonopy_default(
         }
     )
 
-    num_regression.check(
-        {
-            "force_constants": results["force_constants"]
-            .get_array("force_constants")
-            .ravel()
-        }
-    )
+    with results["force_constants"].open(mode="rb") as fc:
+        with h5py.File(fc) as f_fc:
+            num_regression.check(
+                {
+                    "force_constants": f_fc["force_constants"][:].ravel(),
+                }
+            )
+
+    # Old test when force_constants was ArrayData.
+    # num_regression.check(
+    #     {
+    #         "force_constants": results["force_constants"]
+    #         .get_array("force_constants")
+    #         .ravel()
+    #     }
+    # )

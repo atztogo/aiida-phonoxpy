@@ -1,7 +1,7 @@
 """CalcJob to run phonopy at a remote host."""
 import lzma
 
-from aiida.orm import ArrayData, BandsData, Dict, Str, XyData
+from aiida.orm import BandsData, Dict, Str, XyData, SinglefileData
 from phonopy.interface.phonopy_yaml import PhonopyYaml
 
 from aiida_phonoxpy.calculations.base import BasePhonopyCalculation
@@ -26,13 +26,25 @@ class PhonopyCalculation(BasePhonopyCalculation):
         # parser_name has to be set to invoke parsing.
         spec.input("metadata.options.parser_name", default="phonoxpy.phonopy")
         spec.input("metadata.options.output_filename", default="phonopy.yaml")
+        spec.input(
+            "force_constants",
+            valid_type=SinglefileData,
+            required=False,
+            help="Force constants",
+        )
 
         spec.output(
             "force_constants",
-            valid_type=ArrayData,
+            valid_type=SinglefileData,
             required=False,
             help="Calculated force constants",
         )
+        # spec.output(
+        #     "force_constants",
+        #     valid_type=ArrayData,
+        #     required=False,
+        #     help="Calculated force constants",
+        # )
         spec.output(
             "total_dos", valid_type=XyData, required=False, help="Calculated total DOS"
         )
@@ -58,7 +70,14 @@ class PhonopyCalculation(BasePhonopyCalculation):
 
     def prepare_for_submission(self, folder):
         """Prepare calcinfo."""
-        return super().prepare_for_submission(folder)
+        calcinfo = super().prepare_for_submission(folder)
+        if "force_constants" in self.inputs:
+            fc_file = self.inputs["force_constants"]
+            if isinstance(fc_file, SinglefileData):
+                calcinfo.local_copy_list.append(
+                    (fc_file.uuid, fc_file.filename, "force_constants.hdf5")
+                )
+        return calcinfo
 
     def _create_additional_files(self, folder):
         self.logger.info("create_additional_files")
@@ -71,17 +90,18 @@ class PhonopyCalculation(BasePhonopyCalculation):
             handle.write(lzma.compress(str(phpy_yaml).encode()))
 
     def _set_commands_and_retrieve_list(self):
-        mesh_opts, fc_opts = _get_phonopy_options(self.inputs.settings)
-        if "displacements" in self.inputs:
-            if "--alm" not in fc_opts:
-                fc_opts.append("--alm")
+        general_opts, mesh_opts, fc_opts = _get_phonopy_options(
+            self.inputs.settings,
+            "force_constants" in self.inputs,
+            "displacements" in self.inputs,
+        )
 
         self._internal_retrieve_list = [
             self._INOUT_FORCE_CONSTANTS,
             self.inputs.metadata.options.output_filename,
         ]
 
-        self._additional_cmd_params = [["--writefc", "--writefc-format=hdf5"] + fc_opts]
+        self._additional_cmd_params = [general_opts + fc_opts]
 
         if mesh_opts:
             self._calculation_cmd = [
@@ -122,8 +142,9 @@ class PhonopyCalculation(BasePhonopyCalculation):
         return ph
 
 
-def _get_phonopy_options(settings: Dict):
+def _get_phonopy_options(settings: Dict, fc_in_inputs: bool, disp_in_inputs: bool):
     """Return phonopy command options as strings."""
+    general_opts = []
     mesh_opts = []
     if "mesh" in settings.keys():
         mesh = settings["mesh"]
@@ -135,7 +156,18 @@ def _get_phonopy_options(settings: Dict):
         mesh_opts.append("--nowritemesh")
 
     fc_opts = []
-    if "fc_calculator" in settings.keys():
-        if settings["fc_calculator"].lower().strip() == "alm":
+    if fc_in_inputs:
+        fc_opts += ["--readfc", "--readfc-format=hdf5"]
+    else:
+        fc_opts += ["--writefc", "--writefc-format=hdf5"]
+        if "fc_calculator" in settings.keys():
+            if settings["fc_calculator"].lower().strip() == "alm":
+                fc_opts.append("--alm")
+                general_opts.append("-v")
+        if disp_in_inputs and "--alm" not in fc_opts:
             fc_opts.append("--alm")
-    return mesh_opts, fc_opts
+            general_opts.append("-v")
+        if "--alm" not in fc_opts:
+            fc_opts.append("--sym-fc")
+
+    return general_opts, mesh_opts, fc_opts

@@ -1,7 +1,7 @@
 """PhonopyWorkChain."""
 
 from aiida.engine import if_, while_
-from aiida.orm import BandsData, Bool, Code, Dict, XyData
+from aiida.orm import BandsData, Bool, Code, Dict, XyData, SinglefileData, ArrayData
 
 from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.utils.utils import (
@@ -96,6 +96,10 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                 ),
             ),
             cls.finalize,
+        )
+        # spec.output("force_constants", valid_type=ArrayData, required=False)
+        spec.output(
+            "force_constants", valid_type=(SinglefileData, ArrayData), required=False
         )
         spec.output("thermal_properties", valid_type=XyData, required=False)
         spec.output("band_structure", valid_type=BandsData, required=False)

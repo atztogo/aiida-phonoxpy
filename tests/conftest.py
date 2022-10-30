@@ -950,6 +950,28 @@ def generate_nac_params():
 
 
 @pytest.fixture
+def generate_fc_filedata(filepath_tests):
+    """Generate a `SinglefileData` instance with force_constants.hdf5 file."""
+
+    def _generate_fc_filedata(structure_id: str = "NaCl-8"):
+        if structure_id == "NaCl-8":
+            filepath = os.path.join(
+                filepath_tests,
+                "parsers",
+                "fixtures",
+                "phonopy",
+                "default",
+                "force_constants.hdf5",
+            )
+        else:
+            raise KeyError(f'Unknown structure_id="{structure_id}"')
+
+        return SinglefileData(filepath)
+
+    return _generate_fc_filedata
+
+
+@pytest.fixture
 def generate_fc3_filedata(filepath_tests):
     """Generate a `SinglefileData` instance with fc3.hdf5 file."""
 
