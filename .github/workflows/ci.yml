@@ -1,6 +1,12 @@
 name: Continuous Integration
 
-on: [push, pull_request]
+on:
+  push:
+    branches-ignore:
+      - rc
+      - master
+  pull_request:
+    branches: [develop]
 
 jobs:
   pre-commit:

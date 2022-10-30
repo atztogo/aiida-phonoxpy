@@ -100,8 +100,10 @@ def setup_phonopy_calculation(
         'random_seed' : int, optional
         'is_plusminus' : str or bool, optional
         'is_diagonal' : bool, optional
-        'mesh' : float or list, optional
+        'mesh' : float, list, optional
             Mesh numbers or distance measure of q-point sampling mesh.
+            If this key is unavailable, only force constants are calculated
+            from given displacements and forces.
         'fc_calculator' : str, optional
             External force constants calculator.
         'fc_calculator_options' : str, optional
@@ -137,8 +139,8 @@ def setup_phonopy_calculation(
         for key in valid_keys:
             if key in phonon_settings.keys():
                 ph_settings[key] = phonon_settings[key]
-        if "mesh" not in ph_settings:
-            ph_settings["mesh"] = 100.0
+        # if "mesh" not in ph_settings:
+        #     ph_settings["mesh"] = 100.0
 
     return_vals = {}
     if "supercell_matrix" in phonon_settings:

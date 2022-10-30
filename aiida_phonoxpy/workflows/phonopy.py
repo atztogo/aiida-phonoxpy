@@ -89,7 +89,9 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                         cls.collect_remote_data,
                     ).else_(
                         cls.create_force_constants,
-                        cls.run_phonopy_locally,
+                        if_(cls.should_run_local_phonopy)(
+                            cls.run_phonopy_locally,
+                        ),
                     ),
                 ),
             ),
@@ -115,6 +117,10 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
     def should_run_phonopy(self):
         """Return boolean for outline."""
         return self.inputs.run_phonopy
+
+    def should_run_local_phonopy(self):
+        """Return boolean for outline."""
+        return "mesh" in self.inputs.settings.keys()
 
     def continue_import(self):
         """Return boolen for outline."""
