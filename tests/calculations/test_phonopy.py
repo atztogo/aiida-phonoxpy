@@ -113,7 +113,7 @@ def test_phonopy_fc_input(
     )
 
     calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
-    assert set(calc_info.retrieve_list) == set(("phonopy.yaml", "force_constants.hdf5"))
+    assert set(calc_info.retrieve_list) == set(("phonopy.yaml",))
     assert calc_info.local_copy_list[0][2] == "force_constants.hdf5"
     assert set(calc_info.codes_info[0].cmdline_params) == set(
         ("-c", "phonopy_params.yaml.xz", "--readfc", "--readfc-format=hdf5")

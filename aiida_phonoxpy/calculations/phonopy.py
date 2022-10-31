@@ -97,9 +97,10 @@ class PhonopyCalculation(BasePhonopyCalculation):
         )
 
         self._internal_retrieve_list = [
-            self._INOUT_FORCE_CONSTANTS,
             self.inputs.metadata.options.output_filename,
         ]
+        if "force_constants" not in self.inputs:
+            self._internal_retrieve_list.append(self._INOUT_FORCE_CONSTANTS)
 
         self._additional_cmd_params = [general_opts + fc_opts]
 

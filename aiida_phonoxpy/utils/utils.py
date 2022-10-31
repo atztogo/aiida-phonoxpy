@@ -1,7 +1,9 @@
 """General utilities."""
 
+import os
 from typing import Optional
-
+import tempfile
+import h5py
 import numpy as np
 from aiida.common import InputValidationError
 from aiida.engine import calcfunction
@@ -14,11 +16,13 @@ from aiida.orm import (
     KpointsData,
     StructureData,
     XyData,
+    SinglefileData,
 )
 from phonopy import Phonopy
 from phonopy.interface.calculator import get_default_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.structure.dataset import get_displacements_and_forces
+from phonopy.file_IO import write_force_constants_to_hdf5
 
 
 @calcfunction
@@ -29,6 +33,7 @@ def setup_phonopy_calculation(
     run_phonopy: Bool,
     displacement_dataset: Optional[Dict] = None,
     displacements: Optional[ArrayData] = None,
+    force_constants: Optional[SinglefileData] = None,
 ):
     """Set up phonopy calculation.
 
@@ -81,6 +86,8 @@ def setup_phonopy_calculation(
         'displacements' : ArrayData, optional
             When 'number_of_snapshots' is given, random displacements are
             generated and phonopy's type-II displacements array is returned.
+        'force_constants': SinglefileData, optional
+            Force constants as a result node of previous calculation.
 
     `phonon_setting_info` contains the following entries:
         'version' : str
@@ -143,7 +150,7 @@ def setup_phonopy_calculation(
         #     ph_settings["mesh"] = 100.0
 
     return_vals = {}
-    if "supercell_matrix" in phonon_settings:
+    if "supercell_matrix" in phonon_settings and force_constants is None:
         if displacement_dataset is not None:
             ph.dataset = displacement_dataset.get_dict()
         elif displacements is not None:
@@ -166,15 +173,26 @@ def setup_phonopy_calculation(
             ph_settings.update(kwargs)
             ph.generate_displacements(**kwargs)
         structures_dict = _generate_phonopy_structures(ph)
-        if displacement_dataset is None and displacements is None:
+        if (
+            displacement_dataset is None
+            and displacements is None
+            and force_constants is None
+        ):
             if "displacements" in ph.dataset:
                 disp_array = ArrayData()
                 disp_array.set_array("displacements", ph.dataset["displacements"])
                 return_vals["displacements"] = disp_array
             else:
                 return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
+    elif "supercell_matrix" in phonon_settings and force_constants is not None:
+        structures_dict = {
+            "primitive": _generate_phonopy_primitive_structure(ph.primitive),
+            "supercell": _generate_phonopy_supercell_structure(ph.supercell),
+        }
     else:
-        structures_dict = {"primitive": _generate_phonopy_primitive_structures(ph)}
+        structures_dict = {
+            "primitive": _generate_phonopy_primitive_structure(ph.primitive)
+        }
 
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
     return_vals.update(structures_dict)
@@ -608,12 +626,16 @@ def get_force_constants(
                 kwargs["fc_calculator_options"] = phonon_setting_info[
                     "fc_calculator_options"
                 ]
+
     phonon.produce_force_constants(**kwargs)
-    force_constants = ArrayData()
-    force_constants.set_array("force_constants", phonon.force_constants)
-    force_constants.set_array("p2s_map", phonon.primitive.p2s_map)
-    force_constants.label = "force_constants"
-    force_constants.description = f"{kwargs}"
+    with tempfile.TemporaryDirectory() as dname:
+        filename = os.path.join(dname, "force_constants.hdf5")
+        write_force_constants_to_hdf5(
+            phonon.force_constants,
+            filename=filename,
+            p2s_map=phonon.primitive.p2s_map,
+        )
+        force_constants = SinglefileData(file=filename, filename="force_constants.hdf5")
 
     return force_constants
 
@@ -622,7 +644,7 @@ def get_force_constants(
 def get_phonon_properties(
     structure: StructureData,
     phonon_setting_info: Dict,
-    force_constants: ArrayData,
+    force_constants: SinglefileData,
     nac_params: Optional[ArrayData] = None,
 ):
     """Calculate phonon properties."""
@@ -632,7 +654,11 @@ def get_phonon_properties(
         phonon_settings_dict,
         nac_params=nac_params,
     )
-    ph.force_constants = force_constants.get_array("force_constants")
+
+    with force_constants.open(mode="rb") as fc:
+        with h5py.File(fc) as f_fc:
+            ph.force_constants = f_fc["force_constants"][:]
+
     mesh = phonon_settings_dict.get("mesh", None)
 
     # Mesh
@@ -1113,35 +1139,24 @@ def _generate_phonopy_structures(ph) -> dict:
     structures_dict = _generate_supercell_structures(
         ph.supercell, ph.supercells_with_displacements
     )
-    structures_dict["primitive"] = _generate_phonopy_primitive_structures(ph)
+    structures_dict["primitive"] = _generate_phonopy_primitive_structure(ph.primitive)
     return structures_dict
 
 
-def _generate_phonopy_primitive_structures(ph) -> StructureData:
-    primitive_structure = phonopy_atoms_to_structure(ph.primitive)
+def _generate_phonopy_primitive_structure(primitive) -> StructureData:
+    primitive_structure = phonopy_atoms_to_structure(primitive)
     formula = primitive_structure.get_formula(mode="hill_compact")
     primitive_structure.label = f"{formula} primitive cell"
     return primitive_structure
 
 
-def _generate_phono3py_phonon_structures(ph):
-    """Generate AiiDA structures of phono3py phonon related cells.
-
-    Returns
-    -------
-    dict of StructureData
-        'phonon_supercell'
-            For phono3py. Perfect supercell for harmonic phonon calculation.
-        'phonon_supercell_001', 'phonon_supercell_002', ...
-            For phono3py. Supercells with displacements for harmonic phonon
-            calculation.
-
-    """
-    return _generate_supercell_structures(
-        ph.phonon_supercell,
-        ph.phonon_supercells_with_displacements,
-        label_prefix="phonon_supercell",
-    )
+def _generate_phonopy_supercell_structure(
+    supercell, label_prefix="supercell"
+) -> StructureData:
+    supercell_structure = phonopy_atoms_to_structure(supercell)
+    formula = supercell_structure.get_formula(mode="hill_compact")
+    supercell_structure.label = f"{formula} {label_prefix}"
+    return supercell_structure
 
 
 def _generate_supercell_structures(
@@ -1168,12 +1183,12 @@ def _generate_supercell_structures(
             calculation.
 
     """
+    supercell_structure = _generate_phonopy_supercell_structure(
+        supercell, label_prefix=label_prefix
+    )
     structures_dict = {}
-    supercell_structure = phonopy_atoms_to_structure(supercell)
-    formula = supercell_structure.get_formula(mode="hill_compact")
-    supercell_structure.label = f"{formula} {label_prefix}"
     structures_dict[label_prefix] = supercell_structure
-
+    formula = supercell_structure.get_formula(mode="hill_compact")
     digits = len(str(len(supercells_with_displacements)))
     for i, scell in enumerate(supercells_with_displacements):
         if scell is not None:
@@ -1184,6 +1199,26 @@ def _generate_supercell_structures(
             structures_dict[label] = structure
 
     return structures_dict
+
+
+def _generate_phono3py_phonon_structures(ph):
+    """Generate AiiDA structures of phono3py phonon related cells.
+
+    Returns
+    -------
+    dict of StructureData
+        'phonon_supercell'
+            For phono3py. Perfect supercell for harmonic phonon calculation.
+        'phonon_supercell_001', 'phonon_supercell_002', ...
+            For phono3py. Supercells with displacements for harmonic phonon
+            calculation.
+
+    """
+    return _generate_supercell_structures(
+        ph.phonon_supercell,
+        ph.phonon_supercells_with_displacements,
+        label_prefix="phonon_supercell",
+    )
 
 
 def get_displacements_from_phonopy_wc(node):

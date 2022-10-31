@@ -1,5 +1,4 @@
 """PhonopyWorkChain."""
-
 from aiida.engine import if_, while_
 from aiida.orm import BandsData, Bool, Code, Dict, XyData, SinglefileData, ArrayData
 
@@ -47,6 +46,12 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         spec.input(
             "phonopy.metadata.options.resources", valid_type=dict, required=False
         )
+        spec.input(
+            "force_constants",
+            valid_type=SinglefileData,
+            required=False,
+            help="Force constants",
+        )
         spec.input_namespace(
             "remote_workdirs",
             help="Directory names to import force and NAC calculations.",
@@ -61,37 +66,39 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
 
         spec.outline(
             cls.initialize,
-            if_(cls.import_calculations_from_files)(
-                cls.initialize_immigrant,
-                if_(cls.is_force)(
-                    while_(cls.continue_import)(
-                        cls.import_force_calculations_from_files,
+            if_(cls.force_constants_exist)(cls.do_pass).else_(
+                if_(cls.import_calculations_from_files)(
+                    cls.initialize_immigrant,
+                    if_(cls.is_force)(
+                        while_(cls.continue_import)(
+                            cls.import_force_calculations_from_files,
+                        ),
+                    ),
+                    if_(cls.is_nac)(
+                        cls.import_nac_calculations_from_files,
+                    ),
+                ).else_(
+                    cls.run_force_and_nac_calculations,
+                ),
+                if_(cls.force_sets_exists)(cls.do_pass).else_(
+                    if_(cls.is_force)(
+                        cls.create_force_sets,
                     ),
                 ),
-                if_(cls.is_nac)(
-                    cls.import_nac_calculations_from_files,
-                ),
-            ).else_(
-                cls.run_force_and_nac_calculations,
-            ),
-            if_(cls.force_sets_exists)(cls.do_pass).else_(
-                if_(cls.is_force)(
-                    cls.create_force_sets,
+                if_(cls.nac_params_exists)(cls.do_pass).else_(
+                    if_(cls.is_nac)(cls.attach_nac_params),
                 ),
             ),
-            if_(cls.nac_params_exists)(cls.do_pass).else_(
-                if_(cls.is_nac)(cls.attach_nac_params),
-            ),
-            if_(cls.should_run_phonopy)(
-                if_(cls.force_sets_exists)(
-                    if_(cls.should_run_remote_phonopy)(
-                        cls.run_phonopy_remote,
-                        cls.collect_remote_data,
-                    ).else_(
+            if_(cls.ready_to_run_phonopy)(
+                if_(cls.should_run_remote_phonopy)(
+                    cls.run_phonopy_remote,
+                    cls.collect_remote_data,
+                ).else_(
+                    if_(cls.force_constants_exist)(cls.do_pass).else_(
                         cls.create_force_constants,
-                        if_(cls.should_run_local_phonopy)(
-                            cls.run_phonopy_locally,
-                        ),
+                    ),
+                    if_(cls.should_run_local_phonopy)(
+                        cls.run_phonopy_locally,
                     ),
                 ),
             ),
@@ -118,13 +125,19 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         """Return boolean for outline."""
         return self.inputs.remote_phonopy
 
-    def should_run_phonopy(self):
-        """Return boolean for outline."""
-        return self.inputs.run_phonopy
-
     def should_run_local_phonopy(self):
         """Return boolean for outline."""
         return "mesh" in self.inputs.settings.keys()
+
+    def force_constants_exist(self):
+        """Return boolean for outline."""
+        return "force_constants" in self.inputs
+
+    def ready_to_run_phonopy(self):
+        """Return boolean for outline."""
+        return self.inputs.run_phonopy and (
+            self.force_constants_exist() or self.force_sets_exists()
+        )
 
     def continue_import(self):
         """Return boolen for outline."""
@@ -157,6 +170,9 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                 if key in self.inputs:
                     kwargs[key] = self.inputs[key]
                     self.ctx[key] = self.inputs[key]
+
+        if self.force_constants_exist():
+            kwargs["force_constants"] = self.inputs["force_constants"]
 
         return_vals = setup_phonopy_calculation(
             self.inputs.settings,
@@ -231,7 +247,11 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             builder.metadata.label = self.inputs.metadata.label
         if "options" in self.inputs.phonopy.metadata:
             builder.metadata.options.update(self.inputs.phonopy.metadata.options)
-        builder.force_sets = self.ctx.force_sets
+
+        if self.force_constants_exist():
+            builder.force_constants = self.inputs.force_constants
+        if "force_sets" in self.ctx:
+            builder.force_sets = self.ctx.force_sets
         if "nac_params" in self.ctx:
             builder.nac_params = self.ctx.nac_params
         if "displacements" in self.ctx:
@@ -285,10 +305,15 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         nac_params = None
         if "nac_params" in self.ctx:
             nac_params = self.ctx.nac_params
+        if self.force_constants_exist():
+            force_constants = self.inputs.force_constants
+        else:
+            force_constants = self.ctx.force_constants
+
         result = get_phonon_properties(
             self.inputs.structure,
             self.ctx.phonon_setting_info,
-            self.ctx.force_constants,
+            force_constants,
             nac_params=nac_params,
         )
         self.out("thermal_properties", result["thermal_properties"])

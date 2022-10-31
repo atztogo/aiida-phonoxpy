@@ -323,6 +323,49 @@ def test_initialize_with_displacements_and_force_sets_input(
     _assert_cells(wc)
 
 
+def test_initialize_with_force_constants(
+    generate_workchain, generate_structure, generate_settings, generate_fc_filedata
+):
+    """Test of PhonopyWorkChain.initialize() using NaCl data.
+
+    `force_constants` is given as an input.
+
+    """
+    from aiida.orm import Dict, StructureData
+
+    structure = generate_structure()
+    settings = generate_settings()
+    force_constants = generate_fc_filedata()
+    inputs = {
+        "structure": structure,
+        "settings": settings,
+        "force_constants": force_constants,
+    }
+    wc = generate_workchain("phonoxpy.phonopy", inputs)
+    wc.initialize()
+    assert "force_constants" in wc.inputs
+    phonon_setting_info_keys = [
+        "version",
+        "symmetry",
+        "symmetry_tolerance",
+        "primitive_matrix",
+        "supercell_matrix",
+    ]
+    assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
+    ctx = {
+        "phonon_setting_info": Dict,
+        "primitive": StructureData,
+        "supercell": StructureData,
+        "supercells": dict,
+    }
+    for key in wc.ctx:
+        assert key in ctx
+        assert isinstance(wc.ctx[key], ctx[key])
+        assert "supercell_" not in key
+
+    _assert_cells(wc)
+
+
 def test_launch_process_with_dataset_inputs_and_run_phonopy(
     generate_inputs_phonopy_wc, generate_workchain, generate_settings
 ):
@@ -396,6 +439,34 @@ def test_launch_process_with_dataset_inputs_and_run_phonopy_with_fc_calculator(
     assert set(list(result)) == set(output_keys)
 
 
+def test_launch_process_with_force_constants_and_run_phonopy(
+    generate_inputs_phonopy_wc,
+    generate_workchain,
+    generate_settings,
+    generate_fc_filedata,
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool
+
+    inputs = generate_inputs_phonopy_wc()
+    inputs["force_constants"] = generate_fc_filedata()
+    inputs["run_phonopy"] = Bool(True)
+    inputs["remote_phonopy"] = Bool(False)
+    inputs["settings"] = generate_settings(mesh=100)
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+    output_keys = [
+        "band_structure",
+        "total_dos",
+        "phonon_setting_info",
+        "primitive",
+        "supercell",
+        "thermal_properties",
+    ]
+    assert set(list(result)) == set(output_keys)
+
+
 def test_launch_process_with_dataset_inputs(
     generate_inputs_phonopy_wc, generate_workchain
 ):
@@ -429,6 +500,33 @@ def test_launch_process_with_displacements_inputs(
         "metadata": {},
         "force_sets": generate_force_sets("NaCl-displacements"),
         "displacements": generate_displacements(),
+        "nac_params": generate_nac_params(),
+        "run_phonopy": Bool(False),
+    }
+    process = generate_workchain("phonoxpy.phonopy", inputs)
+    result, node = launch.run_get_node(process)
+    output_keys = ["phonon_setting_info", "primitive", "supercell"]
+    assert set(list(result)) == set(output_keys)
+
+
+def test_launch_process_with_force_constants_inputs(
+    fixture_code,
+    generate_structure,
+    generate_settings,
+    generate_workchain,
+    generate_nac_params,
+    generate_fc_filedata,
+):
+    """Test of PhonopyWorkChain with dataset inputs using NaCl data."""
+    from aiida.engine import launch
+    from aiida.orm import Bool
+
+    inputs = {
+        "code": fixture_code("phonoxpy.phonopy"),
+        "structure": generate_structure(),
+        "settings": generate_settings(),
+        "metadata": {},
+        "force_constants": generate_fc_filedata(),
         "nac_params": generate_nac_params(),
         "run_phonopy": Bool(False),
     }
