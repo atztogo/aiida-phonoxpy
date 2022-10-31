@@ -5,11 +5,13 @@ from aiida.common import AttributeDict
 
 
 @pytest.fixture
-def generate_inputs(generate_structure, generate_nac_params, generate_settings):
+def generate_inputs(
+    generate_structure, generate_nac_params, generate_settings, generate_fc_filedata
+):
     """Return only those inputs that the parser will expect to be there."""
 
-    def _generate_inputs(metadata=None):
-        return AttributeDict(
+    def _generate_inputs(metadata=None, with_force_constants=False):
+        attr_dict = AttributeDict(
             {
                 "structure": generate_structure(),
                 "settings": generate_settings(),
@@ -17,6 +19,9 @@ def generate_inputs(generate_structure, generate_nac_params, generate_settings):
                 "nac_params": generate_nac_params(),
             }
         )
+        if with_force_constants:
+            attr_dict.force_constants = generate_fc_filedata()
+        return attr_dict
 
     return _generate_inputs
 
@@ -30,6 +35,8 @@ def test_phonopy_default(
     num_regression,
 ):
     """Test a phonopy calculation."""
+    import h5py
+
     name = "default"
     entry_point_calc_job = "phonoxpy.phonopy"
     entry_point_parser = "phonoxpy.phonopy"
@@ -66,10 +73,10 @@ def test_phonopy_default(
         }
     )
 
-    num_regression.check(
-        {
-            "force_constants": results["force_constants"]
-            .get_array("force_constants")
-            .ravel()
-        }
-    )
+    with results["force_constants"].open(mode="rb") as fc:
+        with h5py.File(fc) as f_fc:
+            num_regression.check(
+                {
+                    "force_constants": f_fc["force_constants"][:].ravel(),
+                }
+            )

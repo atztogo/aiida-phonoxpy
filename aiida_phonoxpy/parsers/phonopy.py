@@ -1,13 +1,13 @@
 """Parsers of phonopy output files."""
 from aiida.common.exceptions import NotExistent
 from aiida.engine import ExitCode
-from aiida.orm import Str
+from aiida.orm import Str, SinglefileData
 from aiida.parsers.parser import Parser
 from aiida.plugins import CalculationFactory
 
 from aiida_phonoxpy.common.raw_parsers import (
     parse_band_structure,
-    parse_FORCE_CONSTANTS,
+    # parse_FORCE_CONSTANTS,
     parse_phonopy_yaml,
     parse_projected_dos,
     parse_thermal_properties,
@@ -35,9 +35,13 @@ class PhonopyParser(Parser):
         list_of_files = output_folder.list_object_names()
 
         fc_filename = PhonopyCalculation._INOUT_FORCE_CONSTANTS
+        # if fc_filename in list_of_files:
+        #     with output_folder.open(fc_filename, "rb") as f:
+        #         self.out("force_constants", parse_FORCE_CONSTANTS(f))
         if fc_filename in list_of_files:
-            with output_folder.open(fc_filename, "rb") as f:
-                self.out("force_constants", parse_FORCE_CONSTANTS(f))
+            with output_folder.open(fc_filename, "rb") as handle:
+                output_node = SinglefileData(file=handle, filename=fc_filename)
+                self.out("force_constants", output_node)
 
         projected_dos_filename = PhonopyCalculation._OUTPUT_PROJECTED_DOS
         if projected_dos_filename in list_of_files:

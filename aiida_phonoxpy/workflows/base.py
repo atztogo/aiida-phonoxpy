@@ -94,7 +94,6 @@ class BasePhonopyWorkChain(WorkChain):
         spec.input("code", valid_type=Code, required=False)
         spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
 
-        spec.output("force_constants", valid_type=ArrayData, required=False)
         spec.output("primitive", valid_type=StructureData, required=False)
         spec.output("supercell", valid_type=StructureData, required=False)
         spec.output("displacements", valid_type=ArrayData, required=False)
