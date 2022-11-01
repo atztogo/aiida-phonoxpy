@@ -1,6 +1,9 @@
 """Tests for PhonopyWorkChain."""
 import numpy as np
 import pytest
+import tempfile
+import h5py
+import shutil
 from phonopy.structure.cells import isclose
 
 from aiida_phonoxpy.utils.utils import phonopy_atoms_from_structure
@@ -410,6 +413,24 @@ def test_launch_process_with_dataset_inputs_and_run_phonopy_without_mesh(
         "supercell",
     ]
     assert set(list(result)) == set(output_keys)
+    with result["force_constants"].open(mode="rb") as source:
+        with tempfile.TemporaryFile() as target:
+            shutil.copyfileobj(source, target)
+            target.seek(0)
+            with h5py.File(target) as f:
+                force_constants = f["force_constants"][:]
+    np.testing.assert_allclose(
+        force_constants[0, 0],
+        np.eye(3) * 1.509115333333334,
+        atol=1e-8,
+        rtol=0,
+    )
+    np.testing.assert_allclose(
+        force_constants[-1, -1],
+        np.eye(3) * 2.206136666666667,
+        atol=1e-8,
+        rtol=0,
+    )
 
 
 def test_launch_process_with_dataset_inputs_and_run_phonopy_with_fc_calculator(
