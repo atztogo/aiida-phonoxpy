@@ -1,6 +1,7 @@
 """General utilities."""
 
 import os
+import shutil
 from typing import Optional
 import tempfile
 import h5py
@@ -104,6 +105,8 @@ def setup_phonopy_calculation(
         'distance' : float, optional
             Displacement distance.
         'number_of_snapshots' : int, optional
+        'temperature': float, optional
+            Used to invoke random displacements at temperature.
         'random_seed' : int, optional
         'is_plusminus' : str or bool, optional
         'is_diagonal' : bool, optional
@@ -146,17 +149,32 @@ def setup_phonopy_calculation(
         for key in valid_keys:
             if key in phonon_settings.keys():
                 ph_settings[key] = phonon_settings[key]
-        # if "mesh" not in ph_settings:
-        #     ph_settings["mesh"] = 100.0
 
     return_vals = {}
+    generate_displacements = False
+    generate_structures = False
     if "supercell_matrix" in phonon_settings and force_constants is None:
-        if displacement_dataset is not None:
-            ph.dataset = displacement_dataset.get_dict()
-        elif displacements is not None:
-            ph.dataset = {"displacements": displacements.get_array("displacements")}
-        else:
-            # Key-set 3
+        generate_displacements = True
+        generate_structures = True
+    if (
+        force_constants is not None
+        and "temperature" in phonon_settings.keys()
+        and "number_of_snapshots" in phonon_settings.keys()
+    ):
+        generate_displacements = True
+        generate_structures = True
+    if displacement_dataset is not None:
+        ph.dataset = displacement_dataset.get_dict()
+        generate_displacements = False
+        generate_structures = True
+    elif displacements is not None:
+        ph.dataset = {"displacements": displacements.get_array("displacements")}
+        generate_displacements = False
+        generate_structures = True
+
+    if generate_displacements:
+        # Key-set 3
+        if force_constants is None:
             ph_settings["distance"] = _get_default_displacement_distance("phonopy")
             supported_keys = (
                 "distance",
@@ -164,6 +182,7 @@ def setup_phonopy_calculation(
                 "is_diagonal",
                 "number_of_snapshots",
                 "random_seed",
+                "temperature",
             )
             kwargs = {
                 key: phonon_settings[key]
@@ -172,19 +191,42 @@ def setup_phonopy_calculation(
             }
             ph_settings.update(kwargs)
             ph.generate_displacements(**kwargs)
-        structures_dict = _generate_phonopy_structures(ph)
-        if (
-            displacement_dataset is None
-            and displacements is None
-            and force_constants is None
-        ):
-            if "displacements" in ph.dataset:
-                disp_array = ArrayData()
-                disp_array.set_array("displacements", ph.dataset["displacements"])
-                return_vals["displacements"] = disp_array
+        else:
+            supported_keys = (
+                "number_of_snapshots",
+                "random_seed",
+                "temperature",
+                "is_plusminus",
+            )
+            kwargs = {
+                key: phonon_settings[key]
+                for key in phonon_settings.keys()
+                if key in supported_keys
+            }
+            ph_settings.update(kwargs)
+            with force_constants.open(mode="rb") as source:
+                with tempfile.TemporaryFile() as target:
+                    shutil.copyfileobj(source, target)
+                    target.seek(0)
+                    with h5py.File(target) as f:
+                        ph.force_constants = f["force_constants"][:]
+            ph.init_random_displacements()
+            ph.random_displacements.treat_imaginary_modes()
+            d = ph.run_random_displacements(**kwargs)
+            if "random_seed" in kwargs:
+                ph.dataset = {
+                    "displacements": d,
+                    "random_seed": kwargs["random_seed"],
+                }
             else:
-                return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
-    elif "supercell_matrix" in phonon_settings and force_constants is not None:
+                ph.dataset = {"displacements": d}
+        if "displacements" in ph.dataset:
+            disp_array = ArrayData()
+            disp_array.set_array("displacements", ph.dataset["displacements"])
+            return_vals["displacements"] = disp_array
+        else:
+            return_vals["displacement_dataset"] = Dict(dict=ph.dataset)
+    elif "supercell_matrix" in phonon_settings:
         structures_dict = {
             "primitive": _generate_phonopy_primitive_structure(ph.primitive),
             "supercell": _generate_phonopy_supercell_structure(ph.supercell),
@@ -193,6 +235,9 @@ def setup_phonopy_calculation(
         structures_dict = {
             "primitive": _generate_phonopy_primitive_structure(ph.primitive)
         }
+
+    if generate_structures:
+        structures_dict = _generate_phonopy_structures(ph)
 
     return_vals["phonon_setting_info"] = Dict(dict=ph_settings)
     return_vals.update(structures_dict)

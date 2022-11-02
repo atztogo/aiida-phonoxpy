@@ -369,6 +369,54 @@ def test_initialize_with_force_constants(
     _assert_cells(wc)
 
 
+def test_initialize_with_force_constants_for_random_disps(
+    generate_workchain, generate_structure, generate_settings, generate_fc_filedata
+):
+    """Test of PhonopyWorkChain.initialize() using NaCl data.
+
+    `force_constants` is given as an input along with `temperature` and
+    `number_of_snapshots`.
+
+    """
+    from aiida.orm import Dict, StructureData, ArrayData
+
+    structure = generate_structure()
+    settings = generate_settings(temperature=300, number_of_snapshots=10)
+    force_constants = generate_fc_filedata()
+    inputs = {
+        "structure": structure,
+        "settings": settings,
+        "force_constants": force_constants,
+    }
+    wc = generate_workchain("phonoxpy.phonopy", inputs)
+    wc.initialize()
+    assert "force_constants" in wc.inputs
+    phonon_setting_info_keys = [
+        "version",
+        "symmetry",
+        "symmetry_tolerance",
+        "primitive_matrix",
+        "supercell_matrix",
+        "number_of_snapshots",
+        "temperature",
+    ]
+    assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
+    ctx = {
+        "phonon_setting_info": Dict,
+        "primitive": StructureData,
+        "supercell": StructureData,
+        "supercells": dict,
+        "displacements": ArrayData,
+    }
+    assert len(wc.ctx.supercells) == 10
+    for key in wc.ctx:
+        assert key in ctx
+        assert isinstance(wc.ctx[key], ctx[key])
+        assert "supercell_" not in key
+
+    _assert_cells(wc)
+
+
 def test_launch_process_with_dataset_inputs_and_run_phonopy(
     generate_inputs_phonopy_wc, generate_workchain, generate_settings
 ):
