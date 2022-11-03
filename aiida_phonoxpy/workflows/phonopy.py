@@ -130,8 +130,24 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         return "mesh" in self.inputs.settings.keys()
 
     def force_constants_exist(self):
+        """Return boolean for outline.
+
+        Exception is the case that `temperature` and `number_of_snapshots` are
+        in phonon settings for random displacements generation.
+
+        """
+        return "force_constants" in self.inputs and not (
+            "temperature" in self.inputs.settings.keys()
+            and "number_of_snapshots" in self.inputs.settings.keys()
+        )
+
+    def generate_random_disps_at_temperature(self):
         """Return boolean for outline."""
-        return "force_constants" in self.inputs
+        return (
+            "force_constants" in self.inputs
+            and "temperature" in self.inputs.settings.keys()
+            and "number_of_snapshots" in self.inputs.settings.keys()
+        )
 
     def ready_to_run_phonopy(self):
         """Return boolean for outline."""
@@ -171,7 +187,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                     kwargs[key] = self.inputs[key]
                     self.ctx[key] = self.inputs[key]
 
-        if self.force_constants_exist():
+        if "force_constants" in self.inputs:
             kwargs["force_constants"] = self.inputs["force_constants"]
 
         return_vals = setup_phonopy_calculation(
@@ -193,7 +209,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
                 self.ctx[key] = return_vals[key]
                 self.out(key, self.ctx[key])
 
-        if self.is_force():
+        if self.is_force() or self.generate_random_disps_at_temperature():
             self.ctx.supercells = {}
             if self.inputs.subtract_residual_forces:
                 digits = len(str(len(self.ctx.supercells)))

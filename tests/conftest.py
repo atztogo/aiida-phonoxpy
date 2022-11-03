@@ -1069,6 +1069,7 @@ def generate_settings():
         mass_variances=None,
         mesh=None,
         number_of_snapshots=None,
+        temperature=None,
         pinv_cutoff=None,
         pinv_method=None,
         pinv_solver=None,
@@ -1107,6 +1108,9 @@ def generate_settings():
 
         if number_of_snapshots is not None:
             settings["number_of_snapshots"] = number_of_snapshots
+
+        if temperature is not None:
+            settings["temperature"] = temperature
 
         if pinv_cutoff is not None:
             settings["pinv_cutoff"] = pinv_cutoff
