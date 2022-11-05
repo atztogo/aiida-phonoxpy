@@ -5,13 +5,17 @@ Originally this was copied from aiida-quantumespresso.
 """
 import os
 import shutil
+from pathlib import Path
 from collections.abc import Mapping
 
 import numpy as np
 import pytest
 from aiida.orm import SinglefileData
 
+from phonopy import Phonopy
+
 pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+cwd = Path(__file__).parent
 
 
 @pytest.fixture(scope="session")
@@ -1417,3 +1421,21 @@ def generate_calc_job():
         return calc_info
 
     return _generate_calc_job
+
+
+@pytest.fixture(scope="session")
+def ph_nacl() -> Phonopy:
+    """Return Phonopy class instance of NaCl 2x2x2."""
+    import phonopy
+
+    yaml_filename = cwd / "phonopy_disp_NaCl.yaml"
+    force_sets_filename = cwd / "FORCE_SETS_NaCl"
+    born_filename = cwd / "BORN_NaCl"
+    return phonopy.load(
+        yaml_filename,
+        force_sets_filename=force_sets_filename,
+        born_filename=born_filename,
+        is_compact_fc=False,
+        log_level=1,
+        produce_fc=True,
+    )
