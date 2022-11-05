@@ -106,6 +106,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         fc_opts = opts_dict["fc"]
         mesh_opts = opts_dict["mesh"]
         sigma_opts = opts_dict["sigma"]
+        mass_opts = opts_dict["mass"]
         isotope_opts = opts_dict["isotope"]
         temperature_opts = opts_dict["temperature"]
         conductivity_opts = opts_dict["conductivity"]
@@ -115,6 +116,7 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             comm_opts = (
                 ["--fc2", "--fc3"]
                 + sigma_opts
+                + mass_opts
                 + conductivity_opts
                 + mesh_opts
                 + temperature_opts
@@ -161,6 +163,7 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     temperature_opts = ["--ts"]
     conductivity_opts = []
     sigma_opts = []
+    mass_opts = []
 
     if "mesh" in settings.keys():
         mesh = settings["mesh"]
@@ -180,6 +183,10 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
             sigma_opts += ["--sigma", f"{sigma}"]
         except TypeError:
             sigma_opts += ["--sigma"] + [f"{val}" for val in sigma]
+
+    if "mass" in settings.keys():
+        masses = settings["mass"]
+        mass_opts += ["--mass"] + [f"{val}" for val in masses]
 
     if "grg" in settings.keys():
         if settings["grg"]:
@@ -231,6 +238,7 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
     return {
         "mesh": mesh_opts,
         "sigma": sigma_opts,
+        "mass": mass_opts,
         "fc": fc_opts,
         "isotope": isotope_opts,
         "temperature": temperature_opts,

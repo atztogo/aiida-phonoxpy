@@ -973,8 +973,6 @@ def get_phono3py_instance(
             "phonon_supercell_matrix"
         ]
     ph3py = Phono3py(phonopy_atoms_from_structure(structure), **kwargs)
-    if "mass" in phonon_settings_dict:
-        ph3py.masses = phonon_settings_dict["masse"]
     if nac_params:
         _set_nac_params(ph3py, nac_params)
 
