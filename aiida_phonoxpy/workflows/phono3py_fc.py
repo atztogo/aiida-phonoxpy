@@ -63,7 +63,6 @@ class Phono3pyFCWorkChain(WorkChain, RunPhono3pyMixIn):
                 self.ctx[key] = self.inputs[key]
         return_vals = setup_phono3py_fc_calculation(
             self.inputs.settings,
-            self.inputs.structure,
             self.inputs.symmetry_tolerance,
         )
 
