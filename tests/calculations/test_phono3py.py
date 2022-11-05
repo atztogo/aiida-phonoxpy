@@ -1,5 +1,6 @@
 """Test phono3py parser."""
 import pytest
+import numpy as np
 from aiida.common import AttributeDict
 from aiida_phonoxpy.utils.utils import (
     _setup_phono3py_calculation_keyset4,
@@ -505,6 +506,67 @@ def test_phono3py_ltc_with_mass(
         40,
     )
 
+    _compare_sets(ref, calc_info.codes_info[0].cmdline_params)
+
+
+@pytest.mark.parametrize(
+    "mesh", [100, [20, 20, 20], [[-20, 20, 20], [20, -20, 20], [20, 20, -20]]]
+)
+def test_phono3py_ltc_with_mesh(
+    mesh,
+    fixture_sandbox,
+    fixture_code,
+    generate_calc_job,
+    generate_inputs,
+    generate_settings,
+    generate_fc3_filedata,
+    generate_fc2_filedata,
+):
+    """Test a phonopy calculation."""
+    entry_point_calc_job = "phonoxpy.phono3py"
+
+    inputs = generate_inputs(
+        metadata={"options": {"resources": {"tot_num_mpiprocs": 1}}}
+    )
+    inputs.update(
+        {
+            "settings": generate_settings(mesh=mesh, phonon_supercell_matrix=[2, 2, 2]),
+            "code": fixture_code(entry_point_calc_job),
+            "fc2": generate_fc2_filedata(),
+            "fc3": generate_fc3_filedata(),
+        }
+    )
+
+    ph_settings = {}
+    _setup_phono3py_calculation_keyset5(ph_settings, inputs["settings"])
+    assert set(ph_settings) == set(("mesh",))
+
+    calc_info = generate_calc_job(fixture_sandbox, entry_point_calc_job, inputs)
+    assert set(calc_info.retrieve_list) == set(("phono3py.yaml", "kappa-*.hdf5"))
+
+    if isinstance(mesh, list):
+        ref = [
+            "-c",
+            "phono3py_params.yaml.xz",
+            "--fc2",
+            "--fc3",
+            "--br",
+            "--ts",
+            "300",
+            "--mesh",
+        ] + np.ravel(mesh).tolist()
+    else:
+        ref = [
+            "-c",
+            "phono3py_params.yaml.xz",
+            "--fc2",
+            "--fc3",
+            "--br",
+            "--ts",
+            "300",
+            "--mesh",
+            100.0,
+        ]
     _compare_sets(ref, calc_info.codes_info[0].cmdline_params)
 
 
