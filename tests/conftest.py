@@ -1071,6 +1071,7 @@ def generate_settings():
         isotope=False,
         lbte=False,
         mass_variances=None,
+        mass=None,
         mesh=None,
         number_of_snapshots=None,
         temperature=None,
@@ -1103,6 +1104,9 @@ def generate_settings():
 
         if lbte:
             settings["lbte"] = True
+
+        if mass is not None:
+            settings["mass"] = mass
 
         if mass_variances is not None:
             settings["mass_variances"] = mass_variances

@@ -54,6 +54,33 @@ def test_initialize_with_isotope(
     assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
 
 
+def test_initialize_with_mass(
+    generate_workchain,
+    generate_structure,
+    generate_settings,
+):
+    """Test of Phono3pyLTCWorkChain.initialize() using NaCl data."""
+    structure = generate_structure()
+    settings = generate_settings(mass=[20, 40])
+
+    inputs = {
+        "structure": structure,
+        "settings": settings,
+    }
+    wc = generate_workchain("phonoxpy.phono3py_ltc", inputs)
+    wc.initialize()
+
+    phonon_setting_info_keys = [
+        "version",
+        "supercell_matrix",
+        "symmetry_tolerance",
+        "symmetry",
+        "primitive_matrix",
+        "mass",
+    ]
+    assert set(wc.ctx.phonon_setting_info.keys()) == set(phonon_setting_info_keys)
+
+
 def test_initialize_with_phonon_supercell_matrix(
     generate_workchain,
     generate_structure,
