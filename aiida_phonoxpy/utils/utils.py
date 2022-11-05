@@ -18,6 +18,8 @@ from aiida.orm import (
     StructureData,
     XyData,
     SinglefileData,
+    Site,
+    Kind,
 )
 from phonopy import Phonopy
 from phonopy.interface.calculator import get_default_physical_units
@@ -290,6 +292,7 @@ def setup_phono3py_calculation(
         ('mesh',
          'sigma',
          'isotope',
+         'mass_variances',
          'br',
          'lbte',
          'ts',
@@ -367,7 +370,8 @@ def setup_phono3py_calculation(
         'br' : bool, optional
         'lbte' : bool, optional
         'ts' : list of float, optional
-        'mass_variances' : list
+        'mass': list of float, optional
+        'mass_variances' : list of float, optional
             Mass variances used for ph-isotope scattering calculation.
         'grg' : bool, optional
         'cutoff_fc3' : float, optional
@@ -395,7 +399,7 @@ def setup_phono3py_calculation(
 
     # Key-set 1
     _setup_phono3py_calculation_keyset1(
-        ph_settings, phonon_settings, structure, symmetry_tolerance.value
+        ph_settings, phonon_settings, symmetry_tolerance.value
     )
 
     # Key-set 2
@@ -487,7 +491,7 @@ def setup_phono3py_calculation(
 
 
 def _setup_phono3py_calculation_keyset1(
-    ph_settings: dict, phonon_settings: Dict, structure: StructureData, symprec: float
+    ph_settings: dict, phonon_settings: Dict, symprec: float
 ):
     import phono3py
 
@@ -511,11 +515,11 @@ def _setup_phono3py_calculation_keyset4(
 
     Force constants calculation
     ---------------------------
-    fc_calculator : str
+    fc_calculator : str, optional
         External force constants calculator.
-    fc_calculator_options : str
+    fc_calculator_options : str, optional
         Options of external force constants calculator.
-    cutoff_pair_distance : float
+    cutoff_pair_distance : float,
         See http://phonopy.github.io/phono3py/cutoff-pair.html.
 
     """
@@ -532,21 +536,23 @@ def _setup_phono3py_calculation_keyset5(
 
     LTC calculation
     ---------------
-    mesh : float, list
+    mesh : float, list of int
         Uniform sampling mesh.
-    sigma : float, list
-        Parameter for Brillouin zone integration.
-    isotope : bool
-        With / without isotope scattering
-    br : bool
-        Use RTA or not. This is the default behaviour.
-    lbte : bool
-        Use direct solution or not.
-    ts : list
+    ts : list of float
         Temperatures. The default value is [300].
-    mass_variances : list
+    sigma : float, list of float, optional
+        Parameter for Brillouin zone integration.
+    isotope : bool, optional
+        With / without isotope scattering
+    br : bool, optional
+        Use RTA or not. This is the default behaviour.
+    lbte : bool, optional
+        Use direct solution or not.
+    mass : list of float, optional
+        Masses of atoms.
+    mass_variances : list of float, optional
         Mass variances used for ph-isotope scattering calculation.
-    grg : bool
+    grg : bool, optional
         Use generalized-regular grid or not.
     cutoff_fc3 : float, optional
         Set zero in fc3 where any pair of atoms whose distance is larger
@@ -567,11 +573,12 @@ def _setup_phono3py_calculation_keyset5(
     """
     for key in (
         "mesh",
+        "ts",
         "sigma",
         "isotope",
         "lbte",
         "br",
-        "ts",
+        "mass",
         "mass_variances",
         "grg",
         "cutoff_fc3",
@@ -587,7 +594,6 @@ def _setup_phono3py_calculation_keyset5(
 @calcfunction
 def setup_phono3py_fc_calculation(
     phonon_settings: Dict,
-    structure: StructureData,
     symmetry_tolerance: Float,
 ):
     """Set up phono3py force constants calculation.
@@ -602,7 +608,7 @@ def setup_phono3py_fc_calculation(
 
     # Key-set 1
     _setup_phono3py_calculation_keyset1(
-        ph_settings, phonon_settings, structure, symmetry_tolerance.value
+        ph_settings, phonon_settings, symmetry_tolerance.value
     )
 
     # Key-set 4
@@ -630,7 +636,7 @@ def setup_phono3py_ltc_calculation(
 
     # Key-set 1
     _setup_phono3py_calculation_keyset1(
-        ph_settings, phonon_settings, structure, symmetry_tolerance.value
+        ph_settings, phonon_settings, symmetry_tolerance.value
     )
 
     # Key-set 2
@@ -731,6 +737,11 @@ def compare_structures(structure_a, structure_b, symprec=1e-5):
     for site_a, site_b in zip(structure_a.sites, structure_b.sites):
         if site_a.kind_name != site_b.kind_name:
             return False
+
+    masses_a = _get_masses_from_structure(structure_a)
+    masses_b = _get_masses_from_structure(structure_b)
+    if not np.allclose(masses_a, masses_b, atol=symprec):
+        return False
 
     positions_a = [site.position for site in structure_a.sites]
     frac_positions_a = np.dot(positions_a, np.linalg.inv(cell_a))
@@ -962,6 +973,8 @@ def get_phono3py_instance(
             "phonon_supercell_matrix"
         ]
     ph3py = Phono3py(phonopy_atoms_from_structure(structure), **kwargs)
+    if "mass" in phonon_settings_dict:
+        ph3py.masses = phonon_settings_dict["masse"]
     if nac_params:
         _set_nac_params(ph3py, nac_params)
 
@@ -981,11 +994,20 @@ def _set_nac_params(phpy: Phonopy, nac_params: ArrayData) -> None:
 
 def phonopy_atoms_to_structure(cell):
     """Convert PhonopyAtoms to StructureData."""
+    masses = cell.masses
     symbols = cell.symbols
     positions = cell.positions
     structure = StructureData(cell=cell.cell)
+
+    kinds = {}
+    for symbol, mass in zip(symbols, masses):
+        if symbol not in kinds:
+            kinds[symbol] = mass
+    for symbol, mass in kinds.items():
+        structure.append_kind(Kind(symbols=symbol, mass=mass, name=symbol))
     for symbol, position in zip(symbols, positions):
-        structure.append_atom(position=position, symbols=symbol)
+        structure.append_site(Site(position=position, kind_name=symbol))
+
     return structure
 
 
@@ -994,6 +1016,7 @@ def phonopy_atoms_from_structure(structure):
     cell = PhonopyAtoms(
         symbols=[site.kind_name for site in structure.sites],
         positions=[site.position for site in structure.sites],
+        masses=_get_masses_from_structure(structure),
         cell=structure.cell,
     )
     return cell
@@ -1293,3 +1316,9 @@ def get_displacements_from_phonopy_wc(node):
         return d
 
     raise RuntimeError("displacements not found.")
+
+
+def _get_masses_from_structure(structure):
+    kinds = dict([(kind.name, kind.mass) for kind in structure.kinds])
+    masses = [kinds[site.kind_name] for site in structure.sites]
+    return masses
