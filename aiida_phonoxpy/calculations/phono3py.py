@@ -1,6 +1,7 @@
 """CalcJob to run phonopy at a remote host."""
 import lzma
 import logging
+import numpy as np
 from aiida.orm import ArrayData, Dict, SinglefileData, Str
 
 from aiida_phonoxpy.calculations.base import BasePhonopyCalculation
@@ -171,7 +172,9 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
             length = float(mesh)
             mesh_opts += ["--mesh", f"{length}"]
         except TypeError:
-            mesh_opts += ["--mesh", f"{mesh[0]}", f"{mesh[1]}", f"{mesh[2]}"]
+            mesh_opts.append("--mesh")
+            for n in np.ravel(mesh):
+                mesh_opts.append(f"{n}")
     else:
         logger.info("mesh setting not found. Set mesh=30.")
         mesh_opts += ["--mesh", "30"]
