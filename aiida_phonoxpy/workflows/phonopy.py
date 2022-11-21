@@ -1,6 +1,6 @@
 """PhonopyWorkChain."""
 from aiida.engine import if_, while_
-from aiida.orm import BandsData, Bool, Code, Dict, XyData, SinglefileData, ArrayData
+from aiida.orm import BandsData, Bool, Code, XyData, SinglefileData, ArrayData
 
 from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.utils.utils import (
@@ -60,7 +60,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
             "remote_workdirs.force", valid_type=list, required=False, non_db=True
         )
         spec.input("remote_workdirs.nac", valid_type=list, required=False, non_db=True)
-        spec.input("calculator_settings", valid_type=Dict, required=False)
+        # spec.input("calculator_settings", valid_type=Dict, required=False)
         spec.input("run_phonopy", valid_type=Bool, default=lambda: Bool(False))
         spec.input("remote_phonopy", valid_type=Bool, default=lambda: Bool(True))
 
