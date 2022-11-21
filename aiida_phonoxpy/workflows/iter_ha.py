@@ -1,4 +1,7 @@
 """Run phonon calculations iteratively at temperature."""
+import tempfile
+import h5py
+import shutil
 import numpy as np
 from aiida.engine import WorkChain, calcfunction, if_, while_
 from aiida.orm import (
@@ -433,9 +436,10 @@ class IterHarmonicApprox(WorkChain):
         self.ctx.displacements = displacements_data
         self.ctx.force_sets = force_sets_data
 
-        sscha_fe_data = {
-            "force_constants": self.ctx.force_constants,
-        }
+        if self.ctx.force_constants is None:
+            sscha_fe_data = {}
+        else:
+            sscha_fe_data = {"force_constants": self.ctx.force_constants}
         for i, _ in enumerate(nodes):
             sscha_fe_data[f"displacements_{i + 1}"] = kwargs[f"displacements_{i + 1}"]
         sscha_fe_data["energies"] = Dict(dict={"energies": energies})
@@ -508,7 +512,15 @@ class IterHarmonicApprox(WorkChain):
 
         """
         label = "force_constants_%d" % self.ctx.iteration
-        self.ctx.force_constants = self.ctx[label].outputs.force_constants
+        with self.ctx[label].outputs.force_constants.open(mode="rb") as source:
+            with tempfile.TemporaryFile() as target:
+                shutil.copyfileobj(source, target)
+                target.seek(0)
+                with h5py.File(target) as f:
+                    self.ctx.force_constants = ArrayData()
+                    self.ctx.force_constants.set_array(
+                        "force_constants", f["force_constants"][:]
+                    )
 
     def finalize(self):
         """Finalize IterHarmonicApprox."""

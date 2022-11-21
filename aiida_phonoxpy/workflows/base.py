@@ -15,7 +15,7 @@ class BasePhonopyWorkChain(WorkChain):
     ------
     structure : StructureData
         Unit cell structure.
-    phonon_settings : Dict
+    settings : Dict
         Setting to run phonon calculation. Keys are:
         supercell_matrix : list or list of list
             Multiplicity to create supercell from unit cell. Three integer
