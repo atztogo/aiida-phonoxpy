@@ -67,51 +67,57 @@ can be used.
 class IterHarmonicApprox(WorkChain):
     """Workchain for harmonic force constants by iterative approach.
 
-    By default, the calculation starts with normal phonon calculation,
-    i.e., in this context, which corresponds to roughly 0K force constants.
-    Then the iteration loop starts. The first run is the iteration-1.
-    The iteration stops after finishing that of max_iteration. Each phonon
-    calculation is named 'step'.
+    By default, the calculation starts with normal phonon calculation, i.e., in
+    this context, which corresponds to roughly 0K force constants. Then the
+    iteration loop starts. The first run is the iteration-1. The iteration stops
+    after finishing that of max_iteration. Each phonon calculation is named
+    'step'.
 
     Steps
     -----
-    0. Initial phonon calculation at 0K
-    1. First phonon calculation at specified temperature. Random
-       displacements are created from step-0.
-    2. Second phonon calculation at specified temperature. Random
-       displacements are created from step-1.
-    3. Third phonon calculation at specified temperature. Random
-       displacements are created from steps 1 and 2 if
-       number_of_snapshots >= 2. Otherwise only the result from
-       step-2 is used.
-    4. Four phonon calculation at specified temperature. Random
-       displacements are created from number_of_snapshots previous
-       existing steps excluding step-0.
+    0. Initial phonon calculation normally at 0K. This phonon calculation is
+       controled by inputs.settings similarly to PhonopyWorkchain. Therefore
+       inputs.force_constants, temperature in inputs.settings['temperature']
+       (not inputs.temperature), and inputs.settings['number_of_snapshots'] (not
+       inputs.number_of_snapshots) are simultaneously set, random displacements
+       at the temperature are generated.
+    1. First phonon calculation at specified temperature. Random displacements
+       are created from step-0.
+    2. Second phonon calculation at specified temperature. Random displacements
+       are created from step-1. When include_initial_phonon=True, step-0 is also
+       included in the dataset to generate random displacements.
+    3. Third phonon calculation at specified temperature. Random displacements
+       are created from steps 1 and 2 if number_of_snapshots >= 2. Otherwise
+       only the result from step-2 is used. When include_initial_phonon=True,
+       step-0 is included.
+    4. Fourth phonon calculation at specified temperature. Random displacements
+       are created from number_of_snapshots previous existing steps excluding
+       step-0 unless include_initial_phonon=True.
     *. Continue until iteration number = max_iteration number.
 
     Manual termination of iteration loop
     ------------------------------------
-    It is possible to terminate at the initial point of each iteration.
-    This option is not very recommended to use because not reproducible
-    mechanically, but can be useful for experimental calculation.
+    It is possible to terminate at the initial point of each iteration. This
+    option is not very recommended to use because not reproducible mechanically,
+    but can be useful for experimental calculation.
 
-    This is achieved by just creating AiiDA Group whose label is its
-    uuid string that ejected by AiiDA, i.e., self.uuid.
+    This is achieved by just creating AiiDA Group whose label is its uuid string
+    that ejected by AiiDA, i.e., self.uuid.
 
     inputs
     ------
-    Most of inputs are imported from PhonopyWorkChain. Specific inputs
-    of this workchain are as follows:
+    Most of inputs are imported from PhonopyWorkChain. Specific inputs of this
+    workchain are as follows:
 
     max_iteration : Int
         Maximum number of iterations.
     number_of_snapshots : Int
-        Number of generated supercell snapshots with random displacements
-        at a temperature.
+        Number of generated supercell snapshots with random displacements at a
+        temperature.
     number_of_steps_for_fitting : Int
         Displacements and respective forces of supercells in the previous
-        number_of_steps_for_fitting are used to simultaneously fit to
-        force constants.
+        number_of_steps_for_fitting are used to simultaneously fit to force
+        constants.
     temperature : Float
         Temperature (K).
     include_ratio : Float
@@ -122,15 +128,22 @@ class IterHarmonicApprox(WorkChain):
         phonon calculation is included 100%. (number_of_steps_for_fitting + 1)
         previous phonon calculation is not include. Between them, those are
         included with linear scalings. The snapshots in each phonon calculation
-        are included from the first element of the list to the specified
-        number, i.e., [:num_included_snapshots]. Default is False.
+        are included from the first element of the list to the specified number,
+        i.e., [:num_included_snapshots]. Default is False.
     random_seed : Int, optional
         Random seed used to sample in canonical ensemble harmonic oscillator
-        space. The value must be 32bit unsigned int. Unless specified,
-        random seed will not be fixed.
+        space. The value must be 32bit unsigned int. Unless specified, random
+        seed will not be fixed.
     initial_nodes : Dict, optional
         This gives the initial nodes that contain sets of forces, which are
         provided by PKs or UUIDs.
+    include_initial_phonon : Bool, optional
+        With False, the initial phonon calculation is only used to generate
+        random displacement at specified temperature, and next supercell
+        calculations are included in the set of displacement-force datasets as
+        emsemble to generate self-consistent force constants at interation
+        steps. With True, the supercell calculations of the initial phonon
+        calculation are also included in the ensemble. Default is False.
 
     """
 
@@ -150,6 +163,9 @@ class IterHarmonicApprox(WorkChain):
         spec.input("temperature", valid_type=Float, default=lambda: Float(300.0))
         spec.input("include_ratio", valid_type=Float, default=lambda: Float(1))
         spec.input("linear_decay", valid_type=Bool, default=lambda: Bool(False))
+        spec.input(
+            "include_initial_phonon", valid_type=Bool, default=lambda: Bool(False)
+        )
         spec.input("random_seed", valid_type=Int, required=False)
         spec.input("initial_nodes", valid_type=Dict, required=False)
         spec.outline(
@@ -165,11 +181,15 @@ class IterHarmonicApprox(WorkChain):
             ).else_(
                 cls.run_force_constants_calculation_local,
             ),
+            if_(cls.should_include_initial_phonon)(
+                cls.put_initial_phonon_in_history,  # prev_nodes.append(initial_node)
+                cls.calculate_probability_distribution,  # prev_probs.append(probs)
+            ),
             while_(cls.is_loop_finished)(
                 cls.generate_displacements,
-                cls.calculate_probability_distribution,
+                cls.calculate_probability_distribution,  # prev_probs.append(probs)
                 cls.increment_iteration_number,
-                cls.run_forces_nac_calculations,
+                cls.run_forces_nac_calculations,  # prev_nodes.append(node)
                 cls.create_dataset_for_fc,
                 if_(cls.should_run_remote_phonopy)(
                     cls.run_force_constants_calculation_remote,
@@ -188,6 +208,10 @@ class IterHarmonicApprox(WorkChain):
     def import_initial_nodes(self):
         """Return boolean."""
         return "initial_nodes" in self.inputs
+
+    def should_include_initial_phonon(self):
+        """Return boolean for outline."""
+        return self.inputs.include_initial_phonon
 
     def initialize(self):
         """Initialize."""
@@ -212,7 +236,7 @@ class IterHarmonicApprox(WorkChain):
     def run_initial_phonon(self):
         """Launch initial phonon calculation."""
         self.report("run_initial_phonon")
-        inputs = self._get_phonopy_inputs(run_nac=True)
+        inputs = self._get_phonopy_inputs(is_initial_phonon=True)
         inputs["subtract_residual_forces"] = Bool(True)
         inputs["metadata"].label = "Initial phonon calculation"
         inputs["metadata"].description = "Initial phonon calculation"
@@ -233,6 +257,12 @@ class IterHarmonicApprox(WorkChain):
             self.ctx.primitive = self.ctx.prev_nodes[0].outputs.primitive
         else:
             raise RuntimeError("IterHA is broken.")
+
+    def put_initial_phonon_in_history(self):
+        """Set self.ctx.random_displacements."""
+        self.report("Put initial phonon calculation in history.")
+        self.ctx.prev_nodes.append(self.ctx.initial_node)
+        self.ctx.random_displacements = self.ctx.displacements
 
     def is_loop_finished(self):
         """Check if iteration is over or not.
@@ -297,16 +327,16 @@ class IterHarmonicApprox(WorkChain):
             random_seed = self.inputs.random_seed.value
         else:
             random_seed = None
-        dataset = _generate_random_displacements(
-            ph,
-            self.inputs.number_of_snapshots.value,
-            self.inputs.temperature.value,
+
+        ph.init_random_displacements()
+        ph.random_displacements.treat_imaginary_modes()
+        disps = ph.run_random_displacements(
+            temperature=self.inputs.temperature.value,
+            number_of_snapshots=self.inputs.number_of_snapshots.value,
             random_seed=random_seed,
         )
         self.ctx.random_displacements = ArrayData()
-        self.ctx.random_displacements.set_array(
-            "displacements", dataset["displacements"]
-        )
+        self.ctx.random_displacements.set_array("displacements", disps)
 
     def calculate_probability_distribution(self):
         """Calculate probability distribution.
@@ -526,22 +556,36 @@ class IterHarmonicApprox(WorkChain):
         """Finalize IterHarmonicApprox."""
         self.report("IterHarmonicApprox finished at %d" % (self.ctx.iteration - 1))
 
-    def _get_phonopy_inputs(self, displacements=None, run_nac=False):
+    def _get_phonopy_inputs(self, displacements=None, is_initial_phonon=False):
         """Return inputs for PhonopyWorkChain."""
         inputs = {}
         inputs_orig = self.exposed_inputs(PhonopyWorkChain)
         for key in inputs_orig:
-            if key == "calculator_inputs":
+            if (
+                key
+                in (
+                    "force_constants",
+                    "displacements",
+                    "displacement_dataset",
+                    "force_sets",
+                )
+                and is_initial_phonon
+            ):
+                self.report(f"Set initial {key}")
+                inputs[key] = inputs_orig[key]
+            elif key == "calculator_inputs":
                 inputs[key] = {"force": inputs_orig[key]["force"]}
                 keys = list(inputs_orig[key])
                 self.report(f"calculator_inputs: {keys}")
-                if run_nac and "nac" in inputs_orig[key]:
+                if "nac" in inputs_orig[key]:
                     self.report(f"calculator_inputs.{key} is included.")
                     inputs[key].update({"nac": inputs_orig[key]["nac"]})
             else:
                 inputs[key] = inputs_orig[key]
-        if displacements is not None:
+
+        if displacements is not None and not is_initial_phonon:
             inputs["displacements"] = displacements
+
         return inputs
 
 
@@ -1034,46 +1078,6 @@ def _remove_high_energy_snapshots(energies, included, ratio):
         ret_included.append(bool_list[count : (count + len(included_batch))])
         count += len(included_batch)
     return ret_included
-
-
-def _modify_force_constants(ph, freq_from=0.01, freq_to=0.5):
-    """Apply treatment to imaginary modes.
-
-    This method modifies force constants to make phonon frequencies
-    be real from imaginary. This treatment is expected to be finally
-    forgotten after many iterations. Therefore it is unnecessary
-    to be physical and can be physically dirty. If it works, it is OK,
-    though good treatment may contribute to quick convergence.
-
-    1) All frequencies at commensurate points are converted to their
-       absolute values. freqs -> |freqs|.
-    2) Phonon frequencies in the interval freq_from < |freqs| < freq_to
-       are shifted by |freqs| + 1.
-
-    """
-    # temperature=300 is used just to invoke this feature.
-    ph.generate_displacements(number_of_snapshots=1, temperature=300)
-    rd = ph.random_displacements
-    freqs = np.abs(rd.frequencies)
-    condition = np.logical_and(freqs > freq_from, freqs < freq_to)
-    rd.frequencies = np.where(condition, freqs + 1, freqs)
-    rd.run_d2f()
-    ph.force_constants = rd.force_constants
-
-
-def _generate_random_displacements(
-    ph, number_of_snapshots, temperature, random_seed=None
-):
-    # Treatment of imaginary modes
-    _modify_force_constants(ph)
-
-    ph.generate_displacements(
-        number_of_snapshots=number_of_snapshots,
-        random_seed=random_seed,
-        temperature=temperature,
-    )
-
-    return ph.dataset
 
 
 @calcfunction
