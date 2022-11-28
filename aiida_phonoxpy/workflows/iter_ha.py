@@ -144,6 +144,10 @@ class IterHarmonicApprox(WorkChain):
         emsemble to generate self-consistent force constants at interation
         steps. With True, the supercell calculations of the initial phonon
         calculation are also included in the ensemble. Default is False.
+    use_reweighting : Bool, optional
+        When True, reweighting of displacement-force dataset by an importance
+        sampling is performed in the calculation of force consntants. Default is
+        False.
 
     """
 
@@ -168,6 +172,7 @@ class IterHarmonicApprox(WorkChain):
         )
         spec.input("random_seed", valid_type=Int, required=False)
         spec.input("initial_nodes", valid_type=Dict, required=False)
+        spec.input("use_reweighting", valid_type=Bool, default=lambda: Bool(False))
         spec.outline(
             cls.initialize,
             if_(cls.import_initial_nodes)(cls.set_initial_nodes).else_(
@@ -183,11 +188,15 @@ class IterHarmonicApprox(WorkChain):
             ),
             if_(cls.should_include_initial_phonon)(
                 cls.put_initial_phonon_in_history,  # prev_nodes.append(initial_node)
-                cls.calculate_probability_distribution,  # prev_probs.append(probs)
+                if_(cls.use_reweighting)(
+                    cls.calculate_probability_distribution,  # prev_probs.append(probs)
+                ),
             ),
             while_(cls.is_loop_finished)(
                 cls.generate_displacements,
-                cls.calculate_probability_distribution,  # prev_probs.append(probs)
+                if_(cls.use_reweighting)(
+                    cls.calculate_probability_distribution,  # prev_probs.append(probs)
+                ),
                 cls.increment_iteration_number,
                 cls.run_forces_nac_calculations,  # prev_nodes.append(node)
                 cls.create_dataset_for_fc,
@@ -212,6 +221,10 @@ class IterHarmonicApprox(WorkChain):
     def should_include_initial_phonon(self):
         """Return boolean for outline."""
         return self.inputs.include_initial_phonon
+
+    def use_reweighting(self):
+        """Return boolean for outline."""
+        return self.inputs.use_reweighting
 
     def initialize(self):
         """Initialize."""
@@ -675,6 +688,10 @@ def get_sscha_free_energy(
         _w = np.extract(inc, w)
         _e = np.extract(inc, e)
         u = d[inc].reshape(d[inc].shape[0], -1)
+        # uu_ave = np.zeros_like(sc_ph.force_constants)
+        # for u_sp, w_sp in zip(u, _w):
+        #     uu_ave += np.outer(u_sp, u_sp) * w_sp
+        # uu_ave is written in compact form as below:
         uu_ave = np.dot(u.T * _w, u)
         v_harm_dd += (sc_ph.force_constants * uu_ave).sum() / 2
 
