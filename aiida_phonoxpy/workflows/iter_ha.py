@@ -1,4 +1,5 @@
 """Run phonon calculations iteratively at temperature."""
+import os
 import tempfile
 import h5py
 import shutil
@@ -10,6 +11,7 @@ from aiida.orm import (
     Code,
     Dict,
     Float,
+    SinglefileData,
     Group,
     Int,
     QueryBuilder,
@@ -24,6 +26,7 @@ from aiida_phonoxpy.utils.utils import (
 from aiida_phonoxpy.workflows.phonopy import PhonopyWorkChain
 
 from phonopy.units import EvTokJmol, THzToEv
+from phonopy.file_IO import write_force_constants_to_hdf5
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.structure.cells import (
     Primitive,
@@ -501,19 +504,13 @@ class IterHarmonicApprox(WorkChain):
 
         """
         self.report("generate displacements on process")
-
-        smat = self.inputs.settings["supercell_matrix"]
-        ph = Phonopy(
-            phonopy_atoms_from_structure(self.inputs.structure),
-            supercell_matrix=smat,
-            primitive_matrix="auto",
+        vals = get_force_constants_local(
+            self.inputs.settings,
+            self.inputs.structure,
+            self.ctx.displacements,
+            self.ctx.force_sets,
         )
-        d = self.ctx.displacements.get_array("displacements")
-        f = self.ctx.force_sets.get_array("force_sets")
-        ph.dataset = {"displacements": d, "forces": f}
-        ph.produce_force_constants(fc_calculator="alm")
-        self.ctx.force_constants = ArrayData()
-        self.ctx.force_constants.set_array("force_constants", ph.force_constants)
+        self.ctx.force_constants = vals["force_constants_array"]
 
     def run_force_constants_calculation_remote(self):
         """Run force constants calculation by PhonopyCalculation.
@@ -988,7 +985,7 @@ def _get_reweights(
 
 
 def _reweight_dataset(displacements, force_sets, weights):
-    """Apply reweighting.
+    """Apply reweighting when the value is smaller than 1.
 
     Note
     ----
@@ -997,8 +994,9 @@ def _reweight_dataset(displacements, force_sets, weights):
     """
     for disps, forces, weights_at_batch in zip(displacements, force_sets, weights):
         for i, w in enumerate(weights_at_batch):
-            disps[i] *= w
-            forces[i] *= w
+            if w < 1:
+                disps[i] *= w
+                forces[i] *= w
 
 
 def _concatenate_dataset(displacements, force_sets, included):
@@ -1157,3 +1155,36 @@ def _compact_fc_to_full_fc(
     fc[primitive.p2s_map] = force_constants
     distribute_force_constants_by_translations(fc, primitive, supercell)
     return fc
+
+
+@calcfunction
+def get_force_constants_local(settings, structure, displacements, force_sets):
+    """Calcfunction to store force constants data."""
+    smat = settings["supercell_matrix"]
+    ph = Phonopy(
+        phonopy_atoms_from_structure(structure),
+        supercell_matrix=smat,
+        primitive_matrix="auto",
+    )
+    d = displacements.get_array("displacements")
+    f = force_sets.get_array("force_sets")
+    ph.dataset = {"displacements": d, "forces": f}
+    ph.produce_force_constants(fc_calculator="alm")
+    force_constants_array = ArrayData()
+    force_constants_array.set_array("force_constants", ph.force_constants)
+
+    with tempfile.TemporaryDirectory() as dname:
+        filename = os.path.join(dname, "force_constants.hdf5")
+        write_force_constants_to_hdf5(
+            ph.force_constants,
+            filename=filename,
+            p2s_map=ph.primitive.p2s_map,
+        )
+        force_constants_file = SinglefileData(
+            file=filename, filename="force_constants.hdf5"
+        )
+
+    return {
+        "force_constants_array": force_constants_array,
+        "force_constants_file": force_constants_file,
+    }
