@@ -184,7 +184,6 @@ def setup_phonopy_calculation(
                 "is_diagonal",
                 "number_of_snapshots",
                 "random_seed",
-                "temperature",
             )
             kwargs = {
                 key: phonon_settings[key]
@@ -214,7 +213,7 @@ def setup_phonopy_calculation(
                         ph.force_constants = f["force_constants"][:]
             ph.init_random_displacements()
             ph.random_displacements.treat_imaginary_modes()
-            d = ph.run_random_displacements(**kwargs)
+            d = ph.get_random_displacements_at_temperature(**kwargs)
             if "random_seed" in kwargs:
                 ph.dataset = {
                     "displacements": d,

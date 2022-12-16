@@ -346,7 +346,7 @@ class IterHarmonicApprox(WorkChain):
 
         ph.init_random_displacements()
         ph.random_displacements.treat_imaginary_modes()
-        disps = ph.run_random_displacements(
+        disps = ph.get_random_displacements_at_temperature(
             temperature=self.inputs.temperature.value,
             number_of_snapshots=self.inputs.number_of_snapshots.value,
             random_seed=random_seed,
