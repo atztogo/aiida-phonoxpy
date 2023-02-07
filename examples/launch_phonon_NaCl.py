@@ -9,7 +9,6 @@ load_profile()
 
 
 def launch_aiida():
-
     Dict = DataFactory("dict")
     unitcell_str = """ Na Cl
    1.00000000000000
