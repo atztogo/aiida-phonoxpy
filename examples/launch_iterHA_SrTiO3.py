@@ -15,7 +15,6 @@ load_profile()
 
 
 def launch_aiida():
-
     Dict = DataFactory("dict")
     unitcell_str = """ Sr Ti O
    1.0
