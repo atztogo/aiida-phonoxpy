@@ -4,7 +4,6 @@ from aiida.engine import WorkChain
 from aiida.orm import ArrayData, Code, Dict, Float, StructureData
 from aiida.orm.nodes.data.singlefile import SinglefileData
 
-from aiida_phonoxpy.calculations.phono3py import Phono3pyCalculation
 from aiida_phonoxpy.utils.utils import setup_phono3py_fc_calculation
 from aiida_phonoxpy.workflows.mixin import RunPhono3pyMixIn
 
@@ -22,12 +21,6 @@ class Phono3pyFCWorkChain(WorkChain, RunPhono3pyMixIn):
         super().define(spec)
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("settings", valid_type=Dict, required=True)
-        spec.expose_inputs(
-            Phono3pyCalculation, namespace="phono3py", include=("metadata",)
-        )
-        spec.input(
-            "phono3py.metadata.options.resources", valid_type=dict, required=False
-        )
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
         spec.input("code", valid_type=Code, required=False)
         spec.input("displacement_dataset", valid_type=Dict, required=False)
@@ -36,6 +29,7 @@ class Phono3pyFCWorkChain(WorkChain, RunPhono3pyMixIn):
         spec.input("phonon_force_sets", valid_type=ArrayData, required=False)
         spec.input("phonon_displacement_dataset", valid_type=Dict, required=False)
         spec.input("phonon_displacements", valid_type=ArrayData, required=False)
+        spec.input("phono3py.metadata", valid_type=dict, required=False, non_db=True)
 
         spec.outline(
             cls.initialize,

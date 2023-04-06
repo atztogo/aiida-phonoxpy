@@ -2,7 +2,6 @@
 from aiida.engine import if_, while_
 from aiida.orm import BandsData, Bool, Code, XyData, SinglefileData, ArrayData
 
-from aiida_phonoxpy.calculations.phonopy import PhonopyCalculation
 from aiida_phonoxpy.utils.utils import (
     get_force_constants,
     get_phonon_properties,
@@ -40,12 +39,6 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
-        spec.expose_inputs(
-            PhonopyCalculation, namespace="phonopy", include=("metadata",)
-        )
-        spec.input(
-            "phonopy.metadata.options.resources", valid_type=dict, required=False
-        )
         spec.input(
             "force_constants",
             valid_type=SinglefileData,
@@ -63,6 +56,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         # spec.input("calculator_settings", valid_type=Dict, required=False)
         spec.input("run_phonopy", valid_type=Bool, default=lambda: Bool(False))
         spec.input("remote_phonopy", valid_type=Bool, default=lambda: Bool(True))
+        spec.input("phonopy.metadata", valid_type=dict, required=False, non_db=True)
 
         spec.outline(
             cls.initialize,
@@ -262,7 +256,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         if "label" in self.inputs.metadata:
             builder.metadata.label = self.inputs.metadata.label
         if "options" in self.inputs.phonopy.metadata:
-            builder.metadata.options.update(self.inputs.phonopy.metadata.options)
+            builder.metadata.options.update(self.inputs.phonopy.metadata["options"])
 
         if self.force_constants_exist():
             builder.force_constants = self.inputs.force_constants
