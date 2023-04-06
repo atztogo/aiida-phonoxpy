@@ -3,7 +3,6 @@
 from aiida.engine import if_, while_
 from aiida.orm import ArrayData, Bool, Dict, Float, SinglefileData, StructureData
 
-from aiida_phonoxpy.calculations.phono3py import Phono3pyCalculation
 from aiida_phonoxpy.utils.utils import setup_phono3py_calculation
 from aiida_phonoxpy.workflows.base import BasePhonopyWorkChain
 from aiida_phonoxpy.workflows.mixin import ImmigrantMixIn, RunPhono3pyMixIn
@@ -21,12 +20,6 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn, RunPhono3pyMixIn):
     def define(cls, spec):
         """Define inputs, outputs, and outline."""
         super().define(spec)
-        spec.expose_inputs(
-            Phono3pyCalculation, namespace="phono3py", include=("metadata",)
-        )
-        spec.input(
-            "phono3py.metadata.options.resources", valid_type=dict, required=False
-        )
         spec.input_namespace(
             "remote_workdirs",
             help="Directory names to import force and NAC calculations.",
@@ -46,6 +39,7 @@ class Phono3pyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn, RunPhono3pyMixIn):
         spec.input("phonon_displacements", valid_type=ArrayData, required=False)
         spec.input("run_fc", valid_type=Bool, default=lambda: Bool(False))
         spec.input("run_ltc", valid_type=Bool, default=lambda: Bool(False))
+        spec.input("phono3py.metadata", valid_type=dict, required=False, non_db=True)
 
         spec.outline(
             cls.initialize,

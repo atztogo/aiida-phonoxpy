@@ -22,8 +22,8 @@ class RunPhono3pyMixIn:
         if "options" in self.inputs.phono3py.metadata:
             # self.inputs.phono3py.metadata.options is AttributesFrozendict.
             # This can't be passed as metadata['options'].
-            if "resources" in self.inputs.phono3py.metadata.options:
-                resources = self.inputs.phono3py.metadata.options.resources
+            if "resources" in self.inputs.phono3py.metadata["options"]:
+                resources = self.inputs.phono3py.metadata["options"]["resources"]
                 metadata["options"]["resources"] = resources
 
         self.report(f"metadata: {metadata}")
