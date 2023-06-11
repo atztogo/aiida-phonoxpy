@@ -252,7 +252,7 @@ class IterHarmonicApprox(WorkChain):
     def run_initial_phonon(self):
         """Launch initial phonon calculation."""
         self.report("run_initial_phonon")
-        inputs = self._get_phonopy_inputs(is_initial_phonon=True)
+        inputs = self._get_initial_phonopy_inputs()
         inputs["subtract_residual_forces"] = Bool(True)
         inputs["metadata"].label = "Initial phonon calculation"
         inputs["metadata"].description = "Initial phonon calculation"
@@ -345,7 +345,7 @@ class IterHarmonicApprox(WorkChain):
             random_seed = None
 
         ph.init_random_displacements()
-        ph.random_displacements.treat_imaginary_modes()
+        ph.random_displacements.treat_imaginary_modes(freq_to=0.1)
         disps = ph.get_random_displacements_at_temperature(
             temperature=self.inputs.temperature.value,
             number_of_snapshots=self.inputs.number_of_snapshots.value,
@@ -531,7 +531,8 @@ class IterHarmonicApprox(WorkChain):
         builder = code.get_builder()
         builder.structure = self.inputs.structure
         builder.settings = self.inputs.settings
-        builder.metadata.options.update(self.inputs.phonopy.metadata.options)
+        if "options" in self.inputs.phonopy.metadata:
+            builder.metadata.options.update(self.inputs.phonopy.metadata["options"])
         builder.metadata.label = "Force constants calculation %d" % self.ctx.iteration
         builder.displacements = self.ctx.displacements
         builder.force_sets = self.ctx.force_sets
@@ -566,34 +567,38 @@ class IterHarmonicApprox(WorkChain):
         """Finalize IterHarmonicApprox."""
         self.report("IterHarmonicApprox finished at %d" % (self.ctx.iteration - 1))
 
+    def _get_initial_phonopy_inputs(self):
+        """Return inputs for initial PhonopyWorkChain."""
+        inputs = {}
+        inputs_orig = self.exposed_inputs(PhonopyWorkChain)
+        for key in inputs_orig:
+            self.report(f"Set initial {key}")
+            inputs[key] = inputs_orig[key]
+        return inputs
+
     def _get_phonopy_inputs(self, displacements=None, is_initial_phonon=False):
         """Return inputs for PhonopyWorkChain."""
         inputs = {}
         inputs_orig = self.exposed_inputs(PhonopyWorkChain)
         for key in inputs_orig:
-            if (
-                key
-                in (
-                    "force_constants",
-                    "displacements",
-                    "displacement_dataset",
-                    "force_sets",
-                )
-                and is_initial_phonon
+            if key in (
+                "force_constants",
+                "displacements",
+                "displacement_dataset",
+                "force_sets",
             ):
-                self.report(f"Set initial {key}")
-                inputs[key] = inputs_orig[key]
-            elif key == "calculator_inputs":
+                continue
+            if key == "calculator_inputs":
                 inputs[key] = {"force": inputs_orig[key]["force"]}
                 keys = list(inputs_orig[key])
                 self.report(f"calculator_inputs: {keys}")
-                if "nac" in inputs_orig[key]:
-                    self.report(f"calculator_inputs.{key} is included.")
-                    inputs[key].update({"nac": inputs_orig[key]["nac"]})
+                # if "nac" in inputs_orig[key]:
+                #     self.report(f"calculator_inputs.{key} is included.")
+                #     inputs[key].update({"nac": inputs_orig[key]["nac"]})
             else:
                 inputs[key] = inputs_orig[key]
 
-        if displacements is not None and not is_initial_phonon:
+        if displacements is not None:
             inputs["displacements"] = displacements
 
         return inputs
