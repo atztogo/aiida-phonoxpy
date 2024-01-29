@@ -1,4 +1,5 @@
 """Test phonopy parser."""
+
 from aiida_phonoxpy.utils.utils import (
     phonopy_atoms_to_structure,
     phonopy_atoms_from_structure,

@@ -1,4 +1,5 @@
 """WorkChain mix-in's."""
+
 from aiida.orm import Code, Int
 
 from aiida_phonoxpy.calculations.phono3py import Phono3pyCalculation

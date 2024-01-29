@@ -1,4 +1,5 @@
 """Workflow to calculate supercell forces."""
+
 import numpy as np
 from aiida.engine import WorkChain, calcfunction, if_
 from aiida.orm import ArrayData, Float, StructureData
