@@ -1,4 +1,5 @@
 """Tests for PhonopyWorkChain."""
+
 import numpy as np
 import pytest
 import tempfile

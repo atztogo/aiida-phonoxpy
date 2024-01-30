@@ -1,4 +1,5 @@
 """Run phonon calculations iteratively at temperature."""
+
 import os
 import tempfile
 import h5py

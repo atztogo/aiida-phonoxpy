@@ -1,4 +1,5 @@
 """PhonopyWorkChain."""
+
 from aiida.engine import if_, while_
 from aiida.orm import BandsData, Bool, Code, XyData, SinglefileData, ArrayData
 

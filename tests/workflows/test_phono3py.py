@@ -1,4 +1,5 @@
 """Tests for Phono3pyWorkChain."""
+
 import numpy as np
 import pytest
 from phonopy.structure.cells import isclose

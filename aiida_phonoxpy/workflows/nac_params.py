@@ -1,4 +1,5 @@
 """Workflow to calculate NAC params."""
+
 from aiida.engine import WorkChain, append_, calcfunction, if_, while_
 from aiida.orm import ArrayData, Float, StructureData
 from aiida.plugins import WorkflowFactory

@@ -1,4 +1,5 @@
 """Pytest fixtures for workflows."""
+
 import numpy as np
 import pytest
 
