@@ -28,7 +28,7 @@ jobs:
         run: |
           conda activate test
           conda install --yes -c conda-forge python=${{ matrix.python-version }}
-          conda install --yes -c conda-forge matplotlib-base pyyaml openblas c-compiler h5py scipy spglib symfc cmake pytest-regressions pytest codecov pytest-cov pandas
+          conda install --yes -c conda-forge matplotlib-base aiida-core pyyaml openblas c-compiler h5py scipy spglib symfc cmake pytest-regressions pytest codecov pytest-cov pandas
 
       - name: Install phonopy and phono3py
         run: |
@@ -43,6 +43,11 @@ jobs:
           pip install -e . -vvv
           cd ..
           cd ..
+
+      - name: Install python dependencies
+        run: |
+          conda activate test
+          pip install -e . -vvv
 
       - name: Run pytest
         run: |
