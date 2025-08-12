@@ -28,21 +28,7 @@ jobs:
         run: |
           conda activate test
           conda install --yes -c conda-forge python=${{ matrix.python-version }}
-          conda install --yes -c conda-forge matplotlib-base aiida-core pyyaml openblas c-compiler h5py scipy spglib symfc cmake pytest-regressions pytest codecov pytest-cov pandas
-
-      - name: Install phonopy and phono3py
-        run: |
-          conda activate test
-          mkdir install_phonopy && cd install_phonopy  # to avoid phonopy directory as recognized as module path by pytest
-          git clone https://github.com/phonopy/phonopy.git
-          cd phonopy
-          pip install -e . -vvv
-          cd ..
-          git clone https://github.com/phonopy/phono3py.git
-          cd phono3py
-          pip install -e . -vvv
-          cd ..
-          cd ..
+          conda install --yes -c conda-forge matplotlib-base aiida-core phonopy phono3py pytest-regressions pytest codecov pytest-cov pandas
 
       - name: Install python dependencies
         run: |
