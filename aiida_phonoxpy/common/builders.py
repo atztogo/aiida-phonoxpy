@@ -1,16 +1,16 @@
 """Utilities related to process builder or inputs dist."""
 
+from aiida.common import AttributeDict
 from aiida.orm import (
     Bool,
     Code,
-    Str,
-    load_group,
-    StructureData,
-    KpointsData,
     Dict,
+    KpointsData,
     RemoteData,
+    Str,
+    StructureData,
+    load_group,
 )
-from aiida.common import AttributeDict
 from aiida.plugins import WorkflowFactory
 
 from aiida_phonoxpy.utils.utils import get_kpoints_data

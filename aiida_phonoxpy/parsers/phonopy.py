@@ -2,7 +2,7 @@
 
 from aiida.common.exceptions import NotExistent
 from aiida.engine import ExitCode
-from aiida.orm import Str, SinglefileData
+from aiida.orm import SinglefileData, Str
 from aiida.parsers.parser import Parser
 from aiida.plugins import CalculationFactory
 

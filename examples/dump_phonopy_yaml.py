@@ -1,13 +1,16 @@
 import sys
-from phonopy import Phonopy
-from aiida_phonoxpy.common.utils import phonopy_atoms_from_structure
-from aiida.orm import load_node
+
 from aiida import load_profile
+from aiida.orm import load_node
+from phonopy import Phonopy
+
+from aiida_phonoxpy.common.utils import phonopy_atoms_from_structure
 
 load_profile()
 
 
 def dump_phonopy(pk):
+    """Dump phonopy parameters to a YAML file."""
     n = load_node(pk)
     unitcell = phonopy_atoms_from_structure(n.inputs.structure)
     smat = n.outputs.phonon_setting_info["supercell_matrix"]

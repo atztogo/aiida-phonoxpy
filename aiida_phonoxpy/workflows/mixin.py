@@ -176,8 +176,7 @@ class ImmigrantMixIn:
         else:
             calculator_inputs.update(self.inputs.calculator_settings["nac"])
             self.logger.warning(
-                "Use calculator_inputs.force instead of "
-                "calculator_settings['forces']."
+                "Use calculator_inputs.force instead of calculator_settings['forces']."
             )
         builder.calculator_inputs = calculator_inputs
         future = self.submit(builder)

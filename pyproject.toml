@@ -1,12 +1,75 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
 
-[tool.flake8]
-max-line-length = 88
-extend-ignore = "E203,W503"
+[project]
+name = "aiida-phonoxpy"
+version = "0.8.1"
+description = "AiiDA plugin for running phonon calculations using phonopy"
+authors = [
+    {name = "Atsushi Togo", email = "atztogo@gmail.com"}
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: AiiDA"
+]
+dependencies = [
+    "phonopy",
+    "numpy",
+    "seekpath",
+    "aiida-core>=2.7.0,<3.0.0"
+]
+license = {file = "LICENSE"}
 
-[tool.black]
+[project.urls]
+"Homepage" = "https://github.com/aiida-phonopy/aiida-phonopy"
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "pytest-regressions",
+    "pandas"
+]
+pre-commit = ["pre-commit"]
+
+[project.entry-points."aiida.calculations"]
+"phonoxpy.phonopy" = "aiida_phonoxpy.calculations.phonopy:PhonopyCalculation"
+"phonoxpy.phono3py" = "aiida_phonoxpy.calculations.phono3py:Phono3pyCalculation"
+
+[project.entry-points."aiida.parsers"]
+"phonoxpy.phonopy" = "aiida_phonoxpy.parsers.phonopy:PhonopyParser"
+"phonoxpy.phono3py" = "aiida_phonoxpy.parsers.phono3py:Phono3pyParser"
+
+[project.entry-points."aiida.workflows"]
+"phonoxpy.phonopy" = "aiida_phonoxpy.workflows.phonopy:PhonopyWorkChain"
+"phonoxpy.phono3py" = "aiida_phonoxpy.workflows.phono3py:Phono3pyWorkChain"
+"phonoxpy.iter_ha" = "aiida_phonoxpy.workflows.iter_ha:IterHarmonicApprox"
+"phonoxpy.forces" = "aiida_phonoxpy.workflows.forces:ForcesWorkChain"
+"phonoxpy.nac_params" = "aiida_phonoxpy.workflows.nac_params:NacParamsWorkChain"
+"phonoxpy.phono3py_fc" = "aiida_phonoxpy.workflows.phono3py_fc:Phono3pyFCWorkChain"
+"phonoxpy.phono3py_ltc" = "aiida_phonoxpy.workflows.phono3py_ltc:Phono3pyLTCWorkChain"
+
+[tool.ruff]
 line-length = 88
+select = [
+    "F", # Flake8
+    "B", # Black
+    "I", # isort
+    "E", # pycodestyle-errors
+    "D", # pydocstyle
+]
+extend-ignore = [
+    "D417",
+    "D100",
+]
 
-[tool.isort]
-profile = "black"
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

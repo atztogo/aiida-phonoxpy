@@ -1,10 +1,11 @@
 """Tests for PhonopyWorkChain."""
 
+import shutil
+import tempfile
+
+import h5py
 import numpy as np
 import pytest
-import tempfile
-import h5py
-import shutil
 from phonopy.structure.cells import isclose
 
 from aiida_phonoxpy.utils.utils import phonopy_atoms_from_structure
@@ -379,7 +380,7 @@ def test_initialize_with_force_constants_for_random_disps(
     `number_of_snapshots`.
 
     """
-    from aiida.orm import Dict, StructureData, ArrayData
+    from aiida.orm import ArrayData, Dict, StructureData
 
     structure = generate_structure()
     settings = generate_settings(temperature=300, number_of_snapshots=10)
@@ -493,7 +494,7 @@ def test_launch_process_with_dataset_inputs_and_run_phonopy_with_fc_calculator(
     inputs["run_phonopy"] = Bool(True)
     inputs["remote_phonopy"] = Bool(False)
     inputs["settings"] = generate_settings(
-        mesh=100, fc_calculator="alm", fc_calculator_options="cutoff = 5"
+        mesh=100, fc_calculator="symfc", fc_calculator_options="cutoff = 5"
     )
     process = generate_workchain("phonoxpy.phonopy", inputs)
     result, node = launch.run_get_node(process)

@@ -13,20 +13,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
-
-      - name: Cache python dependencies
-        id: cache-pip
-        uses: actions/cache@v1
-        with:
-          path: ~/.cache/pip
-          key: pip-pre-commit-${{ hashFiles('**/setup.json') }}
-          restore-keys: pip-pre-commit-
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Install python dependencies
         run: |
@@ -46,46 +38,22 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11']
-
-    services:
-      postgres:
-        image: postgres:12
-        env:
-          POSTGRES_DB: test_${{ matrix.backend }}
-          POSTGRES_PASSWORD: ""
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-      rabbitmq:
-        image: rabbitmq:latest
-        ports:
-          - 5672:5672
+        python-version: ['3.12']
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           channels: conda-forge
           channel-priority: strict
           python-version: ${{ matrix.python-version }}
 
-      - name: Cache python dependencies
-        id: cache-pip
-        uses: actions/cache@v1
-        with:
-          path: ~/.cache/pip
-          key:
-            pip-${{ matrix.python-version }}-tests-${{
-            hashFiles('**/setup.json') }}
-          restore-keys: pip-${{ matrix.python-version }}-tests
-
       - name: Install dependencies
         run: |
           conda activate test
           conda install --yes -c conda-forge python=${{ matrix.python-version }}
-          conda install --yes -c conda-forge matplotlib-base pyyaml openblas c-compiler h5py scipy spglib alm cmake pytest-regressions pytest codecov pytest-cov pandas
+          conda install --yes -c conda-forge matplotlib-base pyyaml openblas c-compiler h5py scipy spglib symfc cmake pytest-regressions pytest codecov pytest-cov pandas
 
       - name: Install phonopy and phono3py
         run: |
@@ -100,12 +68,6 @@ jobs:
           pip install -e . -vvv
           cd ..
           cd ..
-
-      - name: Install python dependencies
-        run: |
-          conda activate test
-          pip install -e . -vvv
-          pip install pgtest
 
       - name: Run pytest
         run: |

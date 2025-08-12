@@ -1,9 +1,10 @@
 """Run phonon calculations iteratively at temperature."""
 
 import os
-import tempfile
-import h5py
 import shutil
+import tempfile
+
+import h5py
 import numpy as np
 from aiida.engine import WorkChain, calcfunction, if_, while_
 from aiida.orm import (
@@ -12,28 +13,27 @@ from aiida.orm import (
     Code,
     Dict,
     Float,
-    SinglefileData,
     Group,
     Int,
     QueryBuilder,
+    SinglefileData,
     load_node,
 )
 from phonopy import Phonopy
+from phonopy.file_IO import write_force_constants_to_hdf5
+from phonopy.harmonic.force_constants import distribute_force_constants_by_translations
+from phonopy.structure.atoms import PhonopyAtoms
+from phonopy.structure.cells import (
+    Primitive,
+    convert_to_phonopy_primitive,
+)
+from phonopy.units import EvTokJmol, THzToEv
 
 from aiida_phonoxpy.utils.utils import (
     get_displacements_from_phonopy_wc,
     phonopy_atoms_from_structure,
 )
 from aiida_phonoxpy.workflows.phonopy import PhonopyWorkChain
-
-from phonopy.units import EvTokJmol, THzToEv
-from phonopy.file_IO import write_force_constants_to_hdf5
-from phonopy.structure.atoms import PhonopyAtoms
-from phonopy.structure.cells import (
-    Primitive,
-    convert_to_phonopy_primitive,
-)
-from phonopy.harmonic.force_constants import distribute_force_constants_by_translations
 
 """
 
@@ -669,7 +669,7 @@ def get_sscha_free_energy(
         F = F_ha - <V_ha> + <V_ave>.
 
     """
-    from phono3py.sscha.sscha import SupercellPhonon, DispCorrMatrix
+    from phono3py.sscha.sscha import DispCorrMatrix, SupercellPhonon
 
     if reference_energy is None:
         ref_e = 0
@@ -686,7 +686,7 @@ def get_sscha_free_energy(
 
     v_harm_dd = 0.0
     v_ave = 0.0
-    for d, e, w, inc in zip(displacements, energies, weights, included):
+    for d, e, w, inc in zip(displacements, energies, weights, included, strict=False):
         # <V_ha> from correlation of generated finite displacements.
         _w = np.extract(inc, w)
         _e = np.extract(inc, e)
@@ -982,7 +982,7 @@ def _get_reweights(
     else:
         fc = _compact_fc_to_full_fc(supercell, _primitive, force_constants)
     weights = []
-    for disps, prob_orig in zip(displacements, probs):
+    for disps, prob_orig in zip(displacements, probs, strict=False):
         prob = get_probability_distribution(
             supercell, _primitive, fc, disps, temperature
         )
@@ -998,7 +998,9 @@ def _reweight_dataset(displacements, force_sets, weights):
     `displacements` and `force_sets` are overwritten.
 
     """
-    for disps, forces, weights_at_batch in zip(displacements, force_sets, weights):
+    for disps, forces, weights_at_batch in zip(
+        displacements, force_sets, weights, strict=False
+    ):
         for i, w in enumerate(weights_at_batch):
             if w < 1:
                 disps[i] *= w

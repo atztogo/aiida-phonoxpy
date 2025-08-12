@@ -101,7 +101,7 @@ def _assert_dataset(wc, dataset, phonon_dataset=None):
         [d["number"] for d in dataset["first_atoms"]],
     )
     for wc_first_atoms, first_atoms in zip(
-        wc_dataset["first_atoms"], dataset["first_atoms"]
+        wc_dataset["first_atoms"], dataset["first_atoms"], strict=False
     ):
         np.testing.assert_almost_equal(
             [d["displacement"] for d in wc_first_atoms["second_atoms"]],
