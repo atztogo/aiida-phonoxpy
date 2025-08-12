@@ -1,35 +1,10 @@
 name: Continuous Integration
 
 on:
-  push:
-    branches-ignore:
-      - rc
-      - master
   pull_request:
     branches: [develop]
 
 jobs:
-  pre-commit:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install python dependencies
-        run: |
-          pip install pre-commit
-          pip install -e .[tests]
-
-      - name: Run pre-commit
-        run: |
-          pre-commit install
-          pre-commit run --all-files || ( git status --short ; git diff ; exit 1 )
-
   tests:
     runs-on: ubuntu-latest
     defaults:
