@@ -2,8 +2,9 @@
 
 import os
 import shutil
-from typing import Optional
 import tempfile
+from typing import Optional
+
 import h5py
 import numpy as np
 from aiida.common import InputValidationError
@@ -14,18 +15,18 @@ from aiida.orm import (
     Bool,
     Dict,
     Float,
+    Kind,
     KpointsData,
-    StructureData,
-    XyData,
     SinglefileData,
     Site,
-    Kind,
+    StructureData,
+    XyData,
 )
 from phonopy import Phonopy
+from phonopy.file_IO import write_force_constants_to_hdf5
 from phonopy.interface.calculator import get_default_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.structure.dataset import get_displacements_and_forces
-from phonopy.file_IO import write_force_constants_to_hdf5
 
 
 @calcfunction
@@ -733,7 +734,7 @@ def compare_structures(structure_a, structure_b, symprec=1e-5):
     if (np.abs(cell_diff) > symprec).any():
         return False
 
-    for site_a, site_b in zip(structure_a.sites, structure_b.sites):
+    for site_a, site_b in zip(structure_a.sites, structure_b.sites, strict=False):
         if site_a.kind_name != site_b.kind_name:
             return False
 
@@ -864,7 +865,9 @@ def get_bands(qpoints, frequencies, labels, path_connections, label=None):
     ]
     label_index = 1
 
-    for pc, qs, fs in zip(path_connections[:-1], qpoints[1:], frequencies[1:]):
+    for pc, qs, fs in zip(
+        path_connections[:-1], qpoints[1:], frequencies[1:], strict=False
+    ):
         if labels[label_index] == "GAMMA" and pc:
             labels_list.append((len(qpoints_list) - 1, labels[label_index]))
             if label_index < len(labels):
@@ -997,12 +1000,12 @@ def phonopy_atoms_to_structure(cell):
     structure = StructureData(cell=cell.cell)
 
     kinds = {}
-    for symbol, mass in zip(symbols, masses):
+    for symbol, mass in zip(symbols, masses, strict=False):
         if symbol not in kinds:
             kinds[symbol] = mass
     for symbol, mass in kinds.items():
         structure.append_kind(Kind(symbols=symbol, mass=mass, name=symbol))
-    for symbol, position in zip(symbols, positions):
+    for symbol, position in zip(symbols, positions, strict=False):
         structure.append_site(Site(position=position, kind_name=symbol))
 
     return structure

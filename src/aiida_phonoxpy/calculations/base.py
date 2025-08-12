@@ -77,8 +77,8 @@ class BasePhonopyCalculation(CalcJob):
         calcinfo.retrieve_list = self._internal_retrieve_list
 
         calcinfo.codes_info = []
-        for i, (default_params, additional_params) in enumerate(
-            zip(self._calculation_cmd, self._additional_cmd_params)
+        for _, (default_params, additional_params) in enumerate(
+            zip(self._calculation_cmd, self._additional_cmd_params, strict=False)
         ):
             codeinfo = CodeInfo()
             cmdline_params = default_params + additional_params

@@ -6,16 +6,15 @@ Originally this was copied from aiida-quantumespresso.
 
 import os
 import shutil
-from pathlib import Path
 from collections.abc import Mapping
+from pathlib import Path
 
 import numpy as np
 import pytest
 from aiida.orm import SinglefileData
-
 from phonopy import Phonopy
 
-pytest_plugins = ["aiida.manage.tests.pytest_fixtures"]
+pytest_plugins = "aiida.tools.pytest_fixtures"
 cwd = Path(__file__).parent
 
 
@@ -1270,7 +1269,7 @@ def generate_calc_job_node(fixture_localhost):
             `retrieved_temporary_folder`. For now this only works with top-level files
             and does not support files nested in directories.
 
-        returns
+        Returns
         -------
         CalcJobNode :
             Instance with an attached `FolderData` as the `retrieved` node.

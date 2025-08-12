@@ -2,7 +2,7 @@
 
 import lzma
 
-from aiida.orm import BandsData, Dict, Str, XyData, SinglefileData
+from aiida.orm import BandsData, Dict, SinglefileData, Str, XyData
 from phonopy.interface.phonopy_yaml import PhonopyYaml
 
 from aiida_phonoxpy.calculations.base import BasePhonopyCalculation

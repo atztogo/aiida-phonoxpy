@@ -116,9 +116,7 @@ class BasePhonopyWorkChain(WorkChain):
         spec.exit_code(
             1001,
             "ERROR_NO_PHONOPY_CODE",
-            message=(
-                "Phonopy Code not found though expected to run phonopy " "remotely."
-            ),
+            message=("Phonopy Code not found though expected to run phonopy remotely."),
         )
         spec.exit_code(
             1002,

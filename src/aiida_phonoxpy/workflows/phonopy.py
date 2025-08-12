@@ -1,7 +1,7 @@
 """PhonopyWorkChain."""
 
 from aiida.engine import if_, while_
-from aiida.orm import BandsData, Bool, Code, XyData, SinglefileData, ArrayData
+from aiida.orm import ArrayData, BandsData, Bool, Code, SinglefileData, XyData
 
 from aiida_phonoxpy.utils.utils import (
     get_force_constants,

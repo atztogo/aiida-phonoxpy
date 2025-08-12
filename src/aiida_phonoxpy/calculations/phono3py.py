@@ -1,7 +1,8 @@
 """CalcJob to run phonopy at a remote host."""
 
-import lzma
 import logging
+import lzma
+
 import numpy as np
 from aiida.orm import ArrayData, Dict, SinglefileData, Str
 

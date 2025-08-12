@@ -1,8 +1,9 @@
 """Test phono3py parser."""
 
-import pytest
 import numpy as np
+import pytest
 from aiida.common import AttributeDict
+
 from aiida_phonoxpy.utils.utils import (
     _setup_phono3py_calculation_keyset4,
     _setup_phono3py_calculation_keyset5,

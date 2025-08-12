@@ -1,11 +1,12 @@
 """Test phonopy parser."""
 
-from aiida_phonoxpy.utils.utils import (
-    phonopy_atoms_to_structure,
-    phonopy_atoms_from_structure,
-    compare_structures,
-)
 from phonopy.structure.cells import isclose
+
+from aiida_phonoxpy.utils.utils import (
+    compare_structures,
+    phonopy_atoms_from_structure,
+    phonopy_atoms_to_structure,
+)
 
 
 def test_phonopy_atoms_from_to_structure(ph_nacl):

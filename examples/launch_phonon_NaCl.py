@@ -1,14 +1,16 @@
-from phonopy.interface.vasp import read_vasp_from_strings
-from aiida.plugins import DataFactory, WorkflowFactory
-from aiida.engine import submit
-from aiida_phonoxpy.common.utils import phonopy_atoms_to_structure
-from aiida.orm import Float, Bool, Str
 from aiida import load_profile
+from aiida.engine import submit
+from aiida.orm import Bool, Float, Str
+from aiida.plugins import DataFactory, WorkflowFactory
+from phonopy.interface.vasp import read_vasp_from_strings
+
+from aiida_phonoxpy.common.utils import phonopy_atoms_to_structure
 
 load_profile()
 
 
 def launch_aiida():
+    """Launch the phonon calculation for NaCl."""
     Dict = DataFactory("dict")
     unitcell_str = """ Na Cl
    1.00000000000000

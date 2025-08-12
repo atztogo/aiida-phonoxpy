@@ -218,7 +218,7 @@ def _get_nac_params(ctx, symmetry_tolerance):
             calc.outputs.dielectrics,
             structure,
             symmetry_tolerance,
-            **kwargs
+            **kwargs,
         )
     elif ctx.plugin_names[0] == "quantumespresso.pw":
         pw_calc = ctx.nac_params_calcs[0]

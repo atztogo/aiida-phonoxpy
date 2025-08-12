@@ -1,20 +1,22 @@
 import click
+from aiida.engine import run, submit
+from aiida.manage.configuration import load_profile
+from aiida.orm import Bool, Float, Int, QueryBuilder, Str, load_node
+from aiida.plugins import DataFactory, WorkflowFactory
 from phonopy import Phonopy
 from phonopy.interface.vasp import read_vasp_from_strings
-from aiida.manage.configuration import load_profile
-from aiida.orm import QueryBuilder, Int, Float, Bool, Str, load_node
-from aiida.plugins import DataFactory, WorkflowFactory
-from aiida.engine import run, submit
+
 from aiida_phonoxpy.common.utils import (
-    phonopy_atoms_to_structure,
     phonopy_atoms_from_structure,
+    phonopy_atoms_to_structure,
 )
-from aiida_phonoxpy.workflows.iter_ha import _extract_dataset_from_db, _create_dataset
+from aiida_phonoxpy.workflows.iter_ha import _create_dataset, _extract_dataset_from_db
 
 load_profile()
 
 
 def launch_aiida():
+    """Launch the iterative harmonic approximation (IterHA) calculation."""
     Dict = DataFactory("dict")
     unitcell_str = """ Sr Ti O
    1.0
@@ -133,6 +135,7 @@ Direct
 
 
 def get_nac_params(pk_nac):
+    """Return NAC params."""
     n_nac = load_node(pk_nac)
     if "nac_params" in n_nac.outputs:
         borns = n_nac.outputs.nac_params.get_array("born_charges")
@@ -144,6 +147,7 @@ def get_nac_params(pk_nac):
 
 
 def get_phonon(pk, pk_nac):
+    """Return a Phonopy object."""
     n = load_node(pk)
     unitcell = phonopy_atoms_from_structure(n.inputs.structure)
     smat = n.outputs.phonon_setting_info["supercell_matrix"]
@@ -158,6 +162,7 @@ def get_phonon(pk, pk_nac):
 
 
 def find_latest_uuid():
+    """Find the latest UUID of the IterHarmonicApprox workflow."""
     IterHarmonicApprox = WorkflowFactory("phonoxpy.iter_ha")
     qb = QueryBuilder()
     qb.append(IterHarmonicApprox)
@@ -167,7 +172,7 @@ def find_latest_uuid():
 
 
 def search_pk(uuid):
-    """uuid can be pk."""
+    """Uuid can be pk."""
     IterHarmonicApprox = WorkflowFactory("phonoxpy.iter_ha")
     qb = QueryBuilder()
     qb.append(IterHarmonicApprox, tag="iter_ha", filters={"uuid": {"==": uuid}})
@@ -180,11 +185,13 @@ def search_pk(uuid):
 
 
 def get_num_prev(uuid):
+    """Return the number of previous steps for fitting."""
     n = load_node(uuid)
     return n.inputs.number_of_steps_for_fitting.value
 
 
 def get_initial_nodes(uuid):
+    """Return initial nodes."""
     n = load_node(uuid)
     if "initial_nodes" in n.inputs:
         return n.inputs["initial_nodes"]["nodes"]
@@ -193,6 +200,7 @@ def get_initial_nodes(uuid):
 
 
 def get_include_ratio(uuid):
+    """Return include ratio."""
     n = load_node(uuid)
     if "include_ratio" in n.inputs:
         return n.inputs.include_ratio.value
@@ -201,11 +209,13 @@ def get_include_ratio(uuid):
 
 
 def get_temperature(uuid):
+    """Return temperature."""
     n = load_node(uuid)
     return n.inputs.temperature.value
 
 
 def bunch_phonons(pks, pk_nac, max_items=None, include_ratio=None, linear_decay=True):
+    """Calculate a bunch of phonon calculations."""
     nodes = [load_node(pk) for pk in pks]
     displacements, forces, energies = _extract_dataset_from_db(
         [n.outputs.force_sets for n in nodes],
@@ -230,6 +240,7 @@ def bunch_phonons(pks, pk_nac, max_items=None, include_ratio=None, linear_decay=
 def bunch_band_phonopy(
     pks, pk_nac, max_items=None, include_ratio=None, linear_decay=True
 ):
+    """Calculate a set of phonon band structures."""
     ph = bunch_phonons(
         pks,
         pk_nac,
@@ -252,6 +263,7 @@ def bunch_band_phonopy(
 
 
 def band_phonopy(pk, pk_nac):
+    """Calculate phonon band structure."""
     ph = get_phonon(pk, pk_nac)
     ph.produce_force_constants(fc_calculator="alm")
     filename = "band-%d.yaml" % pk
@@ -262,6 +274,7 @@ def band_phonopy(pk, pk_nac):
 def get_bunch_tp_phonopy(
     pks, pk_nac, temperature, max_items=None, include_ratio=None, linear_decay=True
 ):
+    """Get the thermal properties for a bunch of phonon calculations."""
     ph = bunch_phonons(
         pks,
         pk_nac,
@@ -281,6 +294,7 @@ def get_bunch_tp_phonopy(
 
 
 def get_tp_phonopy(pk, pk_nac, temperature):
+    """Get the thermal properties for a phonon calculation."""
     ph = get_phonon(pk, pk_nac)
     ph.produce_force_constants(fc_calculator="alm")
     ph.run_mesh(mesh=100.0, shift=[0.5, 0.5, 0.5])
@@ -296,6 +310,7 @@ def get_tp_phonopy(pk, pk_nac, temperature):
 def bunch_dump_phonopy(
     pks, pk_nac, max_items=None, include_ratio=None, linear_decay=True
 ):
+    """Dump a set of phonopy params."""
     ph = bunch_phonons(
         pks,
         pk_nac,
@@ -317,6 +332,7 @@ def bunch_dump_phonopy(
 
 
 def dump_phonopy(pk, pk_nac):
+    """Dump phonopy params."""
     ph = get_phonon(pk, pk_nac)
     settings = {
         "force_sets": True,
@@ -331,6 +347,7 @@ def dump_phonopy(pk, pk_nac):
 
 
 def get_pks_str(pks):
+    """Get PKs in string."""
     if len(pks) > 4:
         pks_str = "%d-%dpks-%d" % (pks[0], len(pks) - 2, pks[-1])
     else:
@@ -339,6 +356,7 @@ def get_pks_str(pks):
 
 
 def get_pks_list(pks, num_prev, initial_pks=None, num_tail=None):
+    """Get a list of PKs for the bunch calculation."""
     if initial_pks is None:
         pks_list = [
             [
@@ -400,7 +418,7 @@ def main(
     include_ratio,
     linear_decay,
 ):
-    """
+    """Launch the iterative harmonic approximation (IterHA) calculation.
 
     Launching the calculation, PK of IterHA is shown. This is good to
     rembember, e.g., keeping it in AiiDA Groups. Then we can quickly view how
@@ -441,7 +459,6 @@ def main(
     % python launch_phonon_SrTiO3.py --pk [PK] --list-pks
 
     """
-
     if launch:
         launch_aiida()
     else:
