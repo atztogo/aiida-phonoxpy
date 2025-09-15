@@ -3,13 +3,13 @@ from aiida.engine import run, submit
 from aiida.manage.configuration import load_profile
 from aiida.orm import Bool, Float, Int, QueryBuilder, Str, load_node
 from aiida.plugins import DataFactory, WorkflowFactory
-from phonopy import Phonopy
-from phonopy.interface.vasp import read_vasp_from_strings
-
 from aiida_phonoxpy.common.utils import (
     phonopy_atoms_from_structure,
     phonopy_atoms_to_structure,
 )
+from phonopy import Phonopy
+from phonopy.interface.vasp import read_vasp_from_strings
+
 from aiida_phonoxpy.workflows.iter_ha import _create_dataset, _extract_dataset_from_db
 
 load_profile()

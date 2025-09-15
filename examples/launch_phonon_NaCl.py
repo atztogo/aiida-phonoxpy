@@ -2,9 +2,8 @@ from aiida import load_profile
 from aiida.engine import submit
 from aiida.orm import Bool, Float, Str
 from aiida.plugins import DataFactory, WorkflowFactory
-from phonopy.interface.vasp import read_vasp_from_strings
-
 from aiida_phonoxpy.common.utils import phonopy_atoms_to_structure
+from phonopy.interface.vasp import read_vasp_from_strings
 
 load_profile()
 
