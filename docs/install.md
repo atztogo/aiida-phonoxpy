@@ -9,7 +9,7 @@ The following packages are required.
 - aiida-vasp (optional)
 - aiida-quantumespresso (optional)
 - aiida-donothing (optional)
-- ALM (optional)
+- symfc (optional)
 
 ```bash
 git clone https://github.com/atztogo/aiida-phonoxpy.git

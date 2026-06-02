@@ -63,7 +63,7 @@ def test_phono3py_fc(
         ("phono3py.yaml", "fc2.hdf5", "fc3.hdf5")
     )
     assert set(calc_info.codes_info[0].cmdline_params) == set(
-        ("-c", "phono3py_params.yaml.xz", "--sym-fc", "--compact-fc")
+        ("-c", "phono3py_params.yaml.xz", "--sym-fc")
     )
 
 
@@ -83,7 +83,7 @@ def test_phono3py_fc_fc_calculator(
     inputs.update(
         {
             "settings": generate_settings(
-                fc_calculator="alm", primitive_matrix=PRIMITIVE_MATRIX_NACL
+                fc_calculator="symfc", primitive_matrix=PRIMITIVE_MATRIX_NACL
             ),
             "code": fixture_code(entry_point_calc_job),
         }
@@ -98,7 +98,13 @@ def test_phono3py_fc_fc_calculator(
         ("phono3py.yaml", "fc2.hdf5", "fc3.hdf5")
     )
     assert set(calc_info.codes_info[0].cmdline_params) == set(
-        ("-v", "--alm", "-c", "phono3py_params.yaml.xz", "--compact-fc")
+        (
+            "-v",
+            "--fc-calculator",
+            "symfc",
+            "-c",
+            "phono3py_params.yaml.xz",
+        )
     )
 
 
@@ -118,7 +124,7 @@ def test_phono3py_fc_fc_calculator_options(
     inputs.update(
         {
             "settings": generate_settings(
-                fc_calculator="alm",
+                fc_calculator="symfc",
                 fc_calculator_options="cutoff = 5",
                 primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
@@ -138,12 +144,12 @@ def test_phono3py_fc_fc_calculator_options(
     assert set(calc_info.codes_info[0].cmdline_params) == set(
         (
             "-v",
-            "--alm",
+            "--fc-calculator",
+            "symfc",
             "--fc-calculator-options",
             "cutoff = 5",
             "-c",
             "phono3py_params.yaml.xz",
-            "--compact-fc",
         )
     )
 

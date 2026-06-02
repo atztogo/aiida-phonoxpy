@@ -58,7 +58,7 @@ can be used.
 3) include_ratio : Float
     After collecting snapshots in (2), all the snapshots are sorted by
     total energies. Then only lowest energy snapshots with 'include_ratio'
-    are included to calculate force constants by fitting using ALM.
+    are included to calculate force constants by fitting using symfc.
 4) random_seed : Int
     Using force constants created in (3), phonons are calculated at
     commensurate points, and these phonons are used to generate atomic
@@ -1175,7 +1175,7 @@ def get_force_constants_local(settings, structure, displacements, force_sets):
     d = displacements.get_array("displacements")
     f = force_sets.get_array("force_sets")
     ph.dataset = {"displacements": d, "forces": f}
-    ph.produce_force_constants(fc_calculator="alm")
+    ph.produce_force_constants(fc_calculator="symfc")
     force_constants_array = ArrayData()
     force_constants_array.set_array("force_constants", ph.force_constants)
 

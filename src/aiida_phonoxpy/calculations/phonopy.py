@@ -161,13 +161,13 @@ def _get_phonopy_options(settings: Dict, fc_in_inputs: bool, disp_in_inputs: boo
     else:
         fc_opts += ["--writefc", "--writefc-format=hdf5"]
         if "fc_calculator" in settings.keys():
-            if settings["fc_calculator"].lower().strip() == "alm":
-                fc_opts.append("--alm")
+            if settings["fc_calculator"].lower().strip() == "symfc":
+                fc_opts += ["--fc-calculator", "symfc"]
                 general_opts.append("-v")
-        if disp_in_inputs and "--alm" not in fc_opts:
-            fc_opts.append("--alm")
+        if disp_in_inputs and "--fc-calculator" not in fc_opts:
+            fc_opts += ["--fc-calculator", "symfc"]
             general_opts.append("-v")
-        if "--alm" not in fc_opts:
+        if "--fc-calculator" not in fc_opts:
             fc_opts.append("--sym-fc")
 
     return general_opts, mesh_opts, fc_opts

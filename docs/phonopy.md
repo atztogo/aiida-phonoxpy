@@ -12,7 +12,7 @@ Supported parameters for phonon calculation are
 - `distance` (optional): Atomic displacement distance.
 - `mesh` (optional): Sampling mesh used in phonon projected DOS and thermal
   property calculations.
-- `fc_calculator` (optional): Only "alm" is supported.
+- `fc_calculator` (optional): Only "symfc" is supported.
 - `number_of_snapshots` (optional): Random displacements.
 - `random_seed` (optional): Random seed used to generate displacements.
 
