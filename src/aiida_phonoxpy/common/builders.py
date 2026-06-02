@@ -2,13 +2,14 @@
 
 from aiida.common import AttributeDict
 from aiida.orm import (
+    AbstractCode,
     Bool,
-    Code,
     Dict,
     KpointsData,
     RemoteData,
     Str,
     StructureData,
+    load_code,
     load_group,
 )
 from aiida.plugins import WorkflowFactory
@@ -19,7 +20,7 @@ from aiida_phonoxpy.utils.utils import get_kpoints_data
 def get_workchain_inputs(calculator_inputs, structure, label=None, ctx=None):
     """Return builder inputs of a calculation."""
     code = _get_code(calculator_inputs)
-    plugin_name = code.get_input_plugin_name()
+    plugin_name = code.default_calc_job_plugin
     if plugin_name == "vasp.vasp":
         return _get_vasp_vasp_workchain_inputs(
             calculator_inputs, structure, code, label
@@ -35,7 +36,7 @@ def get_workchain_inputs(calculator_inputs, structure, label=None, ctx=None):
 def get_import_workchain_inputs(calculator_inputs, label=None, ctx=None):
     """Return builder inputs of an import calculation."""
     code = _get_code(calculator_inputs)
-    plugin_name = code.get_input_plugin_name()
+    plugin_name = code.default_calc_job_plugin
     if plugin_name == "vasp.vasp":
         return _get_vasp_import_workchain_inputs(calculator_inputs, code, label)
 
@@ -45,7 +46,7 @@ def _get_code(calculator_inputs: dict):
     if "code" in calculator_inputs:
         code = calculator_inputs["code"]
     elif "code_string" in calculator_inputs:
-        code = Code.get_from_string(calculator_inputs["code_string"])
+        code = load_code(calculator_inputs["code_string"])
     if code is None:
         for namespace in ("pw", "ph"):
             if namespace in calculator_inputs:
@@ -104,7 +105,7 @@ def _get_vasp_import_workchain_inputs(calculator_inputs, code, label):
 
 
 def _get_qe_pw_inputs(
-    calculator_inputs_pw: dict, structure: StructureData, code: Code, label: str
+    calculator_inputs_pw: dict, structure: StructureData, code: AbstractCode, label: str
 ) -> dict:
     pseudos = _get_qe_pseudos(calculator_inputs_pw, structure)
     if "metadata" in calculator_inputs_pw:
@@ -125,7 +126,10 @@ def _get_qe_pw_inputs(
 
 
 def _get_qe_ph_inputs(
-    calculator_inputs_ph: dict, code: Code, label: str, remote_folder: RemoteData
+    calculator_inputs_ph: dict,
+    code: AbstractCode,
+    label: str,
+    remote_folder: RemoteData,
 ) -> dict:
     qpoints = KpointsData()
     qpoints.set_kpoints_mesh([1, 1, 1], offset=[0, 0, 0])
@@ -146,7 +150,7 @@ def _get_qe_ph_inputs(
 
 
 def _get_qe_pw_workchain_inputs(
-    calculator_inputs: dict, structure: StructureData, code: Code, label: str
+    calculator_inputs: dict, structure: StructureData, code: AbstractCode, label: str
 ) -> dict:
     kpoints = _get_kpoints_data(calculator_inputs, structure)
     pw = _get_qe_pw_inputs(calculator_inputs["pw"], structure, code, label)
@@ -158,7 +162,7 @@ def _get_qe_pw_workchain_inputs(
 
 
 def _get_qe_ph_workchain_inputs(
-    calculator_inputs: dict, code: Code, label: str, ctx: AttributeDict
+    calculator_inputs: dict, code: AbstractCode, label: str, ctx: AttributeDict
 ) -> dict:
     ph = _get_qe_ph_inputs(
         calculator_inputs["ph"],
@@ -258,6 +262,6 @@ def get_plugin_names(calculator_inputs: dict) -> list:
 
     plugin_names = []
     for code in codes:
-        plugin_names.append(code.get_input_plugin_name())
+        plugin_names.append(code.default_calc_job_plugin)
 
     return plugin_names

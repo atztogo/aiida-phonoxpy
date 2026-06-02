@@ -9,6 +9,12 @@ from aiida_phonoxpy.utils.utils import (
     _setup_phono3py_calculation_keyset5,
 )
 
+# Primitive matrix of the NaCl conventional cell (FCC), i.e. the matrix that
+# phonopy's ``primitive_matrix='auto'`` resolves to. In production the
+# calculation receives this via ``phonon_setting_info``, so the test settings
+# carry it explicitly to mirror that (and avoid phonopy's auto-default warning).
+PRIMITIVE_MATRIX_NACL = [[0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0]]
+
 
 @pytest.fixture
 def generate_inputs(generate_structure, generate_nac_params):
@@ -43,7 +49,7 @@ def test_phono3py_fc(
     )
     inputs.update(
         {
-            "settings": generate_settings(),
+            "settings": generate_settings(primitive_matrix=PRIMITIVE_MATRIX_NACL),
             "code": fixture_code(entry_point_calc_job),
         }
     )
@@ -76,7 +82,9 @@ def test_phono3py_fc_fc_calculator(
     )
     inputs.update(
         {
-            "settings": generate_settings(fc_calculator="alm"),
+            "settings": generate_settings(
+                fc_calculator="alm", primitive_matrix=PRIMITIVE_MATRIX_NACL
+            ),
             "code": fixture_code(entry_point_calc_job),
         }
     )
@@ -110,7 +118,9 @@ def test_phono3py_fc_fc_calculator_options(
     inputs.update(
         {
             "settings": generate_settings(
-                fc_calculator="alm", fc_calculator_options="cutoff = 5"
+                fc_calculator="alm",
+                fc_calculator_options="cutoff = 5",
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
             "code": fixture_code(entry_point_calc_job),
         }
@@ -170,7 +180,9 @@ def test_phono3py_ltc_simple_options(
     settings = {opt_key: opt_val}
     inputs.update(
         {
-            "settings": generate_settings(**settings),
+            "settings": generate_settings(
+                primitive_matrix=PRIMITIVE_MATRIX_NACL, **settings
+            ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
             "fc3": generate_fc3_filedata(),
@@ -232,6 +244,7 @@ def test_phono3py_with_ltc_nac(
             "settings": generate_settings(
                 mesh=100,
                 phonon_supercell_matrix=[2, 2, 2],
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
@@ -283,6 +296,7 @@ def test_phono3py_ltc_lbte(
                 phonon_supercell_matrix=[2, 2, 2],
                 ts=[300, 400, 500],
                 lbte=True,
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
@@ -331,7 +345,10 @@ def test_phono3py_ltc(
     inputs.update(
         {
             "settings": generate_settings(
-                mesh=50, phonon_supercell_matrix=[2, 2, 2], ts=[300, 400]
+                mesh=50,
+                phonon_supercell_matrix=[2, 2, 2],
+                ts=[300, 400],
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
@@ -379,7 +396,10 @@ def test_phono3py_ltc_with_isotope(
     inputs.update(
         {
             "settings": generate_settings(
-                mesh=[21, 21, 21], isotope=True, phonon_supercell_matrix=[2, 2, 2]
+                mesh=[21, 21, 21],
+                isotope=True,
+                phonon_supercell_matrix=[2, 2, 2],
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
@@ -429,7 +449,10 @@ def test_phono3py_ltc_with_grg(
     inputs.update(
         {
             "settings": generate_settings(
-                mesh=100, grg=True, phonon_supercell_matrix=[2, 2, 2]
+                mesh=100,
+                grg=True,
+                phonon_supercell_matrix=[2, 2, 2],
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
@@ -478,7 +501,10 @@ def test_phono3py_ltc_with_mass(
     inputs.update(
         {
             "settings": generate_settings(
-                mesh=100, mass=[20, 40], phonon_supercell_matrix=[2, 2, 2]
+                mesh=100,
+                mass=[20, 40],
+                phonon_supercell_matrix=[2, 2, 2],
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
             ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
@@ -532,7 +558,11 @@ def test_phono3py_ltc_with_mesh(
     )
     inputs.update(
         {
-            "settings": generate_settings(mesh=mesh, phonon_supercell_matrix=[2, 2, 2]),
+            "settings": generate_settings(
+                mesh=mesh,
+                phonon_supercell_matrix=[2, 2, 2],
+                primitive_matrix=PRIMITIVE_MATRIX_NACL,
+            ),
             "code": fixture_code(entry_point_calc_job),
             "fc2": generate_fc2_filedata(),
             "fc3": generate_fc3_filedata(),

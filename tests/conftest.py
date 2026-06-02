@@ -43,7 +43,7 @@ def fixture_localhost(aiida_localhost):
 
 @pytest.fixture
 def fixture_code(fixture_localhost):
-    """Return a `Code` instance.
+    """Return an `InstalledCode` instance.
 
     This is configured to run calculations of given entry point on localhost
     `Computer`.
@@ -52,17 +52,18 @@ def fixture_code(fixture_localhost):
 
     def _fixture_code(entry_point_name):
         from aiida.common import exceptions
-        from aiida.orm import Code
+        from aiida.orm import InstalledCode
 
         label = f"test.{entry_point_name}"
 
         try:
-            return Code.objects.get(label=label)
+            return InstalledCode.collection.get(label=label)
         except exceptions.NotExistent:
-            return Code(
+            return InstalledCode(
                 label=label,
-                input_plugin_name=entry_point_name,
-                remote_computer_exec=[fixture_localhost, "/bin/true"],
+                computer=fixture_localhost,
+                filepath_executable="/bin/true",
+                default_calc_job_plugin=entry_point_name,
             )
 
     return _fixture_code
@@ -1079,6 +1080,7 @@ def generate_settings():
         pinv_method=None,
         pinv_solver=None,
         phonon_supercell_matrix=None,
+        primitive_matrix=None,
         supercell_matrix=None,
         reducible_colmat=False,
         sigma=None,
@@ -1087,6 +1089,8 @@ def generate_settings():
         from aiida.orm import Dict
 
         settings = {"distance": 0.03}
+        if primitive_matrix is not None:
+            settings["primitive_matrix"] = primitive_matrix
         if cutoff_fc3 is not None:
             settings["cutoff_fc3"] = cutoff_fc3
 
@@ -1204,7 +1208,7 @@ def generate_remote_data():
             creator.set_option(
                 "resources", {"num_machines": 1, "num_mpiprocs_per_machine": 1}
             )
-            remote.add_incoming(
+            remote.base.links.add_incoming(
                 creator, link_type=LinkType.CREATE, link_label="remote_folder"
             )
             creator.store()
@@ -1295,7 +1299,7 @@ def generate_calc_job_node(fixture_localhost):
 
         node = CalcJobNode(computer=computer, process_type=entry_point)
         # node.set_attribute("input_filename", "aiida.in")
-        node.set_attribute("output_filename", f"{codename}.yaml")
+        node.base.attributes.set("output_filename", f"{codename}.yaml")
         # node.set_attribute("error_filename", "aiida.err")
         node.set_option("resources", {"num_machines": 1, "num_mpiprocs_per_machine": 1})
         node.set_option("max_wallclock_seconds", 1800)
@@ -1334,7 +1338,7 @@ def generate_calc_job_node(fixture_localhost):
 
             for link_label, input_node in flatten_inputs(inputs):
                 input_node.store()
-                node.add_incoming(
+                node.base.links.add_incoming(
                     input_node, link_type=LinkType.INPUT_CALC, link_label=link_label
                 )
 
@@ -1366,13 +1370,13 @@ def generate_calc_job_node(fixture_localhost):
                     except OSError:
                         pass
 
-            retrieved.add_incoming(
+            retrieved.base.links.add_incoming(
                 node, link_type=LinkType.CREATE, link_label="retrieved"
             )
             retrieved.store()
 
             remote_folder = RemoteData(computer=computer, remote_path="/tmp")
-            remote_folder.add_incoming(
+            remote_folder.base.links.add_incoming(
                 node, link_type=LinkType.CREATE, link_label="remote_folder"
             )
             remote_folder.store()
@@ -1388,9 +1392,7 @@ def mock_calculator_code():
 
     def _mock_code(plugin_name):
         class MockCode:
-            @staticmethod
-            def get_input_plugin_name():
-                return plugin_name
+            default_calc_job_plugin = plugin_name
 
         return MockCode()
 

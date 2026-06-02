@@ -1,7 +1,7 @@
 """PhonopyWorkChain."""
 
 from aiida.engine import if_, while_
-from aiida.orm import ArrayData, BandsData, Bool, Code, SinglefileData, XyData
+from aiida.orm import ArrayData, BandsData, Bool, SinglefileData, XyData, load_code
 
 from aiida_phonoxpy.utils.utils import (
     get_force_constants,
@@ -247,7 +247,7 @@ class PhonopyWorkChain(BasePhonopyWorkChain, ImmigrantMixIn):
         self.report("remote phonopy calculation")
 
         if "code_string" in self.inputs:
-            code = Code.get_from_string(self.inputs.code_string.value)
+            code = load_code(self.inputs.code_string.value)
         elif "code" in self.inputs:
             code = self.inputs.code
         builder = code.get_builder()

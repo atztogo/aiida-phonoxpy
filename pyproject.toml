@@ -22,7 +22,8 @@ classifiers = [
     "Framework :: AiiDA"
 ]
 dependencies = [
-    "phonopy",
+    "phonopy>=4.0.0",
+    "phono3py>=4.0.0",
     "numpy",
     "seekpath",
     "aiida-core>=2.7.0,<3.0.0"

@@ -17,7 +17,7 @@ from aiida_phonoxpy.utils.utils import (
     get_total_dos,
 )
 
-ArrayData = DataFactory("array")
+ArrayData = DataFactory("core.array")
 
 
 def parse_phonopy_yaml(f):

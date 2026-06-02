@@ -3,6 +3,7 @@
 import os
 import shutil
 import tempfile
+import warnings
 from typing import Optional
 
 import h5py
@@ -26,6 +27,7 @@ from phonopy import Phonopy
 from phonopy.file_IO import write_force_constants_to_hdf5
 from phonopy.interface.calculator import get_default_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
+from phonopy.structure.cells import PrimitiveMatrixAutoDefaultWarning
 from phonopy.structure.dataset import get_displacements_and_forces
 
 
@@ -849,8 +851,8 @@ def _get_bands_data(ph):
     qpoints = ph.band_structure.qpoints
     path_connections = ph.band_structure.path_connections
     label = "%s (%d)" % (
-        ph.symmetry.dataset["international"],
-        ph.symmetry.dataset["number"],
+        ph.symmetry.dataset.international,
+        ph.symmetry.dataset.number,
     )
 
     return get_bands(qpoints, frequencies, labels, path_connections, label=label)
@@ -937,17 +939,17 @@ def get_phonopy_instance(
     nac_params: Optional[ArrayData] = None,
 ) -> Phonopy:
     """Create Phonopy instance."""
+    kwargs = {"supercell_matrix": phonon_settings_dict["supercell_matrix"]}
     if "primitive_matrix" in phonon_settings_dict:
-        primitive_matrix = phonon_settings_dict["primitive_matrix"]
-    else:
-        primitive_matrix = "auto"
-    kwargs = {
-        "supercell_matrix": phonon_settings_dict["supercell_matrix"],
-        "primitive_matrix": primitive_matrix,
-    }
+        kwargs["primitive_matrix"] = phonon_settings_dict["primitive_matrix"]
     if "symmetry_tolerance" in phonon_settings_dict:
         kwargs["symprec"] = phonon_settings_dict["symmetry_tolerance"]
-    phpy = Phonopy(phonopy_atoms_from_structure(structure), **kwargs)
+    with warnings.catch_warnings():
+        if "primitive_matrix" not in kwargs:
+            # primitive_matrix is intentionally left to phonopy's 'auto' here;
+            # silence phonopy's v3->v4 default-change notice.
+            warnings.simplefilter("ignore", PrimitiveMatrixAutoDefaultWarning)
+        phpy = Phonopy(phonopy_atoms_from_structure(structure), **kwargs)
     if nac_params:
         _set_nac_params(phpy, nac_params)
     return phpy
@@ -968,13 +970,16 @@ def get_phono3py_instance(
         kwargs["symprec"] = 1e-5
     if "primitive_matrix" in phonon_settings_dict:
         kwargs["primitive_matrix"] = phonon_settings_dict["primitive_matrix"]
-    else:
-        kwargs["primitive_matrix"] = "auto"
     if "phonon_supercell_matrix" in phonon_settings_dict:
         kwargs["phonon_supercell_matrix"] = phonon_settings_dict[
             "phonon_supercell_matrix"
         ]
-    ph3py = Phono3py(phonopy_atoms_from_structure(structure), **kwargs)
+    with warnings.catch_warnings():
+        if "primitive_matrix" not in kwargs:
+            # primitive_matrix is intentionally left to phonopy's 'auto' here;
+            # silence phonopy's v3->v4 default-change notice.
+            warnings.simplefilter("ignore", PrimitiveMatrixAutoDefaultWarning)
+        ph3py = Phono3py(phonopy_atoms_from_structure(structure), **kwargs)
     if nac_params:
         _set_nac_params(ph3py, nac_params)
 
@@ -983,7 +988,7 @@ def get_phono3py_instance(
 
 def _set_nac_params(phpy: Phonopy, nac_params: ArrayData) -> None:
     units = get_default_physical_units("vasp")
-    factor = units["nac_factor"]
+    factor = units.nac_factor
     nac_params = {
         "born": nac_params.get_array("born_charges"),
         "dielectric": nac_params.get_array("epsilon"),
@@ -1176,8 +1181,8 @@ def _set_symmetry_info(ph_settings: dict, ph) -> None:
     """
     ph_settings["primitive_matrix"] = ph.primitive_matrix
     ph_settings["symmetry"] = {
-        "number": ph.symmetry.dataset["number"],
-        "international": ph.symmetry.dataset["international"],
+        "number": ph.symmetry.dataset.number,
+        "international": ph.symmetry.dataset.international,
     }
 
 

@@ -1,7 +1,7 @@
 """WorkChan to calculate force constants by phono3py."""
 
 from aiida.engine import WorkChain
-from aiida.orm import ArrayData, Code, Dict, Float, StructureData
+from aiida.orm import AbstractCode, ArrayData, Dict, Float, StructureData
 from aiida.orm.nodes.data.singlefile import SinglefileData
 
 from aiida_phonoxpy.utils.utils import setup_phono3py_fc_calculation
@@ -22,7 +22,7 @@ class Phono3pyFCWorkChain(WorkChain, RunPhono3pyMixIn):
         spec.input("structure", valid_type=StructureData, required=True)
         spec.input("settings", valid_type=Dict, required=True)
         spec.input("symmetry_tolerance", valid_type=Float, default=lambda: Float(1e-5))
-        spec.input("code", valid_type=Code, required=False)
+        spec.input("code", valid_type=AbstractCode, required=False)
         spec.input("displacement_dataset", valid_type=Dict, required=False)
         spec.input("displacements", valid_type=ArrayData, required=False)
         spec.input("force_sets", valid_type=ArrayData, required=False)
