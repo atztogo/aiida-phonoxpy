@@ -96,7 +96,7 @@ def test_Phono3pyFCWorkChain_full_with_fc_calculator(
     generate_displacement_dataset,
     generate_force_sets,
 ):
-    """Test of Phono3pyFCWorkChain using NaCl data with ALM."""
+    """Test of Phono3pyFCWorkChain using NaCl data with symfc."""
     from aiida.engine import launch
     from aiida.orm import Dict
 
@@ -105,7 +105,7 @@ def test_Phono3pyFCWorkChain_full_with_fc_calculator(
     settings = {
         "supercell_matrix": [1, 1, 1],
         "phonon_supercell_matrix": [2, 2, 2],
-        "fc_calculator": "alm",
+        "fc_calculator": "symfc",
         "fc_calculator_options": "cutoff = 5",
     }
 
@@ -127,6 +127,6 @@ def test_Phono3pyFCWorkChain_full_with_fc_calculator(
     output_keys = ("fc2", "fc3", "phonon_setting_info")
     assert set(list(results)) == set(output_keys)
     assert "fc_calculator" in results["phonon_setting_info"]
-    assert results["phonon_setting_info"]["fc_calculator"] == "alm"
+    assert results["phonon_setting_info"]["fc_calculator"] == "symfc"
     assert "fc_calculator_options" in results["phonon_setting_info"]
     assert results["phonon_setting_info"]["fc_calculator_options"] == "cutoff = 5"

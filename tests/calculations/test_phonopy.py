@@ -78,7 +78,7 @@ def test_phonopy_fc_calculator(
     inputs.update(
         {
             "settings": generate_settings(
-                fc_calculator="alm", primitive_matrix=PRIMITIVE_MATRIX_NACL
+                fc_calculator="symfc", primitive_matrix=PRIMITIVE_MATRIX_NACL
             ),
             "code": fixture_code(entry_point_calc_job),
         }
@@ -94,7 +94,8 @@ def test_phonopy_fc_calculator(
             "phonopy_params.yaml.xz",
             "--writefc",
             "--writefc-format=hdf5",
-            "--alm",
+            "--fc-calculator",
+            "symfc",
         )
     )
 

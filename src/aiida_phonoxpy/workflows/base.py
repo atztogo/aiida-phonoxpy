@@ -30,8 +30,8 @@ class BasePhonopyWorkChain(WorkChain):
             Whether running non-analytical term correction or not. Default is
             False.
         fc_calculator : str
-            With this being 'alm', ALM is used to calculate force constants in
-            the remote phonopy calculation.
+            With this being 'symfc', symfc is used to calculate force constants
+            in the remote phonopy calculation.
         options : dict
             AiiDA calculation options for phonon calculation used when both of
             run_phonopy and remote_phonopy are True.
@@ -41,7 +41,7 @@ class BasePhonopyWorkChain(WorkChain):
     displacements : ArrayData, optional
         Displacements of all atoms in supercells corresponding to force_sets.
         When force_sets is also given, this is used to compute force constants
-        using ALM. Therefore, ALM has to be installed.
+        using symfc. Therefore, symfc has to be installed.
     force_sets : ArrayData, optional
         Supercell forces. When this is supplied, force calculation is skipped.
     nac_params : ArrayData, optional

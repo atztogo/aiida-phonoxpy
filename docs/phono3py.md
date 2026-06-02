@@ -26,7 +26,7 @@ Supported parameters for phonon calculation are
 - `distance` (optional): Atomic displacement distance.
 - `mesh` (optional): Sampling mesh used in phonon projected DOS and thermal
   property calculations.
-- `fc_calculator` (optional): Only "alm" is supported.
+- `fc_calculator` (optional): Only "symfc" is supported.
 
 Although random displacement setting (`number_of_snapshots`) is not directory
 supported by `Phono3pyWorkChain`, supercell forces and displacements calculated

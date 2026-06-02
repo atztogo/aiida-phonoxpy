@@ -673,8 +673,8 @@ def get_force_constants(
 
     kwargs = {}
     if "fc_calculator" in phonon_setting_info.keys():
-        if phonon_setting_info["fc_calculator"].lower().strip() == "alm":
-            kwargs["fc_calculator"] = "alm"
+        if phonon_setting_info["fc_calculator"].lower().strip() == "symfc":
+            kwargs["fc_calculator"] = "symfc"
             if "fc_calculator_options" in phonon_setting_info:
                 kwargs["fc_calculator_options"] = phonon_setting_info[
                     "fc_calculator_options"

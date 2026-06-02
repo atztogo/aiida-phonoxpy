@@ -125,12 +125,11 @@ class Phono3pyCalculation(BasePhonopyCalculation):
             self._internal_retrieve_list.append(self._OUTPUT_LTC)
         else:  # Assume force constants calculation
             if "displacements" in self.inputs:
-                if "--alm" not in fc_opts:
+                if "--fc-calculator" not in fc_opts:
                     fc_opts.append("-v")
-                    fc_opts.append("--alm")
-            if "--alm" not in fc_opts:
+                    fc_opts += ["--fc-calculator", "symfc"]
+            if "--fc-calculator" not in fc_opts:
                 fc_opts.append("--sym-fc")
-            fc_opts.append("--compact-fc")
             for key in ("fc2", "fc3"):
                 if key in self.inputs:
                     fc_opts.append(f"--{key}")
@@ -195,9 +194,9 @@ def _get_phono3py_options(settings: Dict, logger: logging.Logger) -> dict:
             mesh_opts.append("--grg")
 
     if "fc_calculator" in settings.keys():
-        if settings["fc_calculator"].lower().strip() == "alm":
+        if settings["fc_calculator"].lower().strip() == "symfc":
             fc_opts.append("-v")
-            fc_opts.append("--alm")
+            fc_opts += ["--fc-calculator", "symfc"]
             if "fc_calculator_options" in settings.keys():
                 fc_calc_opts = settings["fc_calculator_options"]
                 fc_opts += ["--fc-calculator-options", f"{fc_calc_opts}"]
