@@ -3,7 +3,6 @@
 import lzma
 
 from aiida.orm import BandsData, Dict, SinglefileData, Str, XyData
-from phonopy.interface.phonopy_yaml import PhonopyYaml
 
 from aiida_phonoxpy.calculations.base import BasePhonopyCalculation
 from aiida_phonoxpy.utils.utils import get_phonopy_instance
@@ -84,8 +83,7 @@ class PhonopyCalculation(BasePhonopyCalculation):
         self.logger.info("create_additional_files")
 
         ph = self._get_phonopy_instance()
-        phpy_yaml = PhonopyYaml()
-        phpy_yaml.set_phonon_info(ph)
+        phpy_yaml = ph.to_phonopy_yaml()
 
         with folder.open(self._INPUT_PARAMS, "wb") as handle:
             handle.write(lzma.compress(str(phpy_yaml).encode()))

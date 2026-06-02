@@ -1,6 +1,6 @@
 """WorkChain mix-in's."""
 
-from aiida.orm import Code, Int
+from aiida.orm import Int, load_code
 
 from aiida_phonoxpy.calculations.phono3py import Phono3pyCalculation
 
@@ -13,7 +13,7 @@ class RunPhono3pyMixIn:
         self.report("remote phono3py calculation")
 
         if "code_string" in self.inputs:
-            code = Code.get_from_string(self.inputs.code_string.value)
+            code = load_code(self.inputs.code_string.value)
         elif "code" in self.inputs:
             code = self.inputs.code
 

@@ -3,6 +3,12 @@
 import pytest
 from aiida.common import AttributeDict
 
+# Primitive matrix of the NaCl conventional cell (FCC), i.e. the matrix that
+# phonopy's ``primitive_matrix='auto'`` resolves to. In production the
+# calculation receives this via ``phonon_setting_info``, so the test settings
+# carry it explicitly to mirror that (and avoid phonopy's auto-default warning).
+PRIMITIVE_MATRIX_NACL = [[0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0]]
+
 
 @pytest.fixture
 def generate_inputs(generate_structure, generate_nac_params):
@@ -37,7 +43,7 @@ def test_phonopy(
     )
     inputs.update(
         {
-            "settings": generate_settings(),
+            "settings": generate_settings(primitive_matrix=PRIMITIVE_MATRIX_NACL),
             "code": fixture_code(entry_point_calc_job),
         }
     )
@@ -71,7 +77,9 @@ def test_phonopy_fc_calculator(
     )
     inputs.update(
         {
-            "settings": generate_settings(fc_calculator="alm"),
+            "settings": generate_settings(
+                fc_calculator="alm", primitive_matrix=PRIMITIVE_MATRIX_NACL
+            ),
             "code": fixture_code(entry_point_calc_job),
         }
     )
@@ -107,7 +115,7 @@ def test_phonopy_fc_input(
     )
     inputs.update(
         {
-            "settings": generate_settings(),
+            "settings": generate_settings(primitive_matrix=PRIMITIVE_MATRIX_NACL),
             "code": fixture_code(entry_point_calc_job),
             "force_constants": generate_fc_filedata(),
         }

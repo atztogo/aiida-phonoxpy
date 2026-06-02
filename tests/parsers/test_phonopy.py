@@ -53,8 +53,8 @@ def test_phonopy_default(
 
     assert calcfunction.is_finished, calcfunction.exception
     assert calcfunction.is_finished_ok, calcfunction.exit_message
-    assert not orm.Log.objects.get_logs_for(node), [
-        log.message for log in orm.Log.objects.get_logs_for(node)
+    assert not orm.Log.collection.get_logs_for(node), [
+        log.message for log in orm.Log.collection.get_logs_for(node)
     ]
 
     for key in [
@@ -68,9 +68,9 @@ def test_phonopy_default(
 
     data_regression.check(
         {
-            "pdos": results["projected_dos"].attributes,
-            "thermal_properties": results["thermal_properties"].attributes,
-            "band_structure": results["band_structure"].attributes,
+            "pdos": results["projected_dos"].base.attributes.all,
+            "thermal_properties": results["thermal_properties"].base.attributes.all,
+            "band_structure": results["band_structure"].base.attributes.all,
         }
     )
 

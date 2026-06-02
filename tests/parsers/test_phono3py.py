@@ -49,8 +49,8 @@ def test_phono3py_default(
 
     assert calcfunction.is_finished, calcfunction.exception
     assert calcfunction.is_finished_ok, calcfunction.exit_message
-    assert not orm.Log.objects.get_logs_for(node), [
-        log.message for log in orm.Log.objects.get_logs_for(node)
+    assert not orm.Log.collection.get_logs_for(node), [
+        log.message for log in orm.Log.collection.get_logs_for(node)
     ]
 
     output_keys = ["version", "fc2", "fc3"]
@@ -105,8 +105,8 @@ def test_phono3py_ltc_default(
 
     assert calcfunction.is_finished, calcfunction.exception
     assert calcfunction.is_finished_ok, calcfunction.exit_message
-    assert not orm.Log.objects.get_logs_for(node), [
-        log.message for log in orm.Log.objects.get_logs_for(node)
+    assert not orm.Log.collection.get_logs_for(node), [
+        log.message for log in orm.Log.collection.get_logs_for(node)
     ]
 
     output_keys = ["version", "ltc"]

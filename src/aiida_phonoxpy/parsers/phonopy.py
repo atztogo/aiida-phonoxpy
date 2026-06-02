@@ -61,8 +61,8 @@ class PhonopyParser(Parser):
 
         band_filename = PhonopyCalculation._OUTPUT_BAND_STRUCTURE
         if band_filename in list_of_files:
-            if "symmetry" in self.node.inputs.settings.attributes:
-                sym_dataset = self.node.inputs.settings["symmetry"]
+            if "symmetry" in self.node.inputs.settings.base.attributes.all:
+                sym_dataset = self.node.inputs.settings.base.attributes.all["symmetry"]
                 label = "%s (%d)" % (
                     sym_dataset["international"],
                     sym_dataset["number"],

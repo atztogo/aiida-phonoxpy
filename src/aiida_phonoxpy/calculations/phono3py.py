@@ -90,13 +90,10 @@ class Phono3pyCalculation(BasePhonopyCalculation):
         return calcinfo
 
     def _create_additional_files(self, folder):
-        from phono3py.interface.phono3py_yaml import Phono3pyYaml
-
         self.logger.info("create_additional_files")
 
         ph3 = self._get_phono3py_instance()
-        ph3py_yaml = Phono3pyYaml(settings={"force_sets": True})
-        ph3py_yaml.set_phonon_info(ph3)
+        ph3py_yaml = ph3.to_phono3py_yaml(settings={"force_sets": True})
         with folder.open(self._INPUT_PARAMS, "wb") as handle:
             handle.write(lzma.compress(str(ph3py_yaml).encode()))
 

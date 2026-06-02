@@ -10,13 +10,13 @@ from aiida.engine import WorkChain, calcfunction, if_, while_
 from aiida.orm import (
     ArrayData,
     Bool,
-    Code,
     Dict,
     Float,
     Group,
     Int,
     QueryBuilder,
     SinglefileData,
+    load_code,
     load_node,
 )
 from phonopy import Phonopy
@@ -336,7 +336,6 @@ class IterHarmonicApprox(WorkChain):
         ph = Phonopy(
             phonopy_atoms_from_structure(self.inputs.structure),
             supercell_matrix=smat,
-            primitive_matrix="auto",
         )
         ph.force_constants = self.ctx.force_constants.get_array("force_constants")
 
@@ -526,7 +525,7 @@ class IterHarmonicApprox(WorkChain):
         if "code" in self.inputs:
             code = self.inputs.code
         elif "code_string" in self.inputs:
-            code = Code.get_from_string(self.inputs.code_string.value)
+            code = load_code(self.inputs.code_string.value)
         else:
             raise RuntimeError("code or code_string is needed.")
         builder = code.get_builder()
@@ -1172,7 +1171,6 @@ def get_force_constants_local(settings, structure, displacements, force_sets):
     ph = Phonopy(
         phonopy_atoms_from_structure(structure),
         supercell_matrix=smat,
-        primitive_matrix="auto",
     )
     d = displacements.get_array("displacements")
     f = force_sets.get_array("force_sets")

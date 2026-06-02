@@ -1,7 +1,7 @@
 """BasePhonopyWorkChain."""
 
 from aiida.engine import WorkChain
-from aiida.orm import ArrayData, Bool, Code, Dict, Float, Str, StructureData
+from aiida.orm import AbstractCode, ArrayData, Bool, Dict, Float, Str, StructureData
 
 from aiida_phonoxpy.utils.utils import collect_forces_and_energies, get_force_sets
 from aiida_phonoxpy.workflows.forces import ForcesWorkChain
@@ -91,7 +91,7 @@ class BasePhonopyWorkChain(WorkChain):
         spec.input("force_sets", valid_type=ArrayData, required=False)
         spec.input("nac_params", valid_type=ArrayData, required=False)
         spec.input("code_string", valid_type=Str, required=False)
-        spec.input("code", valid_type=Code, required=False)
+        spec.input("code", valid_type=AbstractCode, required=False)
         spec.input("donothing_inputs", valid_type=dict, required=False, non_db=True)
 
         spec.output("primitive", valid_type=StructureData, required=False)
